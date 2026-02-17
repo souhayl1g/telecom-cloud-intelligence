@@ -1,3 +1,4 @@
+```mermaid
 flowchart LR
   Engineer["Telecom Operations Engineer"]
   Analyst["Business Analyst"]
@@ -20,3 +21,4 @@ flowchart LR
   Analyst --> UC5
   Analyst --> UC6
   Analyst --> UC7
+```

@@ -1,3 +1,4 @@
+```mermaid
 flowchart TB
   User["User / REST Client"]
 
@@ -39,3 +40,4 @@ sequenceDiagram
   end
   P-->>G: SLA risk scores
   G-->>U: JSON response
+```

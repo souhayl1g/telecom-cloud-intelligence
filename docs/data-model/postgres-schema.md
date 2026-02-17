@@ -1,3 +1,4 @@
+```mermaid
 erDiagram
   DATASET_REGISTRY {
     string id PK
@@ -57,3 +58,4 @@ erDiagram
   PIPELINE_RUNS ||--o{ CORRELATION_INSIGHTS : writes
   MODEL_REGISTRY ||--o{ ANOMALIES : supports
   MODEL_REGISTRY ||--o{ SLA_RISK_SCORES : supports
+```

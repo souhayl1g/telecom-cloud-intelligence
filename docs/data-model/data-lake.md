@@ -1,3 +1,4 @@
+```mermaid
 flowchart TB
   RAW["Raw\nSynthetic OSS KPIs\nSynthetic BSS Usage/Revenue"]
   PROC["Processed\nCleaned + aligned\nWindowed + features"]
@@ -8,3 +9,4 @@ flowchart TB
   AI["AI Service"]
   PROC --> AI
   AI --> CUR
+```
