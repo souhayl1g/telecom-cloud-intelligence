@@ -1,3 +1,4 @@
+```mermaid
 flowchart LR
   subgraph Local["Local (Docker Compose)"]
     APIGW["api-gateway\n:8080"]
@@ -27,3 +28,4 @@ flowchart LR
   OBJ   -.maps to .-> OBS
   DB    -.maps to .-> RDS
   Local -.runs inside .-> VPC
+```
