@@ -19,25 +19,25 @@ flowchart TB
 
   AI -->|Write anomalies/risk| DB
   AI -->|Store model artifacts| OBJ
-
+```
+```mermaid
 sequenceDiagram
   autonumber
-  participant U as User/Client
-  participant G as API Gateway
+  participant U as User
+  participant G as APIGateway
   participant P as PostgreSQL
-  participant W as Pipeline Worker
-  participant A as AI Service
-  participant O as Object Storage
+  participant W as PipelineWorker
+  participant A as AIService
+  participant O as ObjectStorage
 
-  U->>G: GET /sla-risk?region=R&from=T1&to=T2
+  U->>G: GET /sla-risk (region, time_window)
   G->>P: Query SLA risk scores
-  alt Missing/Stale results
-    G->>W: POST /jobs/run-inference (R,T1..T2)
+  alt missing or stale
+    G->>W: Trigger inference job
     W->>O: Read processed features
-    W->>A: POST /infer/sla-risk (features)
+    W->>A: Request SLA risk inference
     A->>P: Write SLA risk results
   end
-  P-->>G: SLA risk scores
+  P-->>G: Return SLA risk scores
   G-->>U: JSON response
-
 ```
