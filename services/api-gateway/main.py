@@ -3,7 +3,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-app = FastAPI(title="Telecom Cloud Intelligence — API Gateway", version="1.0")
+app = FastAPI(title="Telecom Cloud Intelligence — API Gateway", version="2.0")
 
 
 def get_conn():
@@ -89,6 +89,47 @@ def pipeline_runs(limit: int = Query(default=10, ge=1, le=100)):
                     LIMIT %s;
                 """, (limit,))
                 return cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/revenue-anomalies")
+def revenue_anomalies_latest(limit: int = Query(default=50, ge=1, le=500)):
+    """Return the N most recent detected BSS revenue anomalies."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, run_id, ts, region, operator, subscriber_id,
+                           line_type, plan,
+                           metric_name, severity, value, baseline_value,
+                           model_version, created_at
+                    FROM revenue_anomalies
+                    ORDER BY created_at DESC
+                    LIMIT %s;
+                """, (limit,))
+                rows = cur.fetchall()
+                return {"count": len(rows), "revenue_anomalies": rows}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/correlation")
+def correlation_latest(limit: int = Query(default=50, ge=1, le=200)):
+    """Return the N most recent OSS-BSS correlation insights."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, run_id, region, metric_x, metric_y,
+                           window_start, window_end, method,
+                           corr_value, p_value, created_at
+                    FROM correlation_insights
+                    ORDER BY created_at DESC
+                    LIMIT %s;
+                """, (limit,))
+                rows = cur.fetchall()
+                return {"count": len(rows), "correlations": rows}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

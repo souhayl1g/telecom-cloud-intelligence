@@ -73,3 +73,21 @@ CREATE TABLE IF NOT EXISTS correlation_insights (
   p_value      DOUBLE PRECISION,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS revenue_anomalies (
+  id             BIGSERIAL PRIMARY KEY,
+  run_id         TEXT REFERENCES pipeline_runs(run_id) ON DELETE SET NULL,
+  ts             TIMESTAMPTZ,
+  region         TEXT,
+  operator       TEXT,
+  subscriber_id  TEXT,
+  line_type      TEXT,              -- 'prepaid' | 'postpaid'
+  plan           TEXT,
+  metric_name    TEXT NOT NULL DEFAULT 'composite_bss',
+  severity       DOUBLE PRECISION,
+  value          DOUBLE PRECISION,
+  baseline_value DOUBLE PRECISION,
+  model_name     TEXT NOT NULL DEFAULT 'revenue-anomaly',
+  model_version  TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);

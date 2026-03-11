@@ -100,6 +100,7 @@ Current operations can detect technical issues, but struggle to quantify busines
 - `anomalies`
 - `sla_risk_scores`
 - `correlation_insights`
+- `revenue_anomalies`
 - `model_registry`
 
 **Value of this schema**

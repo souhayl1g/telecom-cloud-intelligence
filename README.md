@@ -8,7 +8,7 @@
 ![MinIO](https://img.shields.io/badge/MinIO-S3--compatible-C72E49?logo=minio&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-> Cloud-native telecom analytics and AI-driven operations platform designed for deployment on **Huawei Cloud Stack (HCS)**.  
+> Cloud-native telecom analytics and AI-driven operations platform designed for deployment on **Huawei Cloud Stack (HCS)**.
 > Links OSS network KPIs to BSS business impact using real ML models, a 3-layer data lake, and a structured REST API.
 
 ---
@@ -31,11 +31,13 @@
 
 Telecom Cloud Intelligence is a fully containerised platform that:
 
-1. **Ingests** synthetic OSS (network KPI) and BSS (revenue/usage) data per pipeline run
-2. **Stores** raw datasets in a 3-layer MinIO data lake (`raw` → `processed` → `curated`)
-3. **Runs AI inference** — SLA breach risk scoring (GradientBoostingRegressor) and per-record anomaly detection (IsolationForest)
-4. **Persists all results** to PostgreSQL (6 tables)
-5. **Serves** structured insights through a FastAPI REST gateway
+1. **Ingests** synthetic OSS (network KPI) and BSS (revenue/usage) data per pipeline run — 200 OSS records from 10 cell towers + 200 BSS subscriber records from 3 Tunisian operators
+2. **Injects realistic faults**: 2–3 random cells degrade (throughput collapse, latency spike) + correlated BSS dips (data usage drops, churn spikes)
+3. **Stores** raw datasets in a 3-layer MinIO data lake (`raw` → `processed` → `curated`)
+4. **Runs 3 AI models** — SLA breach risk scoring (GradientBoostingRegressor), OSS anomaly detection (IsolationForest), BSS revenue anomaly detection (IsolationForest)
+5. **Computes OSS–BSS correlations** — Pearson + Spearman on 5 metric pairs (latency↔revenue, throughput↔data, packet_loss↔churn, etc.)
+6. **Persists all results** to PostgreSQL (7 tables)
+7. **Serves** structured insights through 7 FastAPI REST endpoints
 
 The stack is intentionally portable to **Huawei Cloud Stack**: MinIO → OBS, PostgreSQL → RDS, containers → ECS.
 
@@ -50,30 +52,35 @@ The stack is intentionally portable to **Huawei Cloud Stack**: MinIO → OBS, Po
 | `postgres` | postgres:16 | 5432 | Serving store + run metadata |
 | `minio` | minio/minio | 9000 / 9001 | S3-compatible data lake |
 | `api-gateway` | custom | 8000 | Public REST API (FastAPI) |
-| `ai-service` | custom | 8001 | ML inference engine (scikit-learn) |
-| `pipeline-worker` | custom | — | One-shot data pipeline orchestrator |
+| `ai-service` | custom | 8001 | ML inference engine (scikit-learn, 3 models) |
+| `pipeline-worker` | custom | — | One-shot 22-step pipeline orchestrator |
 
 ### Data Flow
 
 ```
-pipeline-worker (run-once)
-  ├── generate 200 OSS records + 200 BSS records
-  ├── upload  →  minio  s3://raw/oss/<date>/<run_id>.json
-  │                     s3://raw/bss/<date>/<run_id>.json
-  ├── POST /infer/sla-risk  →  ai-service  (9-feature GBR vector)
-  ├── POST /infer/anomaly   →  ai-service  (200 raw OSS records)
-  └── INSERT  →  postgres   pipeline_runs · dataset_registry
-                             sla_risk_scores · anomalies
+pipeline-worker (run-once, 22 steps)
+  ├── generate 200 OSS records (with fault injection) + 200 BSS records (80% prepaid / 20% postpaid)
+  ├── upload raw JSON    →  minio  s3://raw/oss/<date>/<run_id>.json
+  │                                s3://raw/bss/<date>/<run_id>.json
+  ├── process + enrich   →  minio  s3://processed/oss/... (latency_severity, qos_score, ...)
+  │                                s3://processed/bss/... (arpu_category, churn_bucket, ...)
+  ├── POST /infer/sla-risk          →  ai-service  (9-feature GBR vector)
+  ├── POST /infer/anomaly           →  ai-service  (200 raw OSS records, IsolationForest)
+  ├── POST /infer/revenue-anomaly   →  ai-service  (200 BSS records, IsolationForest)
+  ├── compute Pearson + Spearman correlations (5 pairs × 2 methods = 10 results)
+  ├── build curated dataset (joined OSS+BSS+AI) → minio s3://curated/...
+  └── INSERT  →  postgres   pipeline_runs · dataset_registry · model_registry
+                             sla_risk_scores · anomalies · revenue_anomalies · correlation_insights
 
 api-gateway (:8000)
-  └── SELECT  →  postgres  (serves results to clients)
+  └── SELECT  →  postgres  (serves results to clients via 7 endpoints)
 ```
 
 ### HCS Deployment Mapping
 
 | Local | Huawei Cloud Stack |
 |---|---|
-| Docker containers | ECS (Elastic Cloud Server) |
+| Docker containers | ECS (Elastic Cloud Server) / CCE (Cloud Container Engine) |
 | MinIO volumes | OBS (Object Storage Service) |
 | PostgreSQL container | RDS for PostgreSQL |
 | Docker network | VPC |
@@ -91,12 +98,14 @@ git clone https://github.com/souhayl1g/telecom-cloud-intelligence.git
 cd telecom-cloud-intelligence
 docker compose up --build -d
 
-# 2. Run one pipeline cycle (generates data, runs AI inference, persists results)
+# 2. Run one pipeline cycle (generates data, runs 3 AI models, persists results)
 docker compose run --rm pipeline-worker
 
 # 3. Query results
 curl http://localhost:8000/sla-risk
 curl http://localhost:8000/anomalies
+curl http://localhost:8000/revenue-anomalies
+curl http://localhost:8000/correlation
 curl http://localhost:8000/pipeline-runs
 ```
 
@@ -112,9 +121,11 @@ Base URL: `http://localhost:8000`
 |---|---|---|
 | `GET` | `/health` | Service liveness check |
 | `GET` | `/sla-risk` | Latest SLA risk score with feature importances |
-| `GET` | `/sla-risk/history?limit=N` | Last N SLA scores, newest first |
-| `GET` | `/anomalies?limit=N` | Last N anomaly records (`cell_id`, `severity`, `value`) |
-| `GET` | `/pipeline-runs?limit=N` | Last N pipeline runs with status and timestamps |
+| `GET` | `/sla-risk/history?limit=N` | Last N SLA scores, newest first (default 20, max 200) |
+| `GET` | `/anomalies?limit=N` | Last N OSS anomaly records with `cell_id`, `severity`, `value` (default 50, max 500) |
+| `GET` | `/pipeline-runs?limit=N` | Last N pipeline runs with status and timestamps (default 10, max 100) |
+| `GET` | `/revenue-anomalies?limit=N` | Last N BSS revenue anomalies with `operator`, `line_type`, `plan`, `severity` (default 50, max 500) |
+| `GET` | `/correlation?limit=N` | Last N OSS–BSS correlations: Pearson + Spearman (default 50, max 200) |
 
 **Example — `GET /sla-risk`**
 
@@ -123,7 +134,7 @@ Base URL: `http://localhost:8000`
   "run_id": "run-a8f5b0809b6c",
   "region": "demo",
   "score": 0.724,
-  "model_version": "v1.0",
+  "model_version": "v2.0",
   "explanation": {
     "method": "GradientBoostingRegressor",
     "top_driver": "mean_latency_ms",
@@ -141,23 +152,25 @@ Base URL: `http://localhost:8000`
 | Method | Endpoint | Model |
 |---|---|---|
 | `GET` | `/health` | Returns model version |
-| `POST` | `/infer/sla-risk` | GradientBoostingRegressor — returns `score` (0–1) |
-| `POST` | `/infer/anomaly` | IsolationForest — returns per-record `is_anomaly` + `severity` |
+| `POST` | `/infer/sla-risk` | GradientBoostingRegressor v2.0 — returns `score` (0–1) + feature importances |
+| `POST` | `/infer/anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `severity` (OSS) |
+| `POST` | `/infer/revenue-anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `severity` (BSS) |
 
 ---
 
 ## Data Model
 
-PostgreSQL database `telecom_intel` — 6 tables:
+PostgreSQL database `telecom_intel` — 7 tables:
 
 | Table | Rows/run | Purpose |
 |---|---|---|
 | `pipeline_runs` | 1 | Run lifecycle: `run_id`, `status`, timestamps |
-| `dataset_registry` | 2 | MinIO object metadata: path, type, row count |
+| `dataset_registry` | 5 | MinIO object metadata: 2 raw + 2 processed + 1 curated |
+| `model_registry` | 3 | Model artifacts: sla-risk, anomaly, revenue-anomaly (v2.0) |
 | `sla_risk_scores` | 1 | GBR score (0–1), explanation JSONB, model version |
-| `anomalies` | 3–15 | Per-record anomalies: `cell_id`, `severity`, `kpi_name`, `value` |
-| `correlation_insights` | 0 *(Phase 3)* | OSS–BSS Pearson/Spearman correlations |
-| `model_registry` | 0 *(Phase 3)* | Model artifacts, versions, evaluation metrics |
+| `anomalies` | 5–30 | Per-record OSS anomalies: `cell_id`, `severity`, `kpi_name`, `value` |
+| `revenue_anomalies` | 5–20 | Per-subscriber BSS anomalies: `operator`, `line_type`, `plan`, `severity` |
+| `correlation_insights` | 10 | OSS–BSS Pearson/Spearman correlations (5 pairs × 2 methods) |
 
 Apply schema (first-time setup):
 
@@ -169,19 +182,20 @@ docker compose exec postgres psql -U telecom -d telecom_intel -f /dev/stdin < do
 
 ## AI Models
 
-### SLA Risk Scorer — `GradientBoostingRegressor v1.0`
+### Model 1: SLA Risk Scorer — `GradientBoostingRegressor v2.0`
 
 Predicts the probability of an SLA breach in the current 15-minute window.
 
 | Parameter | Value |
 |---|---|
 | Training samples | 3,000 synthetic windows |
-| Input features | 9 aggregated KPIs (mean/std/max latency, packet loss, throughput, active users, RSRP) |
-| Output | Risk score 0.0–1.0 |
+| Input features | 9 aggregated KPIs (mean/std/max latency, mean/max packet loss, mean/std throughput, mean active users, mean RSRP) |
+| Hyperparameters | n_estimators=200, max_depth=4, learning_rate=0.05, subsample=0.8 |
+| Output | Risk score 0.0–1.0 + feature importances |
 | Top feature | `mean_latency_ms` (importance ≈ 0.69) |
 | Persistence | `/app/models/sla_risk_model.joblib` (Docker volume `aimodels`) |
 
-### Anomaly Detector — `IsolationForest v1.0`
+### Model 2: Network Anomaly Detector — `IsolationForest v2.0`
 
 Flags individual OSS KPI records that deviate from learned normal behaviour.
 
@@ -189,9 +203,21 @@ Flags individual OSS KPI records that deviate from learned normal behaviour.
 |---|---|
 | Training samples | 3,000 records (95% normal + 5% injected faults) |
 | Input features | 5 per-record KPIs (throughput, latency, packet loss, active users, RSRP) |
+| Hyperparameters | n_estimators=150, contamination=0.05 |
 | Output | `is_anomaly` flag + normalised `severity` (0–1) |
-| Typical detection rate | ~3.5% on normal synthetic data |
 | Persistence | `/app/models/anomaly_model.joblib` (Docker volume `aimodels`) |
+
+### Model 3: Revenue Anomaly Detector — `IsolationForest v2.0`
+
+Detects anomalous BSS subscriber records (SIM box fraud, dormant SIMs, SMS spam).
+
+| Parameter | Value |
+|---|---|
+| Training samples | 3,000 records (95% normal Tunisian subscriber behaviour, 5% anomalous) |
+| Input features | 5 per-record BSS metrics (revenue_tnd, data_used_gb, voice_min, sms_count, churn_risk) |
+| Hyperparameters | n_estimators=150, contamination=0.05 |
+| Output | `is_anomaly` flag + normalised `severity` (0–1) |
+| Persistence | `/app/models/revenue_anomaly_model.joblib` (Docker volume `aimodels`) |
 
 Models are loaded from disk on restart — no retraining required after the first run.
 
@@ -203,17 +229,10 @@ Models are loaded from disk on restart — no retraining required after the firs
 |---|---|---|
 | **1** | Vertical slice: data generation → MinIO → PostgreSQL → REST API | ✅ Complete |
 | **2** | Real ML inference: GBR SLA risk + IsolationForest anomaly detection | ✅ Complete |
-| **3** | Fault injection · revenue anomaly detection · OSS–BSS correlation engine | 🔄 Next |
+| **3** | Fault injection · revenue anomaly detection · OSS–BSS correlation engine · Tunisian prepaid market model | ✅ Complete |
 | **4** | Labeled evaluation dataset — precision, recall, F1 per model | 🔄 Planned |
 | **5** | Prometheus + Grafana observability stack | 🔄 Planned |
 | **6** | HCS deployment: OBS + RDS + ECS with evidence | 🔄 Planned |
-
-**Phase 3 immediate targets:**
-- Realistic fault patterns (business-hour load curves, timed outages)
-- BSS revenue dips correlated to OSS cell degradation events
-- Revenue anomaly model (second IsolationForest on BSS data)
-- Populate `correlation_insights` and `model_registry` tables
-- New endpoints: `/correlation`, `/revenue-anomalies`
 
 ---
 
@@ -223,25 +242,28 @@ Models are loaded from disk on restart — no retraining required after the firs
 telecom-cloud-intelligence/
 ├── docker-compose.yml                    # 5-service stack definition
 ├── services/
-│   ├── api-gateway/                      # FastAPI REST gateway (:8000)
+│   ├── api-gateway/                      # FastAPI REST gateway (:8000, 7 endpoints)
 │   │   ├── main.py
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
-│   ├── ai-service/                       # ML inference engine (:8001)
-│   │   ├── main.py                       # GBR + IsolationForest training & serving
+│   ├── ai-service/                       # ML inference engine (:8001, 3 models)
+│   │   ├── main.py                       # GBR + 2× IsolationForest training & serving
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
-│   └── pipeline-worker/                  # One-shot 12-step pipeline
+│   └── pipeline-worker/                  # One-shot 22-step pipeline
 │       ├── worker/__main__.py
-│       ├── requirements.txt
+│       ├── requirements.txt              # numpy, boto3, psycopg2, requests, scipy
 │       └── Dockerfile
 ├── docs/
-│   ├── db/schema.sql                     # PostgreSQL schema (6 tables)
-│   ├── overview/project-snapshot.md      # Master state document (v1.4)
+│   ├── db/schema.sql                     # PostgreSQL schema (7 tables)
+│   ├── overview/project-snapshot.md      # Master state document
 │   ├── architecture/architecture-v1.md   # C4 architecture diagrams
+│   ├── architecture/ml-models.md         # Complete ML model documentation
 │   ├── data-model/                       # Data lake + ER diagrams
 │   ├── deployment/local-docker.md        # Local deployment diagram
-│   └── generate_pdf.py                   # Documentation PDF generator
+│   ├── generate_pdf.py                   # Documentation PDF generator
+│   ├── generate_knowledge_base.py        # Academic reference PDF (24 IEEE citations)
+│   └── generate_reference_pdf.py         # Complete technical & commercial reference PDF
 └── diagrams/export/                      # PNG exports of all architecture diagrams
 ```
 
@@ -252,14 +274,9 @@ telecom-cloud-intelligence/
 | Layer | Technology |
 |---|---|
 | Services | Python 3.11, FastAPI 0.115, Uvicorn |
-| ML / AI | scikit-learn 1.5 (GradientBoostingRegressor, IsolationForest), NumPy 2.0, joblib |
-| Data pipeline | boto3, psycopg2, NumPy |
+| ML / AI | scikit-learn 1.5 (GradientBoostingRegressor, IsolationForest ×2), NumPy 2.0, joblib |
+| Statistics | SciPy 1.14 (Pearson/Spearman correlations) |
+| Data pipeline | boto3, psycopg2, NumPy, SciPy |
 | Storage | PostgreSQL 16, MinIO (S3-compatible) |
 | Containerisation | Docker, Docker Compose |
 | Cloud target | Huawei Cloud Stack (ECS, OBS, RDS, VPC) |
-
----
-
-## License
-
-[MIT](LICENSE) © 2026 Souhayl — Huawei Tunisia PFE Project

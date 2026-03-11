@@ -1,7 +1,7 @@
 ```mermaid
 flowchart LR
   subgraph Local["Local (Docker Compose)"]
-    APIGW["api-gateway\n:8080"]
+    APIGW["api-gateway\n:8000"]
     PIPE["pipeline-worker"]
     AI["ai-service"]
     DB["postgres"]
