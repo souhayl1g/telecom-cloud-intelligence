@@ -212,3 +212,7 @@ docs/**/*.pdf
 docs/**/*.docx
 *.pdf
 *.docx
+
+# dependencies
+node_modules/
+dashboard/node_modules/
