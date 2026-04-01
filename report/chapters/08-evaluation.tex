@@ -1,0 +1,339 @@
+% ============================================================================
+%  Chapter 8 --- Evaluation and Results
+% ============================================================================
+\chapter{Evaluation and Results}
+\label{ch:evaluation}
+
+\section{Introduction}
+
+This chapter presents the evaluation framework and results for the AI Operations Agent platform. We evaluate the system at three levels: model performance metrics (Section~\ref{sec:eval-models}), correlation analysis findings (Section~\ref{sec:eval-correlation}), and end-to-end platform validation (Section~\ref{sec:eval-e2e}).
+
+The specific numerical results (precision, recall, F1, correlation coefficients, confusion matrices) will be populated once the real Tunisie Telecom data is fully ingested and the v3.0 models are trained. The evaluation \emph{framework} and methodology are established here.
+
+\section{Model Evaluation}
+\label{sec:eval-models}
+
+\subsection{SLA Risk Model Evaluation}
+
+\subsubsection{Methodology}
+
+The GradientBoostingRegressor is evaluated using a held-out test split:
+
+\begin{itemize}
+  \item \textbf{Split strategy:} Time-based split recommended (train on older windows, test on recent windows) to simulate realistic deployment. Alternative: random 70/15/15 split.
+  \item \textbf{Metrics:} MAE, RMSE, $R^2$.
+  \item \textbf{Baseline comparison:} Compare against a naive baseline (e.g., mean risk score) to demonstrate model value.
+\end{itemize}
+
+\subsubsection{Results Framework}
+
+\begin{table}[H]
+\centering
+\caption{SLA Risk Model evaluation results.}
+\label{tab:sla-results}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Metric} & \textbf{v2.0 (Synthetic)} & \textbf{v3.0 (Real TT Data)} \\
+\midrule
+MAE   & \textit{measured} & \textit{pending real data} \\
+RMSE  & \textit{measured} & \textit{pending real data} \\
+$R^2$ & \textit{measured} & \textit{pending real data} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Feature Importance Analysis}
+
+% ── Figure: Feature Importance Bar Chart (TikZ/pgfplots) ─────────────────────
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    xbar,
+    width=12cm,
+    height=7cm,
+    xlabel={Importance},
+    ylabel={},
+    symbolic y coords={
+      {mean\_signal\_rsrp},
+      {mean\_active\_users},
+      {std\_throughput},
+      {mean\_throughput},
+      {max\_packet\_loss},
+      {std\_latency},
+      {mean\_packet\_loss},
+      {max\_latency},
+      {mean\_latency}
+    },
+    ytick=data,
+    y tick label style={font=\scriptsize},
+    xmin=0, xmax=0.8,
+    bar width=8pt,
+    nodes near coords,
+    nodes near coords align={horizontal},
+    every node near coord/.append style={font=\tiny},
+    enlarge y limits=0.1,
+    grid=major,
+    grid style={gray!20},
+]
+\addplot[fill=aiviolet!60, draw=aiviolet!80] coordinates {
+    (0.69,{mean\_latency})
+    (0.08,{max\_latency})
+    (0.06,{mean\_packet\_loss})
+    (0.05,{std\_latency})
+    (0.04,{max\_packet\_loss})
+    (0.03,{mean\_throughput})
+    (0.02,{std\_throughput})
+    (0.02,{mean\_active\_users})
+    (0.01,{mean\_signal\_rsrp})
+};
+\end{axis}
+\end{tikzpicture}
+\caption{Feature importances from GBR v2.0 (synthetic). \texttt{mean\_latency\_ms} dominates at 0.69. Real data importances pending.}
+\label{fig:feature-importance}
+\end{figure}
+
+\subsection{OSS Anomaly Model Evaluation}
+
+\subsubsection{Methodology}
+
+When operator-labelled incidents are available (known outage dates/cells from TT):
+\begin{enumerate}
+  \item Extract all records for the incident period.
+  \item Run the IsolationForest --- records flagged as anomalies in the incident cells are \textbf{true positives}.
+  \item Records flagged during stable periods are \textbf{false positives}.
+  \item Incident records \emph{not} flagged are \textbf{false negatives}.
+\end{enumerate}
+
+When labels are unavailable:
+\begin{enumerate}
+  \item Inject known synthetic anomalies into real data (e.g., 3\% of records with extreme KPI values).
+  \item Measure detection rate on injected anomalies and false positive rate on real normal records.
+\end{enumerate}
+
+\subsubsection{Results Framework}
+
+\begin{table}[H]
+\centering
+\caption{OSS Anomaly Detection evaluation results.}
+\label{tab:oss-anomaly-results}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Metric} & \textbf{v2.0 (Synthetic)} & \textbf{v3.0 (Real TT Data)} \\
+\midrule
+Precision & \textit{measured} & \textit{pending real data} \\
+Recall    & \textit{measured} & \textit{pending real data} \\
+F1 Score  & \textit{measured} & \textit{pending real data} \\
+Anomaly Rate & 5\% (by construction) & \textit{organic} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Confusion Matrix Framework}
+
+% ── Figure: Confusion Matrix Template ─────────────────────────────────────────
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  cell/.style={
+    rectangle, minimum width=3cm, minimum height=1.5cm,
+    draw=gray!50, font=\small, align=center, line width=0.5pt,
+  },
+]
+  % Headers
+  \node[font=\small\bfseries] at (1.5, 2.2) {Predicted Normal};
+  \node[font=\small\bfseries] at (4.5, 2.2) {Predicted Anomaly};
+  \node[font=\small\bfseries, rotate=90] at (-1.2, 0.75) {Actual Normal};
+  \node[font=\small\bfseries, rotate=90] at (-1.2, -0.75) {Actual Anomaly};
+  
+  % Cells
+  \node[cell, fill=bssgreen!15] at (1.5, 0.75) {\textbf{TN}\\(True Normal)};
+  \node[cell, fill=huaweired!10] at (4.5, 0.75) {\textbf{FP}\\(False Alarm)};
+  \node[cell, fill=huaweired!10] at (1.5, -0.75) {\textbf{FN}\\(Missed Anomaly)};
+  \node[cell, fill=bssgreen!15] at (4.5, -0.75) {\textbf{TP}\\(Detected Anomaly)};
+  
+\end{tikzpicture}
+\caption{Confusion matrix template for anomaly detection evaluation. Specific values will be computed with real TT data.}
+\label{fig:confusion-matrix}
+\end{figure}
+
+\subsection{BSS Revenue Anomaly Model Evaluation}
+
+The evaluation methodology mirrors the OSS anomaly model, with BSS-specific labels:
+\begin{itemize}
+  \item \textbf{True positives:} Known fraud cases, confirmed dormant SIMs, or SIM-box incidents flagged by the model.
+  \item \textbf{False positives:} Normal subscribers incorrectly flagged.
+  \item \textbf{Revenue anomaly types:} The model should differentiate dormant SIMs (near-zero revenue), SIM-box fraud (extremely high voice/data), and SMS spam (very high SMS count).
+\end{itemize}
+
+\section{Correlation Analysis}
+\label{sec:eval-correlation}
+
+\subsection{Methodology}
+
+The correlation engine computes Pearson and Spearman coefficients for 5 OSS--BSS metric pairs per pipeline run. With real data, these correlations reveal the \emph{actual} relationship between network quality and business outcomes in the Tunisian market.
+
+\subsection{Results Framework}
+
+\begin{table}[H]
+\centering
+\caption{OSS--BSS correlation results (framework --- coefficients pending real data).}
+\label{tab:corr-results}
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{OSS Metric} & \textbf{BSS Metric} & \textbf{Pearson $r$} & \textbf{Spearman $\rho$} \\
+\midrule
+throughput\_mbps  & revenue\_tnd   & \textit{pending} & \textit{pending} \\
+latency\_ms       & revenue\_tnd   & \textit{pending} & \textit{pending} \\
+packet\_loss\_pct & churn\_risk    & \textit{pending} & \textit{pending} \\
+latency\_ms       & data\_used\_gb & \textit{pending} & \textit{pending} \\
+signal\_rsrp\_dbm & revenue\_tnd   & \textit{pending} & \textit{pending} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Interpretation}
+
+The interpretation of correlation results follows established statistical guidelines:
+\begin{itemize}
+  \item $|r| > 0.7$: Strong correlation --- clear network-to-business relationship.
+  \item $0.4 < |r| < 0.7$: Moderate correlation --- meaningful but not deterministic.
+  \item $|r| < 0.4$: Weak correlation --- relationship exists but other factors dominate.
+  \item p-value $< 0.05$: Statistically significant at the 95\% confidence level.
+\end{itemize}
+
+% ── Figure: Correlation Heatmap Template ──────────────────────────────────────
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.9]
+  % Define the grid
+  \def\metrics{{"throughput", "latency", "pkt\_loss", "signal", "active\_users"}}
+  \def\bssmetrics{{"revenue", "data\_gb", "voice", "sms", "churn"}}
+  
+  % Grid cells (5x5)
+  \foreach \x in {0,...,4} {
+    \foreach \y in {0,...,4} {
+      \pgfmathparse{rnd*2-1}
+      \let\val\pgfmathresult
+      \pgfmathparse{(\val+1)/2*100}
+      \let\intensity\pgfmathresult
+      \fill[blue!\intensity!red, opacity=0.3] (\x*1.8, \y*1.2) rectangle (\x*1.8+1.7, \y*1.2+1.1);
+      \draw[gray!30] (\x*1.8, \y*1.2) rectangle (\x*1.8+1.7, \y*1.2+1.1);
+      \node[font=\tiny, text=gray] at (\x*1.8+0.85, \y*1.2+0.55) {\textit{r=?}};
+    }
+  }
+  
+  % X labels (OSS)
+  \foreach \x/\label in {0/tput, 1/lat, 2/loss, 3/rsrp, 4/users} {
+    \node[font=\scriptsize, rotate=45, anchor=east] at (\x*1.8+0.85, -0.3) {\label};
+  }
+  
+  % Y labels (BSS)
+  \foreach \y/\label in {0/rev, 1/data, 2/voice, 3/sms, 4/churn} {
+    \node[font=\scriptsize, anchor=east] at (-0.2, \y*1.2+0.55) {\label};
+  }
+  
+  % Title
+  \node[font=\small\bfseries, text=darkbg] at (4.2, 6.8) {OSS--BSS Correlation Heatmap};
+  \node[font=\scriptsize\itshape, text=gray] at (4.2, 6.3) {(coefficients populated with real TT data)};
+  
+\end{tikzpicture}
+\caption{Correlation heatmap template (OSS vs. BSS metrics). Coefficients will be populated with real TT data.}
+\label{fig:corr-heatmap}
+\end{figure}
+
+\section{End-to-End Platform Validation}
+\label{sec:eval-e2e}
+
+\subsection{Validation Scenarios}
+
+The platform is validated through complete end-to-end scenarios:
+
+\begin{enumerate}
+  \item \textbf{Scenario 1 --- Network Degradation Detection:}
+  \begin{quote}
+    Input: OSS data containing a known cell degradation event (high latency, low throughput).\\
+    Expected: AI Service detects the degradation as an anomaly, SLA risk score increases, correlation shows negative impact on revenue.
+  \end{quote}
+  
+  \item \textbf{Scenario 2 --- Revenue Anomaly Detection:}
+  \begin{quote}
+    Input: BSS data containing a known fraud/anomaly pattern (SIM-box-like voice usage).\\
+    Expected: Revenue anomaly model flags the subscriber, severity score is high.
+  \end{quote}
+  
+  \item \textbf{Scenario 3 --- O+B Convergence Demonstration:}
+  \begin{quote}
+    Input: Concurrent OSS degradation and BSS revenue dip in the same region.\\
+    Expected: Correlation engine shows statistically significant negative correlation between network quality and revenue.
+  \end{quote}
+\end{enumerate}
+
+\subsection{Platform Metrics}
+
+\begin{table}[H]
+\centering
+\caption{Platform-level evaluation metrics.}
+\label{tab:platform-metrics}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Metric} & \textbf{Description} \\
+\midrule
+Pipeline completion time & Time from worker start to all 4 phases complete \\
+API response latency     & p50/p95 response time for each endpoint \\
+SLA risk freshness       & Time between pipeline run and score availability \\
+Data lineage completeness & All curated records traceable to raw input + run\_id \\
+Reproducibility          & Rerun with same data yields identical model outputs (seeded) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Project Deliverables}
+
+The complete project produces the following deliverables:
+
+\begin{table}[H]
+\centering
+\caption{Project deliverables summary.}
+\label{tab:deliverables}
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+\textbf{Category} & \textbf{Deliverable} & \textbf{Description} \\
+\midrule
+\multirow{5}{*}{\textbf{Software}} 
+  & Docker Compose stack & 5 containers, deployable with \texttt{docker compose up} \\
+  & API Gateway          & 7 REST endpoints (FastAPI) \\
+  & AI Service           & 3 ML models + 4 inference endpoints \\
+  & Pipeline Worker      & 4-phase data/ML orchestration pipeline \\
+  & Data Lake            & 3-layer MinIO object storage (raw/processed/curated) \\
+\midrule
+\multirow{3}{*}{\textbf{Models}} 
+  & SLA Risk Model       & GBR v3.0 trained on real TT data + feature importances \\
+  & OSS Anomaly Model    & IF v3.0 trained on real TT OSS data \\
+  & BSS Anomaly Model    & IF v3.0 trained on real TT BSS data (7 features) \\
+\midrule
+\multirow{3}{*}{\textbf{Analytics}} 
+  & OSS--BSS Correlations & Pearson + Spearman on 5 metric pairs (10 results/run) \\
+  & Anomaly Reports      & Per-cell, per-subscriber anomaly flags + severity scores \\
+  & SLA Risk Scores      & Per-region, per-window risk score with explanation \\
+\midrule
+\multirow{2}{*}{\textbf{Data}} 
+  & Anonymised TT dataset& Real operator data, anonymised and schema-mapped \\
+  & 8-table PostgreSQL DB & Full metadata, anomalies, risk scores, correlations, action recommendations \\
+\midrule
+\multirow{4}{*}{\textbf{Documentation}} 
+  & This PFE report      & Complete technical and scientific documentation \\
+  & Architecture diagrams & System context, container, sequence, ER, data lake, HCS mapping \\
+  & API documentation     & All endpoints with request/response schemas \\
+  & ML model documentation & Feature spaces, hyperparameters, evaluation metrics \\
+\midrule
+\multirow{2}{*}{\textbf{Cloud}} 
+  & HCS architecture map  & MinIO$\to$OBS, PostgreSQL$\to$RDS, Docker$\to$ECS/CCE \\
+  & Deployment guide      & Step-by-step HCS deployment instructions \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Chapter Summary}
+
+This chapter established the evaluation framework for all platform components: supervised metrics (MAE, RMSE, $R^2$) for SLA risk, unsupervised metrics (precision, recall, F1) for anomaly detection, statistical analysis (Pearson, Spearman, p-values) for correlations, and end-to-end scenario validation. Quantitative results will be fully populated upon real TT data processing. The project delivers a comprehensive set of software, model, analytics, data, documentation, and cloud-readiness deliverables.

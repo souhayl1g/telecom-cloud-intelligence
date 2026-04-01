@@ -16,9 +16,9 @@ flowchart TB
   PIPE -->|Write datasets| OBJ
   PIPE -->|Write metadata/results| DB
   PIPE -->|Inference request| AI
+  PIPE -->|Write AI results to DB| DB
 
-  AI -->|Write anomalies/risk| DB
-  AI -->|Store model artifacts| OBJ
+  AI -->|Load/save model artifacts| OBJ
 ```
 ```mermaid
 sequenceDiagram
@@ -30,14 +30,15 @@ sequenceDiagram
   participant A as AIService
   participant O as ObjectStorage
 
-  U->>G: GET /sla-risk (region, time_window)
-  G->>P: Query SLA risk scores
-  alt missing or stale
-    G->>W: Trigger inference job
-    W->>O: Read processed features
-    W->>A: Request SLA risk inference
-    A->>P: Write SLA risk results
-  end
-  P-->>G: Return SLA risk scores
+  Note over W: Runs on schedule (daemon mode, every 2 min)
+  W->>O: Upload raw + processed datasets
+  W->>A: POST /infer/sla-risk (9-feature vector)
+  W->>A: POST /infer/anomaly (200 OSS records)
+  W->>A: POST /infer/revenue-anomaly (200 BSS records)
+  W->>P: INSERT sla_risk_scores, anomalies, revenue_anomalies, correlation_insights
+
+  U->>G: GET /sla-risk
+  G->>P: SELECT FROM sla_risk_scores ORDER BY created_at DESC LIMIT 1
+  P-->>G: Latest SLA risk row
   G-->>U: JSON response
 ```

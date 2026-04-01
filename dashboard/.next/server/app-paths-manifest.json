@@ -1,0 +1,10 @@
+{
+  "/overview/page": "app/overview/page.js",
+  "/correlations/page": "app/correlations/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/api/login/route": "app/api/login/route.js",
+  "/api/logout/route": "app/api/logout/route.js",
+  "/login/page": "app/login/page.js",
+  "/anomalies/page": "app/anomalies/page.js",
+  "/l4-agent/page": "app/l4-agent/page.js"
+}

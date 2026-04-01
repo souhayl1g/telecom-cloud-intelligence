@@ -22,6 +22,7 @@ from typing import Optional
 import joblib
 import numpy as np
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 from sklearn.ensemble import GradientBoostingRegressor, IsolationForest
 from sklearn.preprocessing import StandardScaler
@@ -262,6 +263,8 @@ def load_or_train_models():
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(title="AI Service", version=MODEL_VERSION)
+
+Instrumentator().instrument(app).expose(app)
 
 # models are loaded at module level so they are ready before the first request
 print("[ai-service] initialising models ...")

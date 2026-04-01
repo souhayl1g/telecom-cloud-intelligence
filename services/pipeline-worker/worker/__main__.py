@@ -28,6 +28,7 @@ Sequence:
 import hashlib
 import json
 import os
+import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
@@ -37,6 +38,8 @@ import numpy as np
 import psycopg2
 import psycopg2.extras
 import requests
+from scipy import stats
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -370,8 +373,6 @@ def build_curated_dataset(oss_records, bss_records, anomaly_result,
 
 def compute_correlations(oss_records, bss_records):
     """Compute Pearson + Spearman correlations between OSS and BSS per cell."""
-    from scipy import stats
-
     cell_oss = {}
     for r in oss_records:
         cid = r["cell_id"]
@@ -428,6 +429,10 @@ def compute_correlations(oss_records, bss_records):
 
 # ── AI inference ──────────────────────────────────────────────────────────────
 
+_ai_retry = retry(stop=stop_after_attempt(3), wait=wait_fixed(2), reraise=True)
+
+
+@_ai_retry
 def infer_sla_risk(run_id: str, region: str, window_start: datetime,
                    window_end: datetime, features: dict) -> tuple[float, dict, str]:
     base    = os.getenv("AI_SERVICE_URL", "http://ai-service:8001").rstrip("/")
@@ -441,9 +446,10 @@ def infer_sla_risk(run_id: str, region: str, window_start: datetime,
     r = requests.post(f"{base}/infer/sla-risk", json=payload, timeout=15)
     r.raise_for_status()
     data = r.json()
-    return float(data["score"]), data.get("explanation", {}), data.get("model_version", "v1.0")
+    return float(data["score"]), data.get("explanation", {}), data.get("model_version", "v2.0")
 
 
+@_ai_retry
 def infer_anomaly(run_id: str, region: str, records: list[dict]) -> dict:
     base    = os.getenv("AI_SERVICE_URL", "http://ai-service:8001").rstrip("/")
     # send only the 5 numeric KPI fields the anomaly model expects
@@ -466,7 +472,7 @@ def infer_anomaly(run_id: str, region: str, records: list[dict]) -> dict:
     return r.json()
 
 
-# ── main pipeline ─────────────────────────────────────────────────────────────
+@_ai_retry
 def infer_revenue_anomaly(run_id: str, region: str, records: list[dict]) -> dict:
     """Call AI service /infer/revenue-anomaly with BSS records."""
     base = os.getenv("AI_SERVICE_URL", "http://ai-service:8001").rstrip("/")
@@ -488,6 +494,8 @@ def infer_revenue_anomaly(run_id: str, region: str, records: list[dict]) -> dict
     r.raise_for_status()
     return r.json()
 
+
+# ── main pipeline ─────────────────────────────────────────────────────────────
 def run_once() -> None:
     run_id       = f"run-{uuid.uuid4().hex[:12]}"
     now          = datetime.now(timezone.utc)
@@ -723,10 +731,27 @@ def run_once() -> None:
 
 
 def main() -> None:
-    print("pipeline-worker: starting vertical slice execution")
-    run_once()
-    print("pipeline-worker: execution complete")
-
+    # Check if we should run in continuous CRON/Daemon mode
+    mode = os.environ.get("RUN_MODE", "oneshot")
+    
+    if mode == "daemon":
+        print("pipeline-worker: starting in continuous daemon mode (cron simulation)")
+        while True:
+            print("\n" + "="*50)
+            print("pipeline-worker: executing scheduled cycle...")
+            try:
+                run_once()
+                print("pipeline-worker: cycle complete. Sleeping for 2 minutes...")
+            except Exception as e:
+                print(f"pipeline-worker: error during execution: {e}")
+                print("pipeline-worker: will retry in 2 minutes...")
+            
+            # Sleep for 120 seconds (2 minutes) before running the pipeline again
+            time.sleep(120)
+    else:
+        print("pipeline-worker: starting single vertical slice execution (oneshot)")
+        run_once()
+        print("pipeline-worker: execution complete")
 
 if __name__ == "__main__":
     main()

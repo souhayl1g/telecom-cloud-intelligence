@@ -1,0 +1,127 @@
+% ============================================================================
+%  Chapter 1 --- General Introduction
+% ============================================================================
+\chapter{General Introduction}
+\label{ch:introduction}
+
+\section{Context and Motivation}
+
+The telecommunications industry has entered its most transformative era. The deployment of 5G networks, the explosion of connected devices through IoT, and the growing expectations of digital-native subscribers have created a perfect storm: operators are generating more operational data than ever before, yet the gap between \emph{network operations} (OSS) and \emph{business outcomes} (BSS) continues to widen.
+
+On the network side, Operations Support Systems (OSS) monitor thousands of Key Performance Indicators (KPIs) --- throughput, latency, packet loss, signal quality, user load --- across millions of cells and hundreds of network elements. On the business side, Business Support Systems (BSS) track subscriber behaviour --- revenue, data consumption, voice usage, recharge patterns, churn risk. These two worlds operate in silos: when a cell tower degrades, the network operations centre detects it through KPI alarms; but the revenue team only sees the impact days later, in aggregate reports, long after subscribers have already churned or downgraded their plans.
+
+Huawei's \textbf{Customer Experience Management (CEM)} platform, branded \textbf{SmartCare}, represents the state of the art in bridging this gap. SmartCare ingests OSS data, computes experience indicators (KQI, CEI), performs demarcation analysis to locate root causes, and generates per-subscriber, per-service, per-cell experience scores. However, the \emph{intelligence layer} that translates these CEM outputs into actionable business decisions --- churn predictions, upsell triggers, retention actions, revenue impact quantification --- and feeds them to \textbf{Customer Value Management (CVM)} systems remains an open challenge.
+
+This project addresses precisely this gap.
+
+\section{Problem Statement}
+
+Despite the richness of data produced by CEM platforms like SmartCare, three fundamental problems persist in the operator workflow:
+
+\begin{enumerate}[label=\textbf{P\arabic*.}]
+  \item \textbf{OSS--BSS Disconnect:} Network performance degradations are not systematically correlated with their business impact. Operations and business teams work with different data, different timelines, and different tools.
+  
+  \item \textbf{Reactive Operations:} Current operations detect problems \emph{after} they have occurred. SLA breaches are identified retroactively, anomalies are flagged only when thresholds are exceeded, and revenue impact is assessed in monthly reports---far too late for preventive action.
+  
+  \item \textbf{Missing Intelligence Layer:} The architectural gap between CEM output and CVM input is not a data problem---both sides have data. It is an \emph{intelligence problem}: no system autonomously reads CEM signals, correlates them with BSS metrics, and produces real-time actionable decisions.
+\end{enumerate}
+
+\section{Proposed Solution}
+
+We design and implement a \textbf{cloud-native AI Operations Agent} that serves as the intelligence bridge between CEM and CVM. The platform:
+
+\begin{itemize}
+  \item \textbf{Ingests} real OSS and BSS data from Tunisie Telecom (via Huawei) through a configurable data ingestion pipeline supporting CSV, Excel, and JSON formats;
+  \item \textbf{Organises} data through a three-layer lake architecture (Raw $\to$ Processed $\to$ Curated), providing full lineage and reproducibility;
+  \item \textbf{Analyses} the data using three machine learning models: SLA risk prediction (GradientBoostingRegressor), network anomaly detection (IsolationForest), and revenue anomaly detection (IsolationForest);
+  \item \textbf{Correlates} OSS degradation with BSS impact through a statistical correlation engine (Pearson and Spearman);
+  \item \textbf{Exposes} all insights through a RESTful API layer, ready for consumption by CVM systems or operational dashboards;
+  \item \textbf{Deploys} as a fully containerised stack (Docker Compose), architecturally portable to Huawei Cloud Stack (HCS).
+\end{itemize}
+
+The system is positioned within Huawei's \textbf{Autonomous Driving Network (ADN)} paradigm --- the vision of a network that manages itself, with AI as the operator.
+
+\section{Industrial Positioning}
+
+% ── Figure: CEM → AI Agent → CVM ─────────────────────────────────────────────
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=2.8cm]
+  % Nodes
+  \node[service=cemteal, minimum width=4cm, minimum height=1.8cm] (cem) {
+    \textbf{CEM}\\[-2pt]
+    {\scriptsize Huawei SmartCare}\\[-2pt]
+    {\scriptsize KPI / KQI / CEI}\\[-2pt]
+    {\scriptsize Demarcation}
+  };
+  
+  \node[service=aiviolet, minimum width=5cm, minimum height=2.2cm, right=of cem] (agent) {
+    \textbf{AI Operations Agent}\\[-2pt]
+    {\scriptsize SLA Risk Prediction}\\[-2pt]
+    {\scriptsize Anomaly Detection}\\[-2pt]
+    {\scriptsize O+B Correlation Engine}\\[-2pt]
+    {\scriptsize \textit{THIS IS OUR PROJECT}}
+  };
+  
+  \node[service=cvmorange, minimum width=4cm, minimum height=1.8cm, right=of agent] (cvm) {
+    \textbf{CVM}\\[-2pt]
+    {\scriptsize Customer Value Mgmt}\\[-2pt]
+    {\scriptsize Churn / Upsell / Retain}\\[-2pt]
+    {\scriptsize Revenue Impact}
+  };
+  
+  % Cloud-native label below agent
+  \node[below=0.8cm of agent, font=\small\itshape, text=darkbg] (cloud) {
+    Cloud-Native Containers (Docker $\to$ HCS)
+  };
+  
+  % Arrows
+  \draw[myarrow=cemteal!80!black, line width=1.2pt] (cem) -- (agent)
+    node[arrlabel, midway, above] {OSS + Experience Data};
+  \draw[myarrow=cvmorange!80!black, line width=1.2pt] (agent) -- (cvm)
+    node[arrlabel, midway, above] {Enriched Intelligence};
+  \draw[biarrow=aiviolet!60!black, line width=1pt] (agent) -- (cloud);
+  
+  % Surrounding dashed box
+  \begin{scope}[on background layer]
+    \node[fit=(cem)(agent)(cvm)(cloud), inner sep=12pt,
+          draw=huaweired!40, dashed, rounded corners=8pt,
+          fill=huaweired!2, line width=0.8pt] (adn) {};
+  \end{scope}
+  \node[above=2pt of adn.north, font=\footnotesize\bfseries, text=huaweired!80!black] {
+    ADN (Autonomous Driving Network) Paradigm
+  };
+\end{tikzpicture}
+\caption{Industrial positioning: the AI Operations Agent as the intelligence layer between CEM and CVM, within the ADN paradigm.}
+\label{fig:cem-agent-cvm}
+\end{figure}
+
+The supervisor at Huawei Tunisia validated this positioning: the project implements the exact architectural pattern that Huawei deploys at operator sites, where CEM produces experience signals and CVM consumes business decisions. Our AI Agent is the ``brain'' in the middle, built cloud-natively and portable to Huawei Cloud Stack.
+
+\section{Key Differentiators}
+
+This project distinguishes itself from typical academic proofs-of-concept through three fundamental strengths:
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+  \item \textbf{Real Operator Data:} The models are trained on anonymised production OSS/BSS data from Tunisie Telecom, obtained through the Huawei partnership. This is not synthetic data --- the patterns are real, the anomalies are genuine, and the evaluation metrics are credible. Very few PFE projects at any university have access to real operator data at this scale.
+  
+  \item \textbf{Cloud-Native Architecture Portable to HCS:} The platform runs as five containerised microservices (Docker Compose) with a clear mapping to Huawei Cloud Stack: MinIO $\to$ OBS, PostgreSQL $\to$ RDS, application services $\to$ ECS/CCE. This is not a theoretical mapping --- the containers are designed from the start for cloud portability.
+  
+  \item \textbf{AI Agent Bridging CEM and CVM:} The system implements the O+B (OSS+BSS) convergence that is central to Huawei's ADN strategy. It reads SmartCare CEM outputs, correlates them with BSS metrics, and produces actionable CVM inputs. This positions the project squarely within Huawei's industrial roadmap.
+\end{enumerate}
+
+\section{Report Structure}
+
+This report is organised as follows:
+
+\begin{itemize}
+  \item \textbf{Chapter~\ref{ch:context}} presents the host organisation (Huawei Tunisia), the industrial context of CEM/CVM systems, and the ADN paradigm.
+  \item \textbf{Chapter~\ref{ch:stateofart}} surveys the state of the art in AI-driven telecom operations, anomaly detection, and OSS--BSS convergence.
+  \item \textbf{Chapter~\ref{ch:architecture}} details the system architecture: the five-service containerised stack, the data lake, the API layer, and the HCS mapping.
+  \item \textbf{Chapter~\ref{ch:data}} describes the data strategy: real data ingestion from Tunisie Telecom, the anonymisation pipeline, schema mapping, and the three-layer lake.
+  \item \textbf{Chapter~\ref{ch:ai}} documents the AI models: SLA risk prediction, OSS anomaly detection, BSS revenue anomaly detection, and the correlation engine.
+  \item \textbf{Chapter~\ref{ch:implementation}} covers the implementation: service code, Docker Compose orchestration, database schema, and the 5-phase pipeline.
+  \item \textbf{Chapter~\ref{ch:evaluation}} presents the evaluation results: model metrics (precision, recall, F1), correlation findings, and end-to-end validation.
+  \item \textbf{Chapter~\ref{ch:cloud}} describes the cloud deployment strategy and the HCS mapping.
+  \item \textbf{Chapter~\ref{ch:conclusion}} concludes the report with a summary, limitations, and future work.
+\end{itemize}

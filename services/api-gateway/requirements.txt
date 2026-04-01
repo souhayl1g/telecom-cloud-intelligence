@@ -1,7 +1,6 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.8.2
-SQLAlchemy==2.0.34
-psycopg[binary]==3.2.1
-boto3==1.35.0
 psycopg2-binary==2.9.9
+python-jose[cryptography]==3.3.0
+prometheus-fastapi-instrumentator==7.0.0

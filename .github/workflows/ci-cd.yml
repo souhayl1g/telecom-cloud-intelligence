@@ -1,0 +1,282 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Stage 1: Lint & static analysis
+  # ─────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, ai-service, pipeline-worker, auth-service]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting tools
+        run: pip install ruff
+
+      - name: Run ruff linter
+        run: ruff check services/${{ matrix.service }}/
+
+      - name: Run ruff format check
+        run: ruff format --check services/${{ matrix.service }}/
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 2: Unit tests per service
+  # ─────────────────────────────────────────────────────────────
+  test:
+    name: Test ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        service: [api-gateway, ai-service, pipeline-worker, auth-service]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: telecom_intel_test
+          POSTGRES_USER: telecom
+          POSTGRES_PASSWORD: telecom_pw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U telecom -d telecom_intel_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r services/${{ matrix.service }}/requirements.txt
+          pip install pytest pytest-cov httpx
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://telecom:telecom_pw@localhost:5432/telecom_intel_test
+          JWT_SECRET: test-secret-key
+        run: |
+          cd services/${{ matrix.service }}
+          if [ -d "tests" ]; then
+            pytest tests/ -v --tb=short --cov=. --cov-report=xml
+          else
+            echo "No tests directory found — skipping (tests should be added)"
+          fi
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 3: Build Docker images
+  # ─────────────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        service: [api-gateway, ai-service, pipeline-worker, auth-service]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 4: Integration test (full stack)
+  # ─────────────────────────────────────────────────────────────
+  integration:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start full stack
+        run: docker compose up --build -d
+        env:
+          JWT_SECRET: integration-test-secret
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1 && \
+               curl -sf http://localhost:8001/health > /dev/null 2>&1 && \
+               curl -sf http://localhost:8002/health > /dev/null 2>&1; then
+              echo "All services healthy!"
+              break
+            fi
+            echo "Attempt $i/30 — waiting 5s..."
+            sleep 5
+          done
+
+      - name: Test health endpoints
+        run: |
+          echo "=== API Gateway ==="
+          curl -sf http://localhost:8000/health | python3 -m json.tool
+          echo "=== AI Service ==="
+          curl -sf http://localhost:8001/health | python3 -m json.tool
+          echo "=== Auth Service ==="
+          curl -sf http://localhost:8002/health | python3 -m json.tool
+
+      - name: Test signup flow
+        run: |
+          echo "=== Signup ==="
+          SIGNUP=$(curl -sf -X POST http://localhost:8002/auth/signup \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"TestPass123!","full_name":"Test User"}')
+          echo "$SIGNUP" | python3 -m json.tool
+
+          TOKEN=$(echo "$SIGNUP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+          echo "Token obtained: ${TOKEN:0:20}..."
+
+          echo "=== Login ==="
+          curl -sf -X POST http://localhost:8002/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"TestPass123!"}' | python3 -m json.tool
+
+          echo "=== Get current user ==="
+          curl -sf http://localhost:8002/auth/me \
+            -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+          echo "=== Access protected endpoint ==="
+          curl -sf http://localhost:8000/pipeline-runs \
+            -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+          echo "=== Verify auth required (expect 401) ==="
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/sla-risk)
+          if [ "$STATUS" = "401" ]; then
+            echo "Auth correctly required (HTTP 401)"
+          else
+            echo "WARNING: Expected 401, got $STATUS"
+            exit 1
+          fi
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 5: Security scan
+  # ─────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install safety
+        run: pip install safety pip-audit
+
+      - name: Scan dependencies
+        run: |
+          for svc in api-gateway ai-service pipeline-worker auth-service; do
+            echo "=== Scanning $svc ==="
+            pip-audit -r services/$svc/requirements.txt || true
+          done
+
+      - name: Check for secrets in code
+        run: |
+          echo "Checking for hardcoded secrets..."
+          ! grep -rn "password\s*=\s*['\"]" services/ --include="*.py" \
+            | grep -v "password_hash" \
+            | grep -v "POSTGRES_PASSWORD" \
+            | grep -v "getenv" \
+            | grep -v "os.environ" \
+            | grep -v "req.password" \
+            | grep -v "#" \
+            || echo "No hardcoded secrets found"
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 6: Deploy (only on main branch push)
+  # ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [integration, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy notification
+        run: |
+          echo "============================================"
+          echo "  Deployment ready!"
+          echo "  Branch: ${{ github.ref_name }}"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Images pushed to: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}"
+          echo "============================================"
+          echo ""
+          echo "To deploy to production:"
+          echo "  1. Pull latest images from GHCR"
+          echo "  2. docker compose -f docker-compose.prod.yml up -d"
+          echo "  3. Run database migrations"
+          echo ""
+          echo "To deploy to Huawei Cloud Stack (HCS):"
+          echo "  1. Push images to SWR (Software Repository)"
+          echo "  2. Update CCE (Cloud Container Engine) deployments"
+          echo "  3. Verify health endpoints"

@@ -69,14 +69,20 @@ Current operations can detect technical issues, but struggle to quantify busines
 ---
 
 ## Slide 6 — End-to-End Example (SLA Risk Query)
-1. User calls `GET /sla-risk?region=...&time_window=...`.
-2. API Gateway checks PostgreSQL for latest score.
-3. If score missing/stale, inference job is triggered.
-4. Pipeline loads processed features from object storage.
-5. AI service computes risk and stores results.
-6. API returns JSON risk score.
 
-**Outcome:** cached/serving-first behavior with on-demand refresh.
+**Pipeline side (runs every 2 minutes, daemon mode):**
+1. Pipeline worker generates 200 OSS + 200 BSS records with fault injection.
+2. Worker uploads raw and processed datasets to MinIO (raw → processed → curated).
+3. Worker calls `POST /infer/sla-risk` on AI service with a 9-feature KPI vector.
+4. AI service returns GBR score (0–1) + feature importances.
+5. Worker persists score to PostgreSQL `sla_risk_scores`.
+
+**API side (on user request):**
+6. User calls `GET /sla-risk`.
+7. API Gateway queries `SELECT … FROM sla_risk_scores ORDER BY created_at DESC LIMIT 1`.
+8. Returns the latest persisted score as JSON.
+
+**Outcome:** pre-computed, always-fresh results served directly from PostgreSQL.
 
 ---
 

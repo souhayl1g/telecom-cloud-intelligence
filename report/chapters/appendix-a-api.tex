@@ -1,0 +1,122 @@
+% ============================================================================
+%  Appendix A --- API Reference
+% ============================================================================
+\chapter{API Reference}
+\label{app:api}
+
+\section{API Gateway Endpoints}
+
+All endpoints are served on \texttt{http://\{host\}:8000/}.
+
+\subsection{\texttt{GET /health}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Liveness check \\
+\textbf{Response}    & \texttt{\{"status": "ok"\}} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{GET /sla-risk}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Returns the most recent SLA risk score \\
+\textbf{Response fields} & \texttt{id, run\_id, region, window\_start, window\_end, score, explanation, model\_name, model\_version, created\_at} \\
+\textbf{Score range} & $[0.0, 1.0]$ where 1.0 = imminent SLA breach \\
+\textbf{Explanation} & JSON object with feature importances and top driver \\
+\textbf{404} & If no scores exist yet \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{GET /sla-risk/history?limit=N}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Returns the last N SLA risk scores, newest first \\
+\textbf{Parameters} & \texttt{limit} (int, default=20, range 1--200) \\
+\textbf{Response} & Array of score records \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{GET /anomalies?limit=N}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Returns the N most recent detected OSS anomalies \\
+\textbf{Parameters} & \texttt{limit} (int, default=50, range 1--500) \\
+\textbf{Response fields} & \texttt{id, run\_id, ts, region, cell\_id, kpi\_name, severity, value, baseline\_value, model\_version, created\_at} \\
+\textbf{Response wrapper} & \texttt{\{"count": N, "anomalies": [...]\}} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{GET /pipeline-runs?limit=N}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Returns the N most recent pipeline execution records \\
+\textbf{Parameters} & \texttt{limit} (int, default=10, range 1--100) \\
+\textbf{Response fields} & \texttt{run\_id, status, started\_at, finished\_at, error\_message} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{GET /revenue-anomalies?limit=N}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Returns the N most recent BSS revenue anomalies \\
+\textbf{Parameters} & \texttt{limit} (int, default=50, range 1--500) \\
+\textbf{Response fields} & \texttt{id, run\_id, ts, region, operator, subscriber\_id, line\_type, plan, metric\_name, severity, value, baseline\_value, model\_version, created\_at} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{GET /correlation?limit=N}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Description} & Returns the N most recent OSS--BSS correlation insights \\
+\textbf{Parameters} & \texttt{limit} (int, default=50, range 1--200) \\
+\textbf{Response fields} & \texttt{id, run\_id, region, metric\_x, metric\_y, window\_start, window\_end, method, corr\_value, p\_value, created\_at} \\
+\bottomrule
+\end{tabularx}
+
+\section{AI Service Internal Endpoints}
+
+All endpoints are served on \texttt{http://\{host\}:8001/} (internal network only).
+
+\subsection{\texttt{GET /health}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Response} & \texttt{\{"status": "ok", "model\_version": "v2.0"\}} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{POST /infer/sla-risk}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Request body} & \texttt{\{run\_id, region, window\_start, window\_end, features: \{mean\_throughput\_mbps, ...\}\}} \\
+\textbf{Response} & \texttt{\{score: 0.42, explanation: \{method, feature\_importances, top\_driver\}, model\_version\}} \\
+\textbf{Features} & 9 aggregate OSS KPIs (see Chapter~\ref{ch:ai}) \\
+\textbf{Fallback} & If \texttt{features} is null, returns deterministic hash-based score \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{POST /infer/anomaly}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Request body} & \texttt{\{run\_id, region, records: [\{throughput\_mbps, latency\_ms, packet\_loss\_pct, active\_users, signal\_rsrp\_dbm\}, ...]\}} \\
+\textbf{Response} & \texttt{\{total, anomalous\_count, anomaly\_rate, records: [\{index, is\_anomaly, anomaly\_score\}, ...]\}} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\texttt{POST /infer/revenue-anomaly}}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Request body} & \texttt{\{run\_id, region, records: [\{revenue\_tnd, data\_used\_gb, voice\_min, sms\_count, churn\_risk\}, ...]\}} \\
+\textbf{Response} & Same structure as \texttt{/infer/anomaly} \\
+\bottomrule
+\end{tabularx}

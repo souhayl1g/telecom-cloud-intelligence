@@ -2,6 +2,30 @@
 -- Reflects the deployed database structure (serial bigint PKs, run_id text FK)
 -- Apply manually: psql -U telecom -d telecom_intel -f schema.sql
 
+-- ───────────────────────────────────────────────────────────────
+-- Authentication & Users
+-- ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+    id            BIGSERIAL PRIMARY KEY,
+    email         TEXT NOT NULL UNIQUE,
+    password_hash TEXT,                    -- NULL for OAuth-only users
+    full_name     TEXT,
+    avatar_url    TEXT,
+    provider      TEXT NOT NULL DEFAULT 'local',  -- 'local' | 'google' | 'github'
+    provider_id   TEXT,                    -- OAuth provider's user ID
+    role          TEXT NOT NULL DEFAULT 'viewer',  -- 'viewer' | 'analyst' | 'admin'
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(provider, provider_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
+
+-- ───────────────────────────────────────────────────────────────
+-- Pipeline & Analytics
+-- ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS pipeline_runs (
   id            BIGSERIAL PRIMARY KEY,
   run_id        TEXT NOT NULL UNIQUE,

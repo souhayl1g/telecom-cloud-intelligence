@@ -53,12 +53,14 @@ The stack is intentionally portable to **Huawei Cloud Stack**: MinIO → OBS, Po
 | `minio` | minio/minio | 9000 / 9001 | S3-compatible data lake |
 | `api-gateway` | custom | 8000 | Public REST API (FastAPI) |
 | `ai-service` | custom | 8001 | ML inference engine (scikit-learn, 3 models) |
-| `pipeline-worker` | custom | — | One-shot 22-step pipeline orchestrator |
+| `pipeline-worker` | custom | — | 22-step pipeline orchestrator (daemon, 2-min cycle) |
+| `prometheus` | prom/prometheus | 9090 | Metrics scraper (api-gateway + ai-service) |
+| `grafana` | grafana/grafana | 3000 | Observability dashboard |
 
 ### Data Flow
 
 ```
-pipeline-worker (run-once, 22 steps)
+pipeline-worker (daemon, 22 steps per cycle, repeats every 2 min)
   ├── generate 200 OSS records (with fault injection) + 200 BSS records (80% prepaid / 20% postpaid)
   ├── upload raw JSON    →  minio  s3://raw/oss/<date>/<run_id>.json
   │                                s3://raw/bss/<date>/<run_id>.json
@@ -93,15 +95,13 @@ api-gateway (:8000)
 **Prerequisites:** Docker + Docker Compose
 
 ```bash
-# 1. Clone and start the full 5-container stack
+# 1. Clone and start the full 7-container stack
 git clone https://github.com/souhayl1g/telecom-cloud-intelligence.git
 cd telecom-cloud-intelligence
 docker compose up --build -d
 
-# 2. Run one pipeline cycle (generates data, runs 3 AI models, persists results)
-docker compose run --rm pipeline-worker
-
-# 3. Query results
+# pipeline-worker starts automatically in daemon mode (runs every 2 min)
+# Wait ~30 s for the first cycle to complete, then query results:
 curl http://localhost:8000/sla-risk
 curl http://localhost:8000/anomalies
 curl http://localhost:8000/revenue-anomalies
@@ -109,7 +109,9 @@ curl http://localhost:8000/correlation
 curl http://localhost:8000/pipeline-runs
 ```
 
-> MinIO console available at **http://localhost:9001** · user: `minio` · password: `minio_pw`
+> MinIO console: **http://localhost:9001** · user: `minio` · password: `minio_pw`
+> Grafana: **http://localhost:3000** · user: `admin` · password: `admin`
+> Prometheus: **http://localhost:9090**
 
 ---
 
@@ -153,8 +155,8 @@ Base URL: `http://localhost:8000`
 |---|---|---|
 | `GET` | `/health` | Returns model version |
 | `POST` | `/infer/sla-risk` | GradientBoostingRegressor v2.0 — returns `score` (0–1) + feature importances |
-| `POST` | `/infer/anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `severity` (OSS) |
-| `POST` | `/infer/revenue-anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `severity` (BSS) |
+| `POST` | `/infer/anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `anomaly_score` (OSS) |
+| `POST` | `/infer/revenue-anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `anomaly_score` (BSS) |
 
 ---
 
@@ -231,7 +233,7 @@ Models are loaded from disk on restart — no retraining required after the firs
 | **2** | Real ML inference: GBR SLA risk + IsolationForest anomaly detection | ✅ Complete |
 | **3** | Fault injection · revenue anomaly detection · OSS–BSS correlation engine · Tunisian prepaid market model | ✅ Complete |
 | **4** | Labeled evaluation dataset — precision, recall, F1 per model | 🔄 Planned |
-| **5** | Prometheus + Grafana observability stack | 🔄 Planned |
+| **5** | Prometheus + Grafana observability stack | ✅ Complete |
 | **6** | HCS deployment: OBS + RDS + ECS with evidence | 🔄 Planned |
 
 ---
@@ -240,7 +242,7 @@ Models are loaded from disk on restart — no retraining required after the firs
 
 ```
 telecom-cloud-intelligence/
-├── docker-compose.yml                    # 5-service stack definition
+├── docker-compose.yml                    # 7-service stack definition
 ├── services/
 │   ├── api-gateway/                      # FastAPI REST gateway (:8000, 7 endpoints)
 │   │   ├── main.py
