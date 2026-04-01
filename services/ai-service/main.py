@@ -13,8 +13,6 @@ All models are written to /app/models/ and reloaded on subsequent restarts.
 """
 
 import hashlib
-import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -30,13 +28,13 @@ from sklearn.pipeline import Pipeline
 
 # ── constants ─────────────────────────────────────────────────────────────────
 
-MODELS_DIR    = Path("/app/models")
-SLA_MODEL_PATH     = MODELS_DIR / "sla_risk_model.joblib"
+MODELS_DIR = Path("/app/models")
+SLA_MODEL_PATH = MODELS_DIR / "sla_risk_model.joblib"
 ANOMALY_MODEL_PATH = MODELS_DIR / "anomaly_model.joblib"
 REVENUE_ANOMALY_MODEL_PATH = MODELS_DIR / "revenue_anomaly_model.joblib"
 MODEL_VERSION = "v2.0"
-N_TRAIN       = 3000   # synthetic training samples
-RANDOM_SEED   = 42
+N_TRAIN = 3000  # synthetic training samples
+RANDOM_SEED = 42
 
 SLA_FEATURES = [
     "mean_throughput_mbps",
@@ -68,6 +66,7 @@ BSS_FEATURES = [
 
 # ── training data generators ──────────────────────────────────────────────────
 
+
 def _generate_sla_training_data(n: int, seed: int):
     """
     Synthesise N windows of aggregated OSS KPI features + risk label.
@@ -77,30 +76,39 @@ def _generate_sla_training_data(n: int, seed: int):
     """
     rng = np.random.default_rng(seed)
 
-    mean_tput  = rng.uniform(10,  120, n)      # Mbps
-    std_tput   = rng.uniform( 2,   25, n)
-    mean_lat   = rng.uniform( 8,   80, n)      # ms
-    std_lat    = rng.uniform( 1,   20, n)
-    max_lat    = mean_lat + rng.uniform(5, 40, n)
-    mean_loss  = rng.uniform( 0,    5, n)      # pct
-    max_loss   = mean_loss + rng.uniform(0, 3, n)
-    mean_users = rng.uniform(50,  500, n)
-    mean_rsrp  = rng.uniform(-110, -60, n)    # dBm
+    mean_tput = rng.uniform(10, 120, n)  # Mbps
+    std_tput = rng.uniform(2, 25, n)
+    mean_lat = rng.uniform(8, 80, n)  # ms
+    std_lat = rng.uniform(1, 20, n)
+    max_lat = mean_lat + rng.uniform(5, 40, n)
+    mean_loss = rng.uniform(0, 5, n)  # pct
+    max_loss = mean_loss + rng.uniform(0, 3, n)
+    mean_users = rng.uniform(50, 500, n)
+    mean_rsrp = rng.uniform(-110, -60, n)  # dBm
 
-    X = np.column_stack([
-        mean_tput, std_tput, mean_lat, std_lat, max_lat,
-        mean_loss, max_loss, mean_users, mean_rsrp,
-    ])
+    X = np.column_stack(
+        [
+            mean_tput,
+            std_tput,
+            mean_lat,
+            std_lat,
+            max_lat,
+            mean_loss,
+            max_loss,
+            mean_users,
+            mean_rsrp,
+        ]
+    )
 
     # deterministic risk label: weighted sum of degradation indicators
     risk = np.zeros(n)
-    risk += np.clip((mean_lat - 20) / 60,  0, 0.35)   # latency contribution
-    risk += np.clip((max_lat  - 30) / 70,  0, 0.25)
-    risk += np.clip(mean_loss / 4,          0, 0.25)   # packet loss contribution
-    risk += np.clip(max_loss  / 6,          0, 0.15)
+    risk += np.clip((mean_lat - 20) / 60, 0, 0.35)  # latency contribution
+    risk += np.clip((max_lat - 30) / 70, 0, 0.25)
+    risk += np.clip(mean_loss / 4, 0, 0.25)  # packet loss contribution
+    risk += np.clip(max_loss / 6, 0, 0.15)
     risk += np.clip((60 - mean_tput) / 100, 0, 0.20)  # low throughput contribution
-    risk += rng.normal(0, 0.03, n)                     # small noise
-    risk  = np.clip(risk, 0.0, 1.0)
+    risk += rng.normal(0, 0.03, n)  # small noise
+    risk = np.clip(risk, 0.0, 1.0)
 
     return X, risk
 
@@ -110,24 +118,28 @@ def _generate_anomaly_training_data(n: int, seed: int):
     Synthesise N per-record OSS KPI vectors for IsolationForest training.
     95% normal, 5% injected faults (contamination parameter matches this).
     """
-    rng    = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)
     n_norm = int(n * 0.95)
     n_anom = n - n_norm
 
-    normal = np.column_stack([
-        rng.normal(80,  12,  n_norm),     # throughput
-        rng.normal(25,   7,  n_norm),     # latency
-        rng.uniform(0,   1,  n_norm),     # packet loss
-        rng.integers(50, 500, n_norm),    # active users
-        rng.normal(-85, 8,   n_norm),     # RSRP
-    ])
-    anomalous = np.column_stack([
-        rng.uniform(1,   20, n_anom),     # very low throughput
-        rng.uniform(80, 200, n_anom),     # very high latency
-        rng.uniform(3,    8, n_anom),     # high packet loss
-        rng.integers(500, 900, n_anom),   # overload or spike
-        rng.uniform(-130, -110, n_anom),  # very weak signal
-    ])
+    normal = np.column_stack(
+        [
+            rng.normal(80, 12, n_norm),  # throughput
+            rng.normal(25, 7, n_norm),  # latency
+            rng.uniform(0, 1, n_norm),  # packet loss
+            rng.integers(50, 500, n_norm),  # active users
+            rng.normal(-85, 8, n_norm),  # RSRP
+        ]
+    )
+    anomalous = np.column_stack(
+        [
+            rng.uniform(1, 20, n_anom),  # very low throughput
+            rng.uniform(80, 200, n_anom),  # very high latency
+            rng.uniform(3, 8, n_anom),  # high packet loss
+            rng.integers(500, 900, n_anom),  # overload or spike
+            rng.uniform(-130, -110, n_anom),  # very weak signal
+        ]
+    )
     X = np.vstack([normal, anomalous])
     idx = rng.permutation(n)
     return X[idx]
@@ -144,71 +156,92 @@ def _generate_revenue_anomaly_training_data(n: int, seed: int):
       - ~20 % postpaid: revenue = fixed plan 40-90 TND/month
       - Overall ARPU range: ~1-105 TND/month
     """
-    rng    = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)
     n_norm = int(n * 0.95)
     n_anom = n - n_norm
 
     # Normal: mix of prepaid recharges (low-mid) and postpaid (mid-high)
-    normal = np.column_stack([
-        rng.uniform(1, 105, n_norm),           # revenue_tnd (recharges or plan)
-        rng.uniform(0.1, 50, n_norm),          # data_used_gb
-        rng.uniform(5, 400, n_norm),           # voice_min
-        rng.uniform(0, 120, n_norm),           # sms_count
-        rng.uniform(0.0, 0.4, n_norm),         # churn_risk
-    ])
+    normal = np.column_stack(
+        [
+            rng.uniform(1, 105, n_norm),  # revenue_tnd (recharges or plan)
+            rng.uniform(0.1, 50, n_norm),  # data_used_gb
+            rng.uniform(5, 400, n_norm),  # voice_min
+            rng.uniform(0, 120, n_norm),  # sms_count
+            rng.uniform(0.0, 0.4, n_norm),  # churn_risk
+        ]
+    )
 
     # Anomalous: SIM box fraud (massive recharges), zero-use SIMs, spam
-    rev_anom   = np.where(rng.random(n_anom) < 0.5,
-                          rng.uniform(0, 1, n_anom),       # dormant SIM
-                          rng.uniform(150, 500, n_anom))   # SIM box / fraud
-    voice_anom = np.where(rng.random(n_anom) < 0.5,
-                          rng.uniform(0, 1, n_anom),       # zero voice
-                          rng.uniform(800, 2000, n_anom))  # SIM box termination
-    anomalous = np.column_stack([
-        rev_anom,                               # abnormal revenue
-        rng.uniform(60, 150, n_anom),           # excessive data usage
-        voice_anom,                             # abnormal voice
-        rng.uniform(300, 1000, n_anom),         # SMS spam pattern
-        rng.uniform(0.7, 1.0, n_anom),          # high churn risk
-    ])
+    rev_anom = np.where(
+        rng.random(n_anom) < 0.5,
+        rng.uniform(0, 1, n_anom),  # dormant SIM
+        rng.uniform(150, 500, n_anom),
+    )  # SIM box / fraud
+    voice_anom = np.where(
+        rng.random(n_anom) < 0.5,
+        rng.uniform(0, 1, n_anom),  # zero voice
+        rng.uniform(800, 2000, n_anom),
+    )  # SIM box termination
+    anomalous = np.column_stack(
+        [
+            rev_anom,  # abnormal revenue
+            rng.uniform(60, 150, n_anom),  # excessive data usage
+            voice_anom,  # abnormal voice
+            rng.uniform(300, 1000, n_anom),  # SMS spam pattern
+            rng.uniform(0.7, 1.0, n_anom),  # high churn risk
+        ]
+    )
 
-    X   = np.vstack([normal, anomalous])
+    X = np.vstack([normal, anomalous])
     idx = rng.permutation(n)
     return X[idx]
 
 
 # ── model training & persistence ──────────────────────────────────────────────
 
+
 def _train_sla_model() -> Pipeline:
     print("  [ml] training SLA risk model ...")
     X, y = _generate_sla_training_data(N_TRAIN, RANDOM_SEED)
-    pipe = Pipeline([
-        ("scaler", StandardScaler()),
-        ("gbr",    GradientBoostingRegressor(
-            n_estimators=200,
-            max_depth=4,
-            learning_rate=0.05,
-            subsample=0.8,
-            random_state=RANDOM_SEED,
-        )),
-    ])
+    pipe = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "gbr",
+                GradientBoostingRegressor(
+                    n_estimators=200,
+                    max_depth=4,
+                    learning_rate=0.05,
+                    subsample=0.8,
+                    random_state=RANDOM_SEED,
+                ),
+            ),
+        ]
+    )
     pipe.fit(X, y)
     importances = pipe.named_steps["gbr"].feature_importances_.tolist()
-    print(f"  [ml] SLA model trained — top feature: {SLA_FEATURES[int(np.argmax(importances))]}")
+    print(
+        f"  [ml] SLA model trained — top feature: {SLA_FEATURES[int(np.argmax(importances))]}"
+    )
     return pipe
 
 
 def _train_anomaly_model() -> Pipeline:
     print("  [ml] training anomaly detection model ...")
     X = _generate_anomaly_training_data(N_TRAIN, RANDOM_SEED)
-    pipe = Pipeline([
-        ("scaler", StandardScaler()),
-        ("ifo",    IsolationForest(
-            n_estimators=150,
-            contamination=0.05,
-            random_state=RANDOM_SEED,
-        )),
-    ])
+    pipe = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "ifo",
+                IsolationForest(
+                    n_estimators=150,
+                    contamination=0.05,
+                    random_state=RANDOM_SEED,
+                ),
+            ),
+        ]
+    )
     pipe.fit(X)
     print("  [ml] IsolationForest trained")
     return pipe
@@ -217,14 +250,19 @@ def _train_anomaly_model() -> Pipeline:
 def _train_revenue_anomaly_model() -> Pipeline:
     print("  [ml] training revenue anomaly model ...")
     X = _generate_revenue_anomaly_training_data(N_TRAIN, RANDOM_SEED + 1)
-    pipe = Pipeline([
-        ("scaler", StandardScaler()),
-        ("ifo",    IsolationForest(
-            n_estimators=150,
-            contamination=0.05,
-            random_state=RANDOM_SEED,
-        )),
-    ])
+    pipe = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "ifo",
+                IsolationForest(
+                    n_estimators=150,
+                    contamination=0.05,
+                    random_state=RANDOM_SEED,
+                ),
+            ),
+        ]
+    )
     pipe.fit(X)
     print("  [ml] Revenue anomaly IsolationForest trained")
     return pipe
@@ -274,44 +312,46 @@ print("[ai-service] models ready — 3 models loaded")
 
 # ── request / response schemas ────────────────────────────────────────────────
 
+
 class SlaRiskRequest(BaseModel):
-    run_id:       str
-    region:       str
+    run_id: str
+    region: str
     window_start: str
-    window_end:   str
+    window_end: str
     # aggregated KPI features — computed by the pipeline worker
     features: Optional[dict] = None
 
 
 class OssRecord(BaseModel):
-    throughput_mbps:  float
-    latency_ms:       float
-    packet_loss_pct:  float
-    active_users:     int
-    signal_rsrp_dbm:  float
+    throughput_mbps: float
+    latency_ms: float
+    packet_loss_pct: float
+    active_users: int
+    signal_rsrp_dbm: float
 
 
 class AnomalyRequest(BaseModel):
-    run_id:   str
-    region:   str
-    records:  list[OssRecord]
+    run_id: str
+    region: str
+    records: list[OssRecord]
 
 
 class BssRecord(BaseModel):
-    revenue_tnd:  float
+    revenue_tnd: float
     data_used_gb: float
-    voice_min:    float
-    sms_count:    float
-    churn_risk:   float
+    voice_min: float
+    sms_count: float
+    churn_risk: float
 
 
 class RevenueAnomalyRequest(BaseModel):
-    run_id:  str
-    region:  str
+    run_id: str
+    region: str
     records: list[BssRecord]
 
 
 # ── endpoints ─────────────────────────────────────────────────────────────────
+
 
 @app.get("/health")
 def health():
@@ -322,42 +362,48 @@ def health():
 def infer_sla_risk(req: SlaRiskRequest):
     if req.features:
         # real inference path — pipeline worker sent pre-computed features
-        feat_vector = np.array([[
-            req.features.get("mean_throughput_mbps", 80.0),
-            req.features.get("std_throughput_mbps",  12.0),
-            req.features.get("mean_latency_ms",       25.0),
-            req.features.get("std_latency_ms",         7.0),
-            req.features.get("max_latency_ms",        40.0),
-            req.features.get("mean_packet_loss_pct",   0.5),
-            req.features.get("max_packet_loss_pct",    1.0),
-            req.features.get("mean_active_users",    200.0),
-            req.features.get("mean_signal_rsrp_dbm", -85.0),
-        ]])
+        feat_vector = np.array(
+            [
+                [
+                    req.features.get("mean_throughput_mbps", 80.0),
+                    req.features.get("std_throughput_mbps", 12.0),
+                    req.features.get("mean_latency_ms", 25.0),
+                    req.features.get("std_latency_ms", 7.0),
+                    req.features.get("max_latency_ms", 40.0),
+                    req.features.get("mean_packet_loss_pct", 0.5),
+                    req.features.get("max_packet_loss_pct", 1.0),
+                    req.features.get("mean_active_users", 200.0),
+                    req.features.get("mean_signal_rsrp_dbm", -85.0),
+                ]
+            ]
+        )
         score = float(np.clip(_sla_model.predict(feat_vector)[0], 0.0, 1.0))
-        gbr   = _sla_model.named_steps["gbr"]
+        gbr = _sla_model.named_steps["gbr"]
         importances = gbr.feature_importances_.tolist()
         explanation = {
-            "method":           "GradientBoostingRegressor",
-            "feature_importances": dict(zip(SLA_FEATURES, [round(v, 4) for v in importances])),
-            "top_driver":       SLA_FEATURES[int(np.argmax(importances))],
-            "input_features":   {k: round(v, 4) for k, v in req.features.items()},
-            "generated_at":     datetime.now(timezone.utc).isoformat(),
+            "method": "GradientBoostingRegressor",
+            "feature_importances": dict(
+                zip(SLA_FEATURES, [round(v, 4) for v in importances])
+            ),
+            "top_driver": SLA_FEATURES[int(np.argmax(importances))],
+            "input_features": {k: round(v, 4) for k, v in req.features.items()},
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
     else:
         # fallback for callers that do not send features
-        h     = hashlib.sha256(
+        h = hashlib.sha256(
             f"{req.run_id}|{req.region}|{req.window_start}|{req.window_end}".encode()
         ).hexdigest()
         score = (int(h[:8], 16) % 100) / 100.0
         explanation = {
-            "method":       "deterministic-fallback",
-            "note":         "no features provided; result is not model-based",
+            "method": "deterministic-fallback",
+            "note": "no features provided; result is not model-based",
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     return {
-        "score":         score,
-        "explanation":   explanation,
+        "score": score,
+        "explanation": explanation,
         "model_version": MODEL_VERSION,
     }
 
@@ -365,44 +411,56 @@ def infer_sla_risk(req: SlaRiskRequest):
 @app.post("/infer/anomaly")
 def infer_anomaly(req: AnomalyRequest):
     if not req.records:
-        return {"anomaly_rate": 0.0, "anomalous_count": 0, "total": 0,
-                "records": [], "model_version": MODEL_VERSION}
+        return {
+            "anomaly_rate": 0.0,
+            "anomalous_count": 0,
+            "total": 0,
+            "records": [],
+            "model_version": MODEL_VERSION,
+        }
 
-    X = np.array([
-        [r.throughput_mbps, r.latency_ms, r.packet_loss_pct,
-         float(r.active_users), r.signal_rsrp_dbm]
-        for r in req.records
-    ])
+    X = np.array(
+        [
+            [
+                r.throughput_mbps,
+                r.latency_ms,
+                r.packet_loss_pct,
+                float(r.active_users),
+                r.signal_rsrp_dbm,
+            ]
+            for r in req.records
+        ]
+    )
 
     # IsolationForest: predict returns +1 (normal) or -1 (anomaly)
-    labels      = _anomaly_model.predict(X)           # +1 / -1
-    raw_scores  = _anomaly_model.decision_function(X) # negative = more anomalous
+    labels = _anomaly_model.predict(X)  # +1 / -1
+    raw_scores = _anomaly_model.decision_function(X)  # negative = more anomalous
     # normalise scores to [0, 1] where 1 = most anomalous
     score_range = raw_scores.max() - raw_scores.min()
     norm_scores = 1.0 - (raw_scores - raw_scores.min()) / (score_range + 1e-9)
 
-    anomaly_mask  = (labels == -1)
+    anomaly_mask = labels == -1
     anomaly_count = int(anomaly_mask.sum())
-    anomaly_rate  = round(anomaly_count / len(req.records), 4)
+    anomaly_rate = round(anomaly_count / len(req.records), 4)
 
     results = [
         {
-            "index":         i,
-            "is_anomaly":    bool(anomaly_mask[i]),
+            "index": i,
+            "is_anomaly": bool(anomaly_mask[i]),
             "anomaly_score": round(float(norm_scores[i]), 4),
         }
         for i in range(len(req.records))
     ]
 
     return {
-        "run_id":          req.run_id,
-        "region":          req.region,
-        "total":           len(req.records),
+        "run_id": req.run_id,
+        "region": req.region,
+        "total": len(req.records),
         "anomalous_count": anomaly_count,
-        "anomaly_rate":    anomaly_rate,
-        "records":         results,
-        "model_version":   MODEL_VERSION,
-        "generated_at":    datetime.now(timezone.utc).isoformat(),
+        "anomaly_rate": anomaly_rate,
+        "records": results,
+        "model_version": MODEL_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -410,40 +468,46 @@ def infer_anomaly(req: AnomalyRequest):
 def infer_revenue_anomaly(req: RevenueAnomalyRequest):
     """Detect anomalous BSS revenue/usage records with IsolationForest."""
     if not req.records:
-        return {"anomaly_rate": 0.0, "anomalous_count": 0, "total": 0,
-                "records": [], "model_version": MODEL_VERSION}
+        return {
+            "anomaly_rate": 0.0,
+            "anomalous_count": 0,
+            "total": 0,
+            "records": [],
+            "model_version": MODEL_VERSION,
+        }
 
-    X = np.array([
-        [r.revenue_tnd, r.data_used_gb, r.voice_min,
-         r.sms_count, r.churn_risk]
-        for r in req.records
-    ])
+    X = np.array(
+        [
+            [r.revenue_tnd, r.data_used_gb, r.voice_min, r.sms_count, r.churn_risk]
+            for r in req.records
+        ]
+    )
 
-    labels      = _revenue_anomaly_model.predict(X)
-    raw_scores  = _revenue_anomaly_model.decision_function(X)
+    labels = _revenue_anomaly_model.predict(X)
+    raw_scores = _revenue_anomaly_model.decision_function(X)
     score_range = raw_scores.max() - raw_scores.min()
     norm_scores = 1.0 - (raw_scores - raw_scores.min()) / (score_range + 1e-9)
 
-    anomaly_mask  = (labels == -1)
+    anomaly_mask = labels == -1
     anomaly_count = int(anomaly_mask.sum())
-    anomaly_rate  = round(anomaly_count / len(req.records), 4)
+    anomaly_rate = round(anomaly_count / len(req.records), 4)
 
     results = [
         {
-            "index":         i,
-            "is_anomaly":    bool(anomaly_mask[i]),
+            "index": i,
+            "is_anomaly": bool(anomaly_mask[i]),
             "anomaly_score": round(float(norm_scores[i]), 4),
         }
         for i in range(len(req.records))
     ]
 
     return {
-        "run_id":          req.run_id,
-        "region":          req.region,
-        "total":           len(req.records),
+        "run_id": req.run_id,
+        "region": req.region,
+        "total": len(req.records),
         "anomalous_count": anomaly_count,
-        "anomaly_rate":    anomaly_rate,
-        "records":         results,
-        "model_version":   MODEL_VERSION,
-        "generated_at":    datetime.now(timezone.utc).isoformat(),
+        "anomaly_rate": anomaly_rate,
+        "records": results,
+        "model_version": MODEL_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }

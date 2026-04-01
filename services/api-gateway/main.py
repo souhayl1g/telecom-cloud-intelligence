@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from fastapi import FastAPI, HTTPException, Query, Request, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 import psycopg2
@@ -26,7 +26,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     if not credentials:
         return None
     try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM]
+        )
         return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -42,6 +44,7 @@ def require_auth(user=Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
+
 
 def get_conn():
     db_url = os.getenv("DATABASE_URL")
@@ -68,15 +71,16 @@ def _db():
 # Public endpoints (no auth required)
 # ---------------------------------------------------------------------------
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 
-
 # ---------------------------------------------------------------------------
 # Protected endpoints (auth required)
 # ---------------------------------------------------------------------------
+
 
 @app.get("/sla-risk")
 def sla_risk_latest(user=Depends(require_auth)):
@@ -92,7 +96,9 @@ def sla_risk_latest(user=Depends(require_auth)):
                 """)
                 row = cur.fetchone()
                 if not row:
-                    raise HTTPException(status_code=404, detail="No SLA risk scores found")
+                    raise HTTPException(
+                        status_code=404, detail="No SLA risk scores found"
+                    )
                 return row
     except HTTPException:
         raise
@@ -101,35 +107,45 @@ def sla_risk_latest(user=Depends(require_auth)):
 
 
 @app.get("/sla-risk/history")
-def sla_risk_history(limit: int = Query(default=20, ge=1, le=200), user=Depends(require_auth)):
+def sla_risk_history(
+    limit: int = Query(default=20, ge=1, le=200), user=Depends(require_auth)
+):
     """Return the last N SLA risk scores, newest first."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT id, run_id, region, score, model_version, created_at
                     FROM sla_risk_scores
                     ORDER BY created_at DESC
                     LIMIT %s;
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 return cur.fetchall()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/anomalies")
-def anomalies_latest(limit: int = Query(default=50, ge=1, le=500), user=Depends(require_auth)):
+def anomalies_latest(
+    limit: int = Query(default=50, ge=1, le=500), user=Depends(require_auth)
+):
     """Return the N most recent detected anomalies, newest first."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT id, run_id, ts, region, cell_id, kpi_name,
                            severity, value, baseline_value, model_version, created_at
                     FROM anomalies
                     ORDER BY created_at DESC
                     LIMIT %s;
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 rows = cur.fetchall()
                 return {"count": len(rows), "anomalies": rows}
     except Exception as e:
@@ -137,29 +153,37 @@ def anomalies_latest(limit: int = Query(default=50, ge=1, le=500), user=Depends(
 
 
 @app.get("/pipeline-runs")
-def pipeline_runs(limit: int = Query(default=10, ge=1, le=100), user=Depends(require_auth)):
+def pipeline_runs(
+    limit: int = Query(default=10, ge=1, le=100), user=Depends(require_auth)
+):
     """Return the N most recent pipeline runs."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT run_id, status, started_at, finished_at, error_message
                     FROM pipeline_runs
                     ORDER BY id DESC
                     LIMIT %s;
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 return cur.fetchall()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/revenue-anomalies")
-def revenue_anomalies_latest(limit: int = Query(default=50, ge=1, le=500), user=Depends(require_auth)):
+def revenue_anomalies_latest(
+    limit: int = Query(default=50, ge=1, le=500), user=Depends(require_auth)
+):
     """Return the N most recent detected BSS revenue anomalies."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT id, run_id, ts, region, operator, subscriber_id,
                            line_type, plan,
                            metric_name, severity, value, baseline_value,
@@ -167,7 +191,9 @@ def revenue_anomalies_latest(limit: int = Query(default=50, ge=1, le=500), user=
                     FROM revenue_anomalies
                     ORDER BY created_at DESC
                     LIMIT %s;
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 rows = cur.fetchall()
                 return {"count": len(rows), "revenue_anomalies": rows}
     except Exception as e:
@@ -175,21 +201,25 @@ def revenue_anomalies_latest(limit: int = Query(default=50, ge=1, le=500), user=
 
 
 @app.get("/correlation")
-def correlation_latest(limit: int = Query(default=50, ge=1, le=200), user=Depends(require_auth)):
+def correlation_latest(
+    limit: int = Query(default=50, ge=1, le=200), user=Depends(require_auth)
+):
     """Return the N most recent OSS-BSS correlation insights."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT id, run_id, region, metric_x, metric_y,
                            window_start, window_end, method,
                            corr_value, p_value, created_at
                     FROM correlation_insights
                     ORDER BY created_at DESC
                     LIMIT %s;
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 rows = cur.fetchall()
                 return {"count": len(rows), "correlations": rows}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-

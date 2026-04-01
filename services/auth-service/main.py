@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from passlib.context import CryptContext
@@ -35,11 +35,15 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  # 24h default
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8002/auth/google/callback")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", "http://localhost:8002/auth/google/callback"
+)
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
-GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8002/auth/github/callback")
+GITHUB_REDIRECT_URI = os.getenv(
+    "GITHUB_REDIRECT_URI", "http://localhost:8002/auth/github/callback"
+)
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
@@ -51,6 +55,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
+
 
 def get_conn():
     if not DATABASE_URL:
@@ -105,6 +110,7 @@ def on_startup():
 # Pydantic models
 # ---------------------------------------------------------------------------
 
+
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
@@ -137,6 +143,7 @@ class UserResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # JWT helpers
 # ---------------------------------------------------------------------------
+
 
 def _create_token(user_id: int, email: str, role: str) -> tuple[str, int]:
     expires = JWT_EXPIRE_MINUTES * 60
@@ -175,6 +182,7 @@ def _user_to_dict(row: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Email/Password signup & login
 # ---------------------------------------------------------------------------
+
 
 @app.post("/auth/signup", response_model=TokenResponse)
 def signup(req: SignupRequest):
@@ -228,6 +236,7 @@ def login(req: LoginRequest):
 # Token verification endpoint (used by API gateway)
 # ---------------------------------------------------------------------------
 
+
 @app.get("/auth/me")
 def get_current_user(request: Request):
     auth_header = request.headers.get("Authorization")
@@ -253,6 +262,7 @@ def get_current_user(request: Request):
 # ---------------------------------------------------------------------------
 # Google OAuth2
 # ---------------------------------------------------------------------------
+
 
 @app.get("/auth/google")
 def google_login():
@@ -292,7 +302,9 @@ async def google_callback(code: str, state: str = ""):
             },
         )
         if token_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to exchange Google auth code")
+            raise HTTPException(
+                status_code=400, detail="Failed to exchange Google auth code"
+            )
         tokens = token_resp.json()
 
         # Get user info
@@ -301,7 +313,9 @@ async def google_callback(code: str, state: str = ""):
             headers={"Authorization": f"Bearer {tokens['access_token']}"},
         )
         if userinfo_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to fetch Google user info")
+            raise HTTPException(
+                status_code=400, detail="Failed to fetch Google user info"
+            )
         guser = userinfo_resp.json()
 
     user = _upsert_oauth_user(
@@ -323,6 +337,7 @@ async def google_callback(code: str, state: str = ""):
 # GitHub OAuth2
 # ---------------------------------------------------------------------------
 
+
 @app.get("/auth/github")
 def github_login():
     if not GITHUB_CLIENT_ID:
@@ -335,9 +350,7 @@ def github_login():
         f"&scope=read:user%20user:email"
         f"&state={state}"
     )
-    return RedirectResponse(
-        url=f"https://github.com/login/oauth/authorize?{params}"
-    )
+    return RedirectResponse(url=f"https://github.com/login/oauth/authorize?{params}")
 
 
 @app.get("/auth/github/callback")
@@ -358,7 +371,9 @@ async def github_callback(code: str, state: str = ""):
             headers={"Accept": "application/json"},
         )
         if token_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to exchange GitHub auth code")
+            raise HTTPException(
+                status_code=400, detail="Failed to exchange GitHub auth code"
+            )
         tokens = token_resp.json()
         access_token = tokens.get("access_token")
         if not access_token:
@@ -393,7 +408,9 @@ async def github_callback(code: str, state: str = ""):
                         break
 
         if not email:
-            raise HTTPException(status_code=400, detail="No verified email found on GitHub account")
+            raise HTTPException(
+                status_code=400, detail="No verified email found on GitHub account"
+            )
 
     user = _upsert_oauth_user(
         email=email,
@@ -412,6 +429,7 @@ async def github_callback(code: str, state: str = ""):
 # ---------------------------------------------------------------------------
 # OAuth upsert helper
 # ---------------------------------------------------------------------------
+
 
 def _upsert_oauth_user(
     email: str,
@@ -471,6 +489,7 @@ def _upsert_oauth_user(
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
+
 
 @app.get("/health")
 def health():
