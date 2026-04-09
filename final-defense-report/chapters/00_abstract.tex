@@ -1,0 +1,29 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+This report presents the design and implementation of a cloud-native AI Operations Agent for Customer Experience Management (CEM) and Customer Value Management (CVM) intelligence, developed during a six-month internship at Huawei Technologies Tunisia within the Cloud IT / Sales-Solution department.
+
+The platform addresses a critical gap in telecommunications operations: the lack of automated, intelligent correlation between network performance metrics (OSS) and business subscriber data (BSS). By bridging Huawei's SmartCare CEM system with CVM capabilities, the solution delivers real-time SLA breach risk prediction, network anomaly detection, revenue anomaly identification, and cross-domain OSS-BSS correlation analysis.
+
+The system employs three machine learning models---a GradientBoostingRegressor for SLA risk scoring and two IsolationForest models for unsupervised anomaly detection---embedded within a 22-step ETL pipeline running on 2-minute cycles. The architecture follows cloud-native principles with seven containerized microservices orchestrated via Docker Compose, designed for direct portability to Huawei Cloud Stack (OBS, RDS, ECS).
+
+A key innovation is the L4 Autonomous Agent, aligned with the TM Forum Autonomous Driving Network framework, which integrates a local Large Language Model (Qwen2.5) to provide conversational intelligence, autonomous remediation recommendations, and closed-loop decision support.
+
+The platform is built with FastAPI (Python 3.11), Next.js 14 (TypeScript), PostgreSQL 16, MinIO (S3-compatible), Prometheus/Grafana observability, and a complete CI/CD pipeline with security scanning.
+
+\textbf{Keywords:} Autonomous Driving Network, CEM, CVM, OSS-BSS Correlation, Machine Learning, IsolationForest, GradientBoosting, Cloud-Native, Huawei Cloud Stack, Microservices, FastAPI, Next.js, LLM
+
+\vspace{1cm}
+
+\chapter*{R\'esum\'e}
+\addcontentsline{toc}{chapter}{R\'esum\'e}
+
+Ce rapport pr\'esente la conception et l'impl\'ementation d'un agent d'op\'erations IA cloud-natif pour l'intelligence CEM (Customer Experience Management) et CVM (Customer Value Management), d\'evelopp\'e lors d'un stage de six mois chez Huawei Technologies Tunisie au sein du d\'epartement Cloud IT / Sales-Solution.
+
+La plateforme comble un manque critique dans les op\'erations t\'el\'ecoms : l'absence de corr\'elation automatis\'ee et intelligente entre les m\'etriques de performance r\'eseau (OSS) et les donn\'ees abonn\'es business (BSS). En reliant le syst\`eme SmartCare CEM de Huawei aux capacit\'es CVM, la solution fournit la pr\'ediction de risque de violation SLA en temps r\'eel, la d\'etection d'anomalies r\'eseau, l'identification d'anomalies de revenus, et l'analyse de corr\'elation crois\'ee OSS-BSS.
+
+Le syst\`eme utilise trois mod\`eles de machine learning---un GradientBoostingRegressor pour le scoring de risque SLA et deux mod\`eles IsolationForest pour la d\'etection d'anomalies non supervis\'ee---int\'egr\'es dans un pipeline ETL de 22 \'etapes s'ex\'ecutant par cycles de 2 minutes.
+
+\textbf{Mots-cl\'es :} R\'eseau Autonome, CEM, CVM, Corr\'elation OSS-BSS, Machine Learning, Cloud-Natif, Huawei Cloud Stack, Microservices
+
+\newpage

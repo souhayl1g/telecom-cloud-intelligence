@@ -1,0 +1,135 @@
+\chapter{L4 Autonomous Agent}
+\label{ch:l4-agent}
+
+\section{ADN Level 4: Autonomous Operations}
+
+The L4 Autonomous Agent represents the core innovation of this platform, implementing the TM Forum's Level 4 autonomous operations within the Huawei \gls{adn} framework. At L4, the system:
+
+\begin{itemize}
+    \item \textbf{Self-heals}: Automatically detects and remediates network issues
+    \item \textbf{Predicts}: Anticipates SLA breaches before they occur
+    \item \textbf{Decides}: Takes autonomous actions with human oversight for exceptions
+    \item \textbf{Explains}: Provides natural-language reasoning for all decisions
+\end{itemize}
+
+\section{Agent Architecture}
+
+The L4 Agent integrates three intelligence layers:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    layer/.style={rectangle, draw, rounded corners=5pt, minimum width=10cm, minimum height=1.5cm, font=\footnotesize\bfseries, fill=#1!10, draw=#1!50, align=center},
+    arrow/.style={->, thick, >=Stealth},
+]
+\node[layer=red] (ml) at (0, 0) {ML Intelligence Layer\\GradientBoosting + IsolationForest (3 models)};
+\node[layer=blue] (decision) at (0, 2) {Decision Engine\\Action Generation, Severity Classification, Confidence Scoring};
+\node[layer=green] (llm) at (0, 4) {Conversational Intelligence Layer\\Qwen2.5 7B (Local LLM via Ollama)};
+
+\draw[arrow] (ml) -- (decision) node[midway, right, font=\tiny] {scores + predictions};
+\draw[arrow] (decision) -- (llm) node[midway, right, font=\tiny] {context + actions};
+\end{tikzpicture}
+\caption{L4 Agent Three-Layer Architecture}
+\label{fig:l4-architecture}
+\end{figure}
+
+\section{Decision Engine}
+
+The decision engine transforms raw ML outputs into actionable decisions:
+
+\subsection{Action Types}
+
+\begin{table}[H]
+\centering
+\caption{L4 Agent Action Types}
+\label{tab:action-types}
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{Type} & \textbf{Autonomy} & \textbf{Description} \\
+\midrule
+Auto-Remediation & Autonomous & System executes action automatically (e.g., load balancing, traffic rerouting) \\
+Recommendation & Advisory & Agent suggests action for human approval \\
+Escalation & Alert & Critical issue escalated to NOC team \\
+Prediction & Informational & Predictive insight shared for awareness \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Decision Rules}
+
+The decision engine applies threshold-based rules to ML outputs:
+
+\begin{itemize}
+    \item SLA risk score $\geq 0.7$: Trigger \textbf{auto-remediation} + \textbf{NOC escalation}
+    \item SLA risk score $\in [0.4, 0.7)$: Generate \textbf{recommendation} for capacity increase
+    \item Critical OSS anomalies ($\text{score} > 0.9$): \textbf{Auto-remediation} with traffic rerouting
+    \item High BSS anomalies ($\text{score} > 0.8$): \textbf{Recommendation} for fraud audit
+    \item Strong OSS-BSS correlations ($|\rho| \geq 0.7$): \textbf{Prediction} for model improvement
+\end{itemize}
+
+\section{LLM Integration}
+
+\subsection{Local Deployment with Ollama}
+
+The conversational intelligence layer uses Qwen2.5 7B~\cite{qwen2024}, a high-performance open-source LLM, deployed locally via Ollama. This approach ensures:
+
+\begin{itemize}
+    \item \textbf{Data privacy}: No telemetry data leaves the operator's network
+    \item \textbf{Low latency}: Local inference without cloud API round-trips
+    \item \textbf{Offline capability}: Functions without internet connectivity
+    \item \textbf{Cost}: No per-token API charges
+\end{itemize}
+
+\subsection{Context-Aware Prompting}
+
+The LLM receives live platform data as context with each query:
+
+\begin{lstlisting}[language=Python, caption={LLM context injection}]
+system_prompt = f"""You are the NexOps L4 Agent...
+
+--- LIVE PLATFORM DATA ---
+SLA Risk Score: {sla_risk.score}
+OSS Anomalies: {len(anomalies)}
+BSS Anomalies: {len(revenue_anomalies)}
+Strong Correlations: {len(correlations)}
+Pipeline Status: {last_run.status}
+"""
+\end{lstlisting}
+
+This enables the LLM to provide context-aware analysis, root cause investigation, and remediation recommendations grounded in actual platform telemetry.
+
+\subsection{Streaming Architecture}
+
+The chat interface uses Server-Sent Events (SSE) for real-time token streaming:
+
+\begin{enumerate}
+    \item User sends message via dashboard chat interface
+    \item Next.js API route (\texttt{/api/chat}) forwards to Ollama with platform context
+    \item Ollama streams tokens via its native streaming API
+    \item API route re-encodes as SSE events
+    \item Dashboard renders tokens incrementally for responsive UX
+\end{enumerate}
+
+\section{Dashboard Integration}
+
+The L4 Agent page provides a split-panel interface:
+
+\begin{itemize}
+    \item \textbf{Left panel}: Chat interface with the LLM agent, including suggested queries and streaming responses
+    \item \textbf{Right panel}: Pending and executed actions with approve/reject controls, ADN level visualization
+    \item \textbf{Header}: Live KPI summary (SLA risk, anomaly count, pending actions)
+    \item \textbf{Mobile}: Tab-based switching between chat and actions panels
+\end{itemize}
+
+\section{Closed-Loop Operation}
+
+The L4 Agent implements a closed-loop operational cycle aligned with \gls{adn} principles:
+
+\begin{enumerate}
+    \item \textbf{Sense}: Pipeline worker collects OSS+BSS telemetry every 120 seconds
+    \item \textbf{Analyze}: ML models generate risk scores, anomaly detections, and correlations
+    \item \textbf{Decide}: Decision engine generates prioritized actions with confidence scores
+    \item \textbf{Act}: Auto-remediations execute; recommendations await human approval
+    \item \textbf{Verify}: Next pipeline cycle validates whether the action improved metrics
+    \item \textbf{Learn}: LLM provides natural-language explanations and historical context
+\end{enumerate}

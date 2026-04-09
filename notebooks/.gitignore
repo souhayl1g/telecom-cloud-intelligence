@@ -1,0 +1,17 @@
+# Notebook outputs - do not track generated data
+data/
+*.png
+*.csv
+*.npz
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Keep model artifacts tracked (they are deployment artifacts)
+!models/
+!models/*.joblib

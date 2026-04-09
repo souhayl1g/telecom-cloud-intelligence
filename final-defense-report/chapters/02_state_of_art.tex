@@ -1,0 +1,99 @@
+\chapter{State of the Art}
+\label{ch:state-of-art}
+
+\section{Autonomous Driving Networks}
+
+The TM Forum defines five levels of network autonomy, from L1 (manual operations) to L5 (fully autonomous). Each level represents increasing degrees of AI-driven decision-making and reduced human intervention~\cite{tmforum2023}.
+
+\begin{table}[H]
+\centering
+\caption{TM Forum Autonomous Network Levels}
+\label{tab:adn-levels}
+\begin{tabular}{@{}clll@{}}
+\toprule
+\textbf{Level} & \textbf{Name} & \textbf{AI Role} & \textbf{Human Role} \\
+\midrule
+L1 & Manual & None & Full control \\
+L2 & Assisted & Monitoring \& alerting & Decision + execution \\
+L3 & Conditional & Recommends actions & Approves decisions \\
+L4 & Autonomous & Executes with oversight & Supervises exceptions \\
+L5 & Full Autonomy & Fully autonomous & None \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Huawei's \gls{adn} architecture implements this framework with three core pillars: intelligent sensing (data collection), intelligent analysis (AI inference), and intelligent decision-making (closed-loop actions)~\cite{huawei2022adn}. Our platform targets \textbf{L4 Autonomous} by implementing predictive analytics, anomaly detection, and an autonomous agent with human-in-the-loop oversight.
+
+\section{CEM and CVM in Telecommunications}
+
+\gls{cem} focuses on monitoring and improving the end-user experience through network quality metrics. Huawei SmartCare is the industry-leading CEM platform that collects per-subscriber quality indicators from the radio access network (RAN), core network, and transport layer.
+
+\gls{cvm} complements CEM by managing subscriber value through targeted marketing, churn prevention, and revenue optimization. The convergence of CEM and CVM---termed \textbf{O+B convergence} (Operations + Business)---enables operators to answer questions such as: \textit{``Which network degradation events directly caused revenue decline in a specific region?''}
+
+\section{Machine Learning for Network Intelligence}
+
+\subsection{Gradient Boosting for Regression}
+
+Gradient Boosting~\cite{friedman2001gbr} builds an ensemble of decision trees sequentially, where each tree corrects the residual errors of the previous ensemble. For SLA risk prediction, the algorithm offers:
+
+\begin{itemize}
+    \item Non-linear modeling of complex KPI interactions
+    \item Built-in feature importance for explainability
+    \item Robustness to outliers and mixed feature scales
+    \item Early stopping to prevent overfitting
+\end{itemize}
+
+\subsection{Isolation Forest for Anomaly Detection}
+
+IsolationForest~\cite{liu2008iforest} is a tree-based anomaly detection algorithm that works by randomly partitioning the feature space. Anomalies, being rare and different, require fewer partitions (shorter path lengths) to be isolated. Key advantages for telecom:
+
+\begin{itemize}
+    \item \textbf{Unsupervised}: no labeled anomaly data required
+    \item \textbf{Scalable}: $O(n \log n)$ time complexity
+    \item \textbf{Tunable}: contamination parameter controls anomaly rate
+    \item \textbf{Interpretable}: anomaly scores map to isolation depth
+\end{itemize}
+
+\subsection{Correlation Analysis}
+
+OSS-BSS correlation uses Pearson~\cite{pearson1895} (linear relationships) and Spearman~\cite{spearman1904} (monotonic relationships) correlation coefficients to quantify the relationship between network metrics and business metrics. A strong negative correlation between throughput and churn risk, for example, provides evidence that network quality directly impacts subscriber retention.
+
+\section{Cloud-Native Architecture}
+
+Cloud-native design principles~\cite{docker2024} underpin the platform architecture:
+
+\begin{itemize}
+    \item \textbf{Microservices}: each service has a single responsibility and independent lifecycle
+    \item \textbf{Containerization}: Docker containers ensure reproducible deployments
+    \item \textbf{API-first}: all inter-service communication uses REST APIs
+    \item \textbf{Observability}: Prometheus metrics and Grafana dashboards~\cite{prometheus2024}
+    \item \textbf{Infrastructure as code}: Docker Compose for orchestration, CI/CD for automation
+\end{itemize}
+
+\section{Large Language Models for Operations}
+
+The integration of \glspl{llm} into network operations (AIOps) represents the frontier of autonomous networks. Models like Qwen2.5~\cite{qwen2024} enable natural-language interaction with complex telemetry data, allowing operators to query system state, request root cause analysis, and approve autonomous actions through conversational interfaces.
+
+\section{Existing Solutions and Positioning}
+
+\begin{table}[H]
+\centering
+\caption{Comparison with Existing Solutions}
+\label{tab:comparison}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Feature} & \textbf{SmartCare} & \textbf{ONAP} & \textbf{Moogsoft} & \textbf{Our Platform} \\
+\midrule
+OSS Monitoring & \checkmark & \checkmark & \checkmark & \checkmark \\
+BSS Integration & -- & Partial & -- & \checkmark \\
+OSS-BSS Correlation & -- & -- & -- & \checkmark \\
+ML Anomaly Detection & Partial & -- & \checkmark & \checkmark \\
+SLA Risk Prediction & -- & -- & -- & \checkmark \\
+L4 Autonomous Agent & -- & -- & -- & \checkmark \\
+LLM Integration & -- & -- & -- & \checkmark \\
+HCS Ready & \checkmark & -- & -- & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Our platform differentiates itself through the complete OSS-BSS convergence pipeline, L4 autonomous agent with LLM capabilities, and native Huawei Cloud Stack portability.

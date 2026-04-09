@@ -70,7 +70,7 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - aimodels:/app/models
+      - notebooks_models:/app/models:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,9 +121,48 @@ services:
     depends_on:
       - prometheus
 
+  notebooks:
+    build:
+      context: .
+      dockerfile: Dockerfile.notebooks
+    environment:
+      AUTO_PIPELINE: ${AUTO_PIPELINE:-false}
+      PIPELINE_MODE: ${PIPELINE_MODE:-oneshot}
+      PIPELINE_TIMEOUT: ${PIPELINE_TIMEOUT:-120}
+      JUPYTER_PORT: ${JUPYTER_PORT:-8888}
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-}
+      DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio_pw
+      AI_SERVICE_URL: http://ai-service:8001
+      PIPELINE_LOG_LEVEL: ${PIPELINE_LOG_LEVEL:-INFO}
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks:ro
+      - notebooks_data:/app/data
+      - notebooks_logs:/app/logs
+      - notebooks_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 volumes:
   pgdata:
   miniodata:
-  aimodels:
   prometheusdata:
   grafanadata:
+  notebooks_data:
+  notebooks_logs:
+  notebooks_models:

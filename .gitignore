@@ -216,3 +216,11 @@ docs/**/*.docx
 # dependencies
 node_modules/
 dashboard/node_modules/
+
+# Next.js build artifacts
+dashboard/.next/
+dashboard/tsconfig.tsbuildinfo
+
+# Local env files (never commit secrets)
+dashboard/.env.local
+.env.local

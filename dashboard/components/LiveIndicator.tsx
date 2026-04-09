@@ -19,25 +19,25 @@ export default function LiveIndicator() {
         <div style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "6px",
             background: "var(--color-success-bg)",
             border: "1px solid var(--color-success-border)",
-            padding: "6px 14px",
+            padding: "3px 10px",
             borderRadius: "var(--radius-full)",
-            fontSize: "11px",
+            fontSize: "10px",
             color: "var(--color-success)",
             fontWeight: 600,
             letterSpacing: "0.2px",
         }}>
             <div className="pulse-dot" style={{
-                width: "7px",
-                height: "7px",
+                width: "6px",
+                height: "6px",
                 backgroundColor: "var(--color-success)",
                 borderRadius: "50%",
-                boxShadow: "0 0 8px var(--color-success)",
+                boxShadow: "0 0 6px var(--color-success)",
             }} />
             <span>LIVE</span>
-            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{secondsSinceUpdate}s ago</span>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '10px' }}>{secondsSinceUpdate}s</span>
         </div>
     );
 }

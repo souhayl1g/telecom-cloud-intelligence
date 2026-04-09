@@ -1,18 +1,23 @@
 """
-AI Service — Real inference with trained scikit-learn models.
+AI Service — Real inference with pre-trained scikit-learn models.
 
-Models trained on startup from synthetic data (if not already persisted):
+Models are loaded dynamically from /app/models/ on each inference request
+to support continuous training in notebooks:
   sla_risk_model.joblib            — GradientBoostingRegressor
-                                     Predicts SLA breach risk (0–1) from aggregated KPI features.
+                                      Predicts SLA breach risk (0–1) from aggregated KPI features.
   anomaly_model.joblib             — IsolationForest
-                                     Detects anomalous OSS KPI records from per-record features.
+                                      Detects anomalous OSS KPI records from per-record features.
   revenue_anomaly_model.joblib     — IsolationForest
-                                     Detects anomalous BSS revenue/usage records.
+                                      Detects anomalous BSS revenue/usage records.
 
-All models are written to /app/models/ and reloaded on subsequent restarts.
+Training notebooks:
+  notebooks/01_data_preparation_eda.ipynb   — Data generation & EDA
+  notebooks/02_sla_risk_model.ipynb         — SLA risk model training & evaluation
+  notebooks/03_anomaly_detection_models.ipynb — Anomaly models training & evaluation
 """
 
 import hashlib
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -22,9 +27,6 @@ import numpy as np
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
-from sklearn.ensemble import GradientBoostingRegressor, IsolationForest
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
 
 # ── constants ─────────────────────────────────────────────────────────────────
 
@@ -33,8 +35,6 @@ SLA_MODEL_PATH = MODELS_DIR / "sla_risk_model.joblib"
 ANOMALY_MODEL_PATH = MODELS_DIR / "anomaly_model.joblib"
 REVENUE_ANOMALY_MODEL_PATH = MODELS_DIR / "revenue_anomaly_model.joblib"
 MODEL_VERSION = "v2.0"
-N_TRAIN = 3000  # synthetic training samples
-RANDOM_SEED = 42
 
 SLA_FEATURES = [
     "mean_throughput_mbps",
@@ -64,236 +64,100 @@ BSS_FEATURES = [
     "churn_risk",
 ]
 
-# ── training data generators ──────────────────────────────────────────────────
+# ── model cache with dynamic reload ─────────────────────────────────────────
+
+_cache = {"sla": None, "anomaly": None, "revenue": None, "loaded_at": 0}
+_cache_ttl = 30  # reload models every 30 seconds max
 
 
-def _generate_sla_training_data(n: int, seed: int):
+def _get_model_file_mtime(path: Path) -> float:
+    """Get model file modification time, return 0 if doesn't exist."""
+    try:
+        return path.stat().st_mtime if path.exists() else 0
+    except Exception:
+        return 0
+
+
+def load_models(force: bool = False):
+    """Load pre-trained models from disk with caching.
+
+    Models are reloaded if:
+    - force=True
+    - Cache is empty
+    - Model files have been modified since last load
+
+    This allows notebooks to retrain and save models while AI service runs.
     """
-    Synthesise N windows of aggregated OSS KPI features + risk label.
+    global _cache
 
-    Risk label is a deterministic function of the features so the model
-    learns a real decision boundary, not noise.
-    """
-    rng = np.random.default_rng(seed)
+    now = time.time()
+    should_reload = force or _cache["sla"] is None
 
-    mean_tput = rng.uniform(10, 120, n)  # Mbps
-    std_tput = rng.uniform(2, 25, n)
-    mean_lat = rng.uniform(8, 80, n)  # ms
-    std_lat = rng.uniform(1, 20, n)
-    max_lat = mean_lat + rng.uniform(5, 40, n)
-    mean_loss = rng.uniform(0, 5, n)  # pct
-    max_loss = mean_loss + rng.uniform(0, 3, n)
-    mean_users = rng.uniform(50, 500, n)
-    mean_rsrp = rng.uniform(-110, -60, n)  # dBm
+    # Check if models need reload based on file mtime
+    if not should_reload and now - _cache["loaded_at"] > _cache_ttl:
+        sla_mtime = _get_model_file_mtime(SLA_MODEL_PATH)
+        anomaly_mtime = _get_model_file_mtime(ANOMALY_MODEL_PATH)
+        revenue_mtime = _get_model_file_mtime(REVENUE_ANOMALY_MODEL_PATH)
 
-    X = np.column_stack(
-        [
-            mean_tput,
-            std_tput,
-            mean_lat,
-            std_lat,
-            max_lat,
-            mean_loss,
-            max_loss,
-            mean_users,
-            mean_rsrp,
-        ]
-    )
+        if (
+            sla_mtime > _cache["loaded_at"]
+            or anomaly_mtime > _cache["loaded_at"]
+            or revenue_mtime > _cache["loaded_at"]
+        ):
+            should_reload = True
 
-    # deterministic risk label: weighted sum of degradation indicators
-    risk = np.zeros(n)
-    risk += np.clip((mean_lat - 20) / 60, 0, 0.35)  # latency contribution
-    risk += np.clip((max_lat - 30) / 70, 0, 0.25)
-    risk += np.clip(mean_loss / 4, 0, 0.25)  # packet loss contribution
-    risk += np.clip(max_loss / 6, 0, 0.15)
-    risk += np.clip((60 - mean_tput) / 100, 0, 0.20)  # low throughput contribution
-    risk += rng.normal(0, 0.03, n)  # small noise
-    risk = np.clip(risk, 0.0, 1.0)
+    if not should_reload:
+        return _cache["sla"], _cache["anomaly"], _cache["revenue"]
 
-    return X, risk
+    missing = []
+    for path in [SLA_MODEL_PATH, ANOMALY_MODEL_PATH, REVENUE_ANOMALY_MODEL_PATH]:
+        if not path.exists():
+            missing.append(str(path))
 
+    if missing and _cache["sla"] is None:
+        raise FileNotFoundError(
+            f"Pre-trained model(s) not found: {missing}. "
+            "Run the training notebooks (notebooks/) to generate model artifacts, "
+            "then place them in /app/models/."
+        )
 
-def _generate_anomaly_training_data(n: int, seed: int):
-    """
-    Synthesise N per-record OSS KPI vectors for IsolationForest training.
-    95% normal, 5% injected faults (contamination parameter matches this).
-    """
-    rng = np.random.default_rng(seed)
-    n_norm = int(n * 0.95)
-    n_anom = n - n_norm
+    # Reload models if files exist
+    try:
+        if SLA_MODEL_PATH.exists():
+            sla_model = joblib.load(SLA_MODEL_PATH)
+            print(f"  [ml] loaded SLA model from {SLA_MODEL_PATH}")
+        else:
+            sla_model = _cache["sla"]
+    except Exception as e:
+        print(f"  [ml] warning: failed to reload SLA model: {e}")
+        sla_model = _cache["sla"]
 
-    normal = np.column_stack(
-        [
-            rng.normal(80, 12, n_norm),  # throughput
-            rng.normal(25, 7, n_norm),  # latency
-            rng.uniform(0, 1, n_norm),  # packet loss
-            rng.integers(50, 500, n_norm),  # active users
-            rng.normal(-85, 8, n_norm),  # RSRP
-        ]
-    )
-    anomalous = np.column_stack(
-        [
-            rng.uniform(1, 20, n_anom),  # very low throughput
-            rng.uniform(80, 200, n_anom),  # very high latency
-            rng.uniform(3, 8, n_anom),  # high packet loss
-            rng.integers(500, 900, n_anom),  # overload or spike
-            rng.uniform(-130, -110, n_anom),  # very weak signal
-        ]
-    )
-    X = np.vstack([normal, anomalous])
-    idx = rng.permutation(n)
-    return X[idx]
+    try:
+        if ANOMALY_MODEL_PATH.exists():
+            anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
+            print(f"  [ml] loaded anomaly model from {ANOMALY_MODEL_PATH}")
+        else:
+            anomaly_model = _cache["anomaly"]
+    except Exception as e:
+        print(f"  [ml] warning: failed to reload anomaly model: {e}")
+        anomaly_model = _cache["anomaly"]
 
+    try:
+        if REVENUE_ANOMALY_MODEL_PATH.exists():
+            revenue_anomaly_model = joblib.load(REVENUE_ANOMALY_MODEL_PATH)
+            print(
+                f"  [ml] loaded revenue anomaly model from {REVENUE_ANOMALY_MODEL_PATH}"
+            )
+        else:
+            revenue_anomaly_model = _cache["revenue"]
+    except Exception as e:
+        print(f"  [ml] warning: failed to reload revenue anomaly model: {e}")
+        revenue_anomaly_model = _cache["revenue"]
 
-def _generate_revenue_anomaly_training_data(n: int, seed: int):
-    """
-    Synthesise N BSS records for IsolationForest on revenue/usage patterns.
-    95 % normal Tunisian subscriber behaviour (prepaid-dominant market),
-    5 % anomalous (fraud recharges, SIM box patterns, churn spikes).
-
-    Tunisian context:
-      - ~80 % prepaid: revenue = recharge total, typically 5-40 TND/month
-      - ~20 % postpaid: revenue = fixed plan 40-90 TND/month
-      - Overall ARPU range: ~1-105 TND/month
-    """
-    rng = np.random.default_rng(seed)
-    n_norm = int(n * 0.95)
-    n_anom = n - n_norm
-
-    # Normal: mix of prepaid recharges (low-mid) and postpaid (mid-high)
-    normal = np.column_stack(
-        [
-            rng.uniform(1, 105, n_norm),  # revenue_tnd (recharges or plan)
-            rng.uniform(0.1, 50, n_norm),  # data_used_gb
-            rng.uniform(5, 400, n_norm),  # voice_min
-            rng.uniform(0, 120, n_norm),  # sms_count
-            rng.uniform(0.0, 0.4, n_norm),  # churn_risk
-        ]
-    )
-
-    # Anomalous: SIM box fraud (massive recharges), zero-use SIMs, spam
-    rev_anom = np.where(
-        rng.random(n_anom) < 0.5,
-        rng.uniform(0, 1, n_anom),  # dormant SIM
-        rng.uniform(150, 500, n_anom),
-    )  # SIM box / fraud
-    voice_anom = np.where(
-        rng.random(n_anom) < 0.5,
-        rng.uniform(0, 1, n_anom),  # zero voice
-        rng.uniform(800, 2000, n_anom),
-    )  # SIM box termination
-    anomalous = np.column_stack(
-        [
-            rev_anom,  # abnormal revenue
-            rng.uniform(60, 150, n_anom),  # excessive data usage
-            voice_anom,  # abnormal voice
-            rng.uniform(300, 1000, n_anom),  # SMS spam pattern
-            rng.uniform(0.7, 1.0, n_anom),  # high churn risk
-        ]
-    )
-
-    X = np.vstack([normal, anomalous])
-    idx = rng.permutation(n)
-    return X[idx]
-
-
-# ── model training & persistence ──────────────────────────────────────────────
-
-
-def _train_sla_model() -> Pipeline:
-    print("  [ml] training SLA risk model ...")
-    X, y = _generate_sla_training_data(N_TRAIN, RANDOM_SEED)
-    pipe = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            (
-                "gbr",
-                GradientBoostingRegressor(
-                    n_estimators=200,
-                    max_depth=4,
-                    learning_rate=0.05,
-                    subsample=0.8,
-                    random_state=RANDOM_SEED,
-                ),
-            ),
-        ]
-    )
-    pipe.fit(X, y)
-    importances = pipe.named_steps["gbr"].feature_importances_.tolist()
-    print(
-        f"  [ml] SLA model trained — top feature: {SLA_FEATURES[int(np.argmax(importances))]}"
-    )
-    return pipe
-
-
-def _train_anomaly_model() -> Pipeline:
-    print("  [ml] training anomaly detection model ...")
-    X = _generate_anomaly_training_data(N_TRAIN, RANDOM_SEED)
-    pipe = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            (
-                "ifo",
-                IsolationForest(
-                    n_estimators=150,
-                    contamination=0.05,
-                    random_state=RANDOM_SEED,
-                ),
-            ),
-        ]
-    )
-    pipe.fit(X)
-    print("  [ml] IsolationForest trained")
-    return pipe
-
-
-def _train_revenue_anomaly_model() -> Pipeline:
-    print("  [ml] training revenue anomaly model ...")
-    X = _generate_revenue_anomaly_training_data(N_TRAIN, RANDOM_SEED + 1)
-    pipe = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            (
-                "ifo",
-                IsolationForest(
-                    n_estimators=150,
-                    contamination=0.05,
-                    random_state=RANDOM_SEED,
-                ),
-            ),
-        ]
-    )
-    pipe.fit(X)
-    print("  [ml] Revenue anomaly IsolationForest trained")
-    return pipe
-
-
-def load_or_train_models():
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-
-    if SLA_MODEL_PATH.exists():
-        print(f"  [ml] loading SLA model from {SLA_MODEL_PATH}")
-        sla_model = joblib.load(SLA_MODEL_PATH)
-    else:
-        sla_model = _train_sla_model()
-        joblib.dump(sla_model, SLA_MODEL_PATH)
-        print(f"  [ml] SLA model saved → {SLA_MODEL_PATH}")
-
-    if ANOMALY_MODEL_PATH.exists():
-        print(f"  [ml] loading anomaly model from {ANOMALY_MODEL_PATH}")
-        anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
-    else:
-        anomaly_model = _train_anomaly_model()
-        joblib.dump(anomaly_model, ANOMALY_MODEL_PATH)
-        print(f"  [ml] anomaly model saved → {ANOMALY_MODEL_PATH}")
-
-    if REVENUE_ANOMALY_MODEL_PATH.exists():
-        print(f"  [ml] loading revenue anomaly model from {REVENUE_ANOMALY_MODEL_PATH}")
-        revenue_anomaly_model = joblib.load(REVENUE_ANOMALY_MODEL_PATH)
-    else:
-        revenue_anomaly_model = _train_revenue_anomaly_model()
-        joblib.dump(revenue_anomaly_model, REVENUE_ANOMALY_MODEL_PATH)
-        print(f"  [ml] revenue anomaly model saved → {REVENUE_ANOMALY_MODEL_PATH}")
+    _cache["sla"] = sla_model
+    _cache["anomaly"] = anomaly_model
+    _cache["revenue"] = revenue_anomaly_model
+    _cache["loaded_at"] = now
 
     return sla_model, anomaly_model, revenue_anomaly_model
 
@@ -304,9 +168,9 @@ app = FastAPI(title="AI Service", version=MODEL_VERSION)
 
 Instrumentator().instrument(app).expose(app)
 
-# models are loaded at module level so they are ready before the first request
-print("[ai-service] initialising models ...")
-_sla_model, _anomaly_model, _revenue_anomaly_model = load_or_train_models()
+# Initialize model cache at startup
+print("[ai-service] initializing model cache...")
+_sla_model, _anomaly_model, _revenue_anomaly_model = load_models(force=True)
 print("[ai-service] models ready — 3 models loaded")
 
 
@@ -360,6 +224,9 @@ def health():
 
 @app.post("/infer/sla-risk")
 def infer_sla_risk(req: SlaRiskRequest):
+    # Reload models to get latest trained versions
+    _sla_model, _, _ = load_models()
+
     if req.features:
         # real inference path — pipeline worker sent pre-computed features
         feat_vector = np.array(
@@ -378,8 +245,8 @@ def infer_sla_risk(req: SlaRiskRequest):
             ]
         )
         score = float(np.clip(_sla_model.predict(feat_vector)[0], 0.0, 1.0))
-        gbr = _sla_model.named_steps["gbr"]
-        importances = gbr.feature_importances_.tolist()
+        model = _sla_model.named_steps["model"]
+        importances = model.feature_importances_.tolist()
         explanation = {
             "method": "GradientBoostingRegressor",
             "feature_importances": dict(
@@ -410,6 +277,9 @@ def infer_sla_risk(req: SlaRiskRequest):
 
 @app.post("/infer/anomaly")
 def infer_anomaly(req: AnomalyRequest):
+    # Reload models to get latest trained versions
+    _, _anomaly_model, _ = load_models()
+
     if not req.records:
         return {
             "anomaly_rate": 0.0,
@@ -466,6 +336,9 @@ def infer_anomaly(req: AnomalyRequest):
 
 @app.post("/infer/revenue-anomaly")
 def infer_revenue_anomaly(req: RevenueAnomalyRequest):
+    # Reload models to get latest trained versions
+    _, _, _revenue_anomaly_model = load_models()
+
     """Detect anomalous BSS revenue/usage records with IsolationForest."""
     if not req.records:
         return {

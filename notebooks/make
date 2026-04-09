@@ -1,0 +1,10 @@
+#!/bin/bash
+# Convenience wrapper for Makefile
+# Usage: ./make <command>
+# Can be run from anywhere inside the project
+
+# Find project root (parent of notebooks/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT" && make "$@"

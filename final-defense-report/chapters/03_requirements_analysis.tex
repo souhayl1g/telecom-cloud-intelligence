@@ -1,0 +1,162 @@
+\chapter{Requirements Analysis}
+\label{ch:requirements}
+
+\section{Host Organization}
+
+\subsection{Huawei Technologies Tunisia}
+
+Huawei Technologies Co., Ltd. is a global leader in ICT infrastructure and smart devices, serving over three billion people in more than 170 countries. Huawei Tunisia operates within the Cloud IT / Sales-Solution department, providing cloud infrastructure, CEM solutions (SmartCare), and digital transformation services to North African telecommunications operators, including Tunisie Telecom.
+
+\subsection{Project Context}
+
+This project was initiated as part of a six-month engineering internship (February--July 2026) to address the need for an intelligent operations platform that bridges the gap between network performance monitoring (CEM) and business intelligence (CVM) for Tunisie Telecom.
+
+\section{Functional Requirements}
+
+\begin{table}[H]
+\centering
+\caption{Functional Requirements}
+\label{tab:func-req}
+\begin{tabular}{@{}clp{8cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Priority} & \textbf{Description} \\
+\midrule
+FR-01 & High & Ingest and process OSS network KPI data (throughput, latency, packet loss, active users, signal strength) \\
+FR-02 & High & Ingest and process BSS subscriber data (revenue, data usage, voice minutes, SMS count, churn risk) \\
+FR-03 & High & Predict SLA breach risk as a probability score [0, 1] using supervised ML \\
+FR-04 & High & Detect network anomalies using unsupervised ML \\
+FR-05 & High & Detect revenue anomalies (fraud, dormant SIMs) using unsupervised ML \\
+FR-06 & High & Compute OSS--BSS correlations (Pearson and Spearman) \\
+FR-07 & High & Expose all intelligence via authenticated REST API \\
+FR-08 & Medium & Visualize all intelligence in a real-time web dashboard \\
+FR-09 & Medium & Implement L4 autonomous agent with remediation recommendations \\
+FR-10 & Medium & Integrate local LLM for conversational network intelligence \\
+FR-11 & Low & Track pipeline execution history and model registry \\
+FR-12 & Low & Support user authentication with JWT and OAuth2 (Google, GitHub) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Non-Functional Requirements}
+
+\begin{table}[H]
+\centering
+\caption{Non-Functional Requirements}
+\label{tab:nonfunc-req}
+\begin{tabular}{@{}clp{8cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Category} & \textbf{Description} \\
+\midrule
+NFR-01 & Performance & Pipeline must complete a full cycle in under 60 seconds \\
+NFR-02 & Performance & API response time under 200ms for cached queries \\
+NFR-03 & Availability & Services must restart automatically on failure (Docker restart policy) \\
+NFR-04 & Portability & Architecture must map directly to Huawei Cloud Stack services \\
+NFR-05 & Security & All API endpoints protected by JWT authentication \\
+NFR-06 & Security & No hardcoded credentials in source code \\
+NFR-07 & Observability & All services expose Prometheus metrics \\
+NFR-08 & Maintainability & CI/CD pipeline with linting, testing, and security scanning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Use Case Diagram}
+
+The system supports three primary actors:
+
+\begin{enumerate}
+    \item \textbf{Network Operator}: Views dashboard, reviews agent actions, interacts with L4 Agent chat
+    \item \textbf{Data Pipeline}: Automated data ingestion, ML inference, and persistence (every 120 seconds)
+    \item \textbf{System Administrator}: Manages users, monitors platform health, configures pipeline parameters
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    actor/.style={circle, draw, minimum size=1cm, font=\footnotesize},
+    usecase/.style={ellipse, draw, minimum width=3.5cm, minimum height=1cm, font=\footnotesize, align=center},
+    >=Stealth
+]
+% Actors
+\node[actor] (operator) at (-5, 0) {Operator};
+\node[actor] (pipeline) at (5, 0) {Pipeline};
+
+% Use cases
+\node[usecase] (uc1) at (0, 3) {View SLA Risk\\Dashboard};
+\node[usecase] (uc2) at (0, 1.5) {Review Agent\\Actions};
+\node[usecase] (uc3) at (0, 0) {Chat with\\L4 Agent};
+\node[usecase] (uc4) at (0, -1.5) {View Anomaly\\Reports};
+\node[usecase] (uc5) at (0, -3) {Ingest and\\Process Data};
+
+% Connections
+\draw[->] (operator) -- (uc1);
+\draw[->] (operator) -- (uc2);
+\draw[->] (operator) -- (uc3);
+\draw[->] (operator) -- (uc4);
+\draw[->] (pipeline) -- (uc5);
+\draw[->] (pipeline) -- (uc1);
+\end{tikzpicture}
+\caption{Use Case Diagram}
+\label{fig:use-case}
+\end{figure}
+
+\section{Data Requirements}
+
+\subsection{OSS Data Schema}
+
+\begin{table}[H]
+\centering
+\caption{OSS Network KPI Schema}
+\label{tab:oss-schema}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+throughput\_mbps & float & Mbps & Downlink throughput \\
+latency\_ms & float & ms & Round-trip latency \\
+packet\_loss\_pct & float & \% & Packet loss ratio \\
+active\_users & int & count & Concurrent active users \\
+signal\_rsrp\_dbm & float & dBm & Reference signal received power \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{BSS Data Schema}
+
+\begin{table}[H]
+\centering
+\caption{BSS Subscriber Revenue Schema}
+\label{tab:bss-schema}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+revenue\_tnd & float & TND & Monthly revenue (Tunisian Dinar) \\
+data\_used\_gb & float & GB & Mobile data consumption \\
+voice\_min & float & min & Voice call minutes \\
+sms\_count & int & count & SMS messages sent \\
+churn\_risk & float & [0,1] & Predicted churn probability \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Sprint Planning}
+
+The project follows an iterative approach with six phases:
+
+\begin{table}[H]
+\centering
+\caption{Project Phases and Timeline}
+\label{tab:phases}
+\begin{tabular}{@{}clll@{}}
+\toprule
+\textbf{Phase} & \textbf{Focus} & \textbf{Duration} & \textbf{Deliverables} \\
+\midrule
+1 & Core Infrastructure & 3 weeks & Docker stack, DB schema, base APIs \\
+2 & ML Models + Pipeline & 4 weeks & 3 models, 22-step pipeline, inference \\
+3 & Dashboard + API & 3 weeks & Next.js dashboard, 7 endpoints \\
+4 & Auth + CI/CD & 2 weeks & JWT/OAuth, GitHub Actions pipeline \\
+5 & L4 Agent + LLM & 2 weeks & Autonomous agent, Qwen2.5 chat \\
+6 & HCS Mapping + Report & 2 weeks & Cloud portability, documentation \\
+\bottomrule
+\end{tabular}
+\end{table}

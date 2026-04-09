@@ -1,0 +1,89 @@
+import { api } from '../../lib/api';
+import RootCauseAnalysis from '../../components/RootCauseAnalysis';
+import AnomalyTimeline from '../../components/AnomalyTimeline';
+
+export const dynamic = 'force-dynamic';
+
+export default async function IntelligencePage() {
+    const [sla, oss, bss, corrs] = await Promise.all([
+        api.slaRisk(),
+        api.anomalies(),
+        api.revenueAnomalies(),
+        api.correlation(),
+    ]);
+
+    const slaData = sla as { score: number; region?: string; model_version?: string; explanation?: { feature_importances?: Record<string, number> } } | null;
+    const ossData = oss ?? [];
+    const bssData = bss ?? [];
+    const corrData = corrs ?? [];
+
+    const totalAnomalies = ossData.length + bssData.length;
+    const criticalCount = ossData.filter((a: any) => a.severity > 0.9).length + bssData.filter((a: any) => (a.severity ?? a.score ?? 0) > 0.8).length;
+    const strongCorrs = corrData.filter((c: any) => Math.abs(c.corr_value) >= 0.7).length;
+
+    return (
+        <div className="grid" style={{ gap: 24 }}>
+            {/* Header */}
+            <div className="page-header">
+                <h1>AI Intelligence</h1>
+                <p>Root cause analysis and real-time anomaly event stream across OSS and BSS domains</p>
+            </div>
+
+            {/* Quick stats */}
+            <div className="summary-strip">
+                <div className="summary-item">
+                    <div>
+                        <div className="summary-item-value" style={{ color: 'var(--brand-primary)' }}>{totalAnomalies}</div>
+                        <div className="summary-item-label">Total Anomalies</div>
+                    </div>
+                </div>
+                <div className="summary-item">
+                    <div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-danger)' }}>{criticalCount}</div>
+                        <div className="summary-item-label">Critical</div>
+                    </div>
+                </div>
+                <div className="summary-item">
+                    <div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-warning)' }}>{((slaData?.score ?? 0) * 100).toFixed(1)}%</div>
+                        <div className="summary-item-label">SLA Risk</div>
+                    </div>
+                </div>
+                <div className="summary-item">
+                    <div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-cyan)' }}>{strongCorrs}</div>
+                        <div className="summary-item-label">Strong Correlations</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* AI Root Cause Analysis */}
+            <div className="card card-accent-top">
+                <div className="section-title">
+                    <span className="dot"></span>
+                    AI Root Cause Analysis
+                    <span className="section-subtitle">Automated cross-domain intelligence</span>
+                </div>
+                <RootCauseAnalysis
+                    sla={slaData}
+                    ossAnomalies={ossData}
+                    bssAnomalies={bssData}
+                    correlations={corrData}
+                />
+            </div>
+
+            {/* Real-time Anomaly Timeline */}
+            <div className="card card-accent-top">
+                <div className="section-title">
+                    <span className="dot"></span>
+                    Anomaly Event Stream
+                    <span className="section-subtitle">{totalAnomalies} events &middot; OSS + BSS</span>
+                </div>
+                <AnomalyTimeline
+                    ossAnomalies={ossData}
+                    bssAnomalies={bssData}
+                />
+            </div>
+        </div>
+    );
+}

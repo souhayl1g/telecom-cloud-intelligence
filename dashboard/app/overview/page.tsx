@@ -102,6 +102,10 @@ export default async function OverviewPage() {
                         <div className="overview-agent-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6, color: '#ffd700' }}><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
                     L4 Autonomous Agent
+                    <span className="overview-ai-badge">
+                        <span className="overview-ai-badge-dot" />
+                        Qwen2.5 7B
+                    </span>
                 </div>
                         <div className="overview-agent-sub">
                             {agentHealth === 'critical'
@@ -159,6 +163,7 @@ export default async function OverviewPage() {
                     <div className="section-title">
                         <span className="dot"></span>
                         AI Models Status
+                        <Link href="/model-evaluation" style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--brand-primary)', fontWeight: 500 }}>View Evaluation {'\u2192'}</Link>
                     </div>
                     <div className="model-info" style={{ flexDirection: 'column' }}>
                         <div className="model-chip">
