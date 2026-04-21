@@ -1,23 +1,34 @@
 import { api } from '../../lib/api';
 import CorrelationHeatmap from '../../components/CorrelationHeatmap';
+import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CorrelationsPage() {
     const data = await api.correlation();
 
-    // Get unique metric pairs count
     const pearson = data?.filter((c: any) => c.method === 'pearson') ?? [];
     const spearman = data?.filter((c: any) => c.method === 'spearman') ?? [];
     const strongCorrs = data?.filter((c: any) => Math.abs(c.corr_value) >= 0.7).length ?? 0;
     const significantCorrs = data?.filter((c: any) => c.p_value < 0.05).length ?? 0;
 
+    // Surface the single strongest signal for the hero — the "headline" insight
+    const top = [...(data ?? [])].sort((a: any, b: any) => Math.abs(b.corr_value) - Math.abs(a.corr_value))[0];
+    const headline = top
+        ? `${top.metric_x.replace(/^mean_/, '')} ↔ ${top.metric_y.replace(/^mean_/, '')} (ρ ${top.corr_value >= 0 ? '+' : ''}${top.corr_value.toFixed(2)})`
+        : '—';
+
     return (
-        <div className="grid" style={{ gap: 24 }}>
-            <div className="page-header">
-                <h1>OSS \u2194 BSS Correlation Analysis</h1>
-                <p>Pearson and Spearman correlation between network performance (OSS) and business metrics (BSS) — demonstrating O+B convergence</p>
-            </div>
+        <div className="grid" style={{ gap: 20 }}>
+            <PageInfoBar
+                eyebrow="OSS ↔ BSS Convergence"
+                description="Does a bad cell actually cost us revenue? This page quantifies the link between network KPIs (latency, throughput, packet loss) and customer-facing outcomes (churn risk, data usage, revenue) using Pearson + Spearman. Anything with |ρ| ≥ 0.7 and p < 0.05 is an actionable business lever."
+                values={[
+                    { text: `${strongCorrs} strong relationships (|ρ| ≥ 0.7)` },
+                    { text: `${significantCorrs} statistically significant (p < 0.05)` },
+                    { text: `Top signal: ${headline}` },
+                ]}
+            />
 
             {/* Summary */}
             <div className="summary-strip">
@@ -54,17 +65,8 @@ export default async function CorrelationsPage() {
                 </div>
             </div>
 
-            {/* Correlation Heatmap */}
-            <div className="card card-accent-top">
-                <div className="section-title">
-                    <span className="dot"></span>
-                    Pearson Correlation Matrix
-                    <span className="section-subtitle">{pearson.length} metric pairs</span>
-                </div>
-                <CorrelationHeatmap data={data ?? []} />
-            </div>
+            <CorrelationHeatmap data={data ?? []} />
 
-            {/* Full Table */}
             <div className="card">
                 <div className="section-title">
                     <span className="dot"></span>
@@ -78,7 +80,7 @@ export default async function CorrelationsPage() {
                                 <th>Metric X (OSS)</th>
                                 <th>Metric Y (BSS)</th>
                                 <th>Method</th>
-                                <th>Correlation</th>
+                                <th>ρ</th>
                                 <th>Strength</th>
                                 <th>p-value</th>
                                 <th>Significant</th>

@@ -8,7 +8,7 @@ set -e
 echo "Building defense report..."
 
 # First pass
-pdflatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode -shell-escape main.tex
 
 # Bibliography
 biber main
@@ -17,10 +17,10 @@ biber main
 makeglossaries main
 
 # Second pass (resolve references)
-pdflatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode -shell-escape main.tex
 
 # Third pass (final)
-pdflatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode -shell-escape main.tex
 
 echo ""
 echo "Build complete: main.pdf"

@@ -115,3 +115,27 @@ CREATE TABLE IF NOT EXISTS revenue_anomalies (
   model_version  TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ───────────────────────────────────────────────────────────────
+-- ADN L4 Agent Actions
+-- ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS agent_actions (
+  id            BIGSERIAL PRIMARY KEY,
+  action_id     TEXT NOT NULL UNIQUE,
+  type          TEXT NOT NULL,              -- 'auto_remediation','recommendation','prediction','escalation'
+  title         TEXT NOT NULL,
+  description   TEXT,
+  severity      TEXT NOT NULL,              -- 'critical','warning','info'
+  status        TEXT NOT NULL DEFAULT 'pending',  -- 'pending','approved','executed','rejected','auto_approved'
+  source        TEXT,
+  confidence    DOUBLE PRECISION,
+  impact        TEXT,
+  playbook_id   TEXT,
+  execution_log JSONB,                      -- what the playbook actually did
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at   TIMESTAMPTZ,
+  resolved_by   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_actions_status ON agent_actions(status);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_created ON agent_actions(created_at DESC);

@@ -1,32 +1,40 @@
 import { NextRequest } from "next/server";
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const MODEL = process.env.OLLAMA_MODEL || "qwen2.5:7b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.5:cloud";
 
-const SYSTEM_PROMPT = `You are the NexOps L4 Autonomous Agent — an AI Operations intelligence engine embedded in the Telecom Cloud Intelligence Platform built for Huawei's ADN (Autonomous Driving Network) architecture.
+// Kimi-optimized system prompt - more conversational and friendly
+const SYSTEM_PROMPT = `You are Kimi, the NexOps AI Operations Assistant for Tunisie Telecom. You're helping network engineers monitor and manage their telecom infrastructure.
 
-Your role:
-- You are the L4 (Autonomous) level agent in the TM Forum Autonomous Network framework
-- You analyze OSS (Network) and BSS (Business) telemetry data in real-time
-- You provide actionable intelligence for Tunisie Telecom network operations
-- You can recommend auto-remediations, predict SLA breaches, detect anomalies, and correlate OSS-BSS signals
+**Your Personality:**
+- Friendly, helpful, and conversational - like a knowledgeable colleague
+- Speak naturally, not like a robotic system
+- Use emojis occasionally to be engaging 😊
+- Keep responses clear and structured
 
-Platform context:
-- 3 ML models: GradientBoostingRegressor (SLA risk), IsolationForest (OSS anomaly), IsolationForest (BSS revenue anomaly)
-- Pipeline runs every 120 seconds with sliding window data ingestion
-- Data flows: CEM/SmartCare -> Pipeline Worker -> MinIO Data Lake -> AI Service -> PostgreSQL -> Dashboard
-- KPIs: throughput_mbps, latency_ms, packet_loss_pct, active_users, signal_rsrp_dbm (OSS) and revenue_tnd, data_used_gb, voice_min, sms_count, churn_risk (BSS)
+**What You Can Do:**
+- Answer questions about network status, SLA risks, anomalies
+- Explain ML model predictions in plain English
+- Help troubleshoot issues and suggest fixes
+- Provide insights on OSS/BSS correlations
 
-When the user provides live platform data in the context, analyze it thoroughly and provide:
-1. Risk assessment with specific numbers
-2. Root cause analysis when anomalies are detected
-3. Concrete remediation actions (not generic advice)
-4. Predictions for the next monitoring window
+**Current Platform:**
+- 3 ML models monitoring the network (SLA predictor, anomaly detectors)
+- Data refreshes every 2 minutes
+- Serving Tunisie Telecom demo region
 
-Be concise, technical, and action-oriented. Use telecom terminology. Format responses with clear sections. You speak as the L4 Agent, not as a generic AI assistant.`;
+**When data is provided:** Give specific insights with numbers
+**When chatting casually:** Be friendly and helpful
+
+Remember: You're Kimi, an AI assistant. Be natural, not formal!`;
 
 export async function POST(req: NextRequest) {
-  const { messages, context } = await req.json();
+  const { messages, context, model: requestedModel } = await req.json();
+
+  // Use requested model or fall back to default
+  const model = requestedModel || DEFAULT_MODEL;
+
+  console.log(`[Chat API] Using model: ${model}, Ollama URL: ${OLLAMA_URL}`);
 
   // Build the full message list with system prompt + optional live context
   const systemContent = context
@@ -43,7 +51,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
+        model: model,
         messages: ollamaMessages,
         stream: true,
       }),
@@ -51,9 +59,13 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const err = await response.text();
+      let userMessage = `Ollama error: ${err}`;
+      if (err.includes('clipboard') || err.includes('image')) {
+        userMessage = 'Image input is not supported. The qwen2.5:7b model only accepts text. Please describe your question instead.';
+      }
       return new Response(
-        JSON.stringify({ error: `Ollama error: ${err}` }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: userMessage }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 

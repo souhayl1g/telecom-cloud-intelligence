@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from 'react';
+import PageInfoBar from '../../components/PageInfoBar';
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface ModelMetrics {
@@ -309,10 +310,15 @@ export default function ModelEvaluationPage() {
 
     return (
         <div className="grid" style={{ gap: 24 }}>
-            <div className="page-header">
-                <h1>Model Evaluation & Monitoring</h1>
-                <p>Real metrics from trained models (synced with Jupyter notebooks)</p>
-            </div>
+            <PageInfoBar
+                eyebrow="ML Governance · Live from Notebooks"
+                description="Can we trust the numbers? Every model — GradientBoosting SLA Risk, IsolationForest OSS anomaly, IsolationForest BSS revenue anomaly — is audited here against its real test set: R², MAE, RMSE, Precision/Recall/F1, ROC-AUC, confusion matrix and feature importances. Metrics are extracted directly from the training notebooks, not mocked."
+                values={[
+                    { text: `${models.length} production models · Qwen2.5 7B for L4 agent chat` },
+                    { text: `Best R²: ${Math.max(...models.map(mm => mm.testR2 ?? 0)).toFixed(3)} · Best F1: ${Math.max(...models.map(mm => mm.f1 ?? 0)).toFixed(3)}` },
+                    { text: `${ollamaModels.length} Ollama model(s) available locally` },
+                ]}
+            />
 
             {/* Source indicator */}
             <div style={{ padding: '10px 16px', background: 'var(--color-info-bg)', border: '1px solid var(--color-info-border)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--color-info)', display: 'flex', alignItems: 'center', gap: 8 }}>

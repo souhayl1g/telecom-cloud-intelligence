@@ -1,6 +1,7 @@
 import { api } from '../../lib/api';
 import SlaChart from '../../components/SlaChart';
 import RiskGauge from '../../components/RiskGauge';
+import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,10 +17,15 @@ export default async function SLARiskPage() {
 
     return (
         <div className="grid" style={{ gap: 24 }}>
-            <div className="page-header">
-                <h1>SLA Risk Analysis</h1>
-                <p>GradientBoostingRegressor prediction of SLA breach probability from 9 aggregated KPI features</p>
-            </div>
+            <PageInfoBar
+                eyebrow="Prediction · GradientBoosting R² 0.979"
+                description="How likely are we to violate the SLA in the next cycle? A GradientBoostingRegressor scores network health on a 0 → 1 scale from 9 aggregated KPIs. Above 0.7 is critical and fires an L4 remediation playbook; 0.4–0.7 is a warning; below 0.4 is healthy."
+                values={[
+                    { text: `Current risk: ${(sla as any)?.score != null ? (sla as any).score.toFixed(3) : '—'}` },
+                    { text: `Average over last ${history.length} cycles: ${avg.toFixed(3)}` },
+                    { text: `Peak risk observed: ${max.toFixed(3)}` },
+                ]}
+            />
 
             {/* Summary */}
             <div className="summary-strip">

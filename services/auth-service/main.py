@@ -17,13 +17,34 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from passlib.context import CryptContext
 from jose import jwt, JWTError
-from prometheus_fastapi_instrumentator import Instrumentator
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+
+def _setup_tracing() -> None:
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        return
+    resource = Resource.create({
+        "service.name": os.getenv("OTEL_SERVICE_NAME", "auth-service"),
+        "service.version": "1.0",
+    })
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
+    trace.set_tracer_provider(provider)
+
+
+_setup_tracing()
 
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
 app = FastAPI(title="Telecom Cloud Intelligence — Auth Service", version="1.0")
-Instrumentator().instrument(app).expose(app)
+FastAPIInstrumentor.instrument_app(app)
 
 # ---------------------------------------------------------------------------
 # Configuration (env vars)

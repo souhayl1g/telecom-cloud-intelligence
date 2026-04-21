@@ -114,11 +114,11 @@ start-nexops: ## Start entire stack with auto-pipeline enabled + dashboard
 	@echo "  • Start Ollama LLM for L4 Agent chat"
 	@echo ""
 
-	@$(COMPOSE) up -d --build
+	@$(COMPOSE) up -d
 
 	@echo ""
 	@echo "$(GREEN)Waiting for services to be healthy...$(NC)"
-	@sleep 8
+	@sleep 12
 
 	@$(call print_status,"Docker services started")
 
@@ -128,10 +128,10 @@ start-nexops: ## Start entire stack with auto-pipeline enabled + dashboard
 	@sleep 2
 
 	@echo ""
-	@echo "$(BOLD)Starting Dashboard...$(NC)"
-	@cd $(PROJECT_ROOT)/dashboard && npm run dev > /dev/null 2>&1 &
-	@sleep 4
-	@xdg-open http://localhost:3001 2>/dev/null || echo "Open http://localhost:3001 in your browser"
+	@echo "$(BOLD)Opening Dashboard in Chrome...$(NC)"
+	@(google-chrome --new-window http://localhost:3001 2>/dev/null || \
+	  "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" http://localhost:3001 2>/dev/null || \
+	  xdg-open http://localhost:3001 2>/dev/null) || echo "$(YELLOW)Open http://localhost:3001 in your browser$(NC)"
 
 	@echo ""
 	@echo "$(BOLD)═══════════════════════════════════════════$(NC)"
@@ -163,7 +163,7 @@ start-dev: ## Start stack in development mode (no auto-pipeline)
 	@echo "  • Start Jupyter immediately"
 	@echo ""
 	
-	AUTO_PIPELINE=false $(COMPOSE) up -d --build
+	AUTO_PIPELINE=false $(COMPOSE) up -d
 	
 	@echo ""
 	@$(call print_status,"Development stack started")
@@ -357,9 +357,10 @@ show-info: ## Show service URLs and credentials
 # ── Quick Access ──────────────────────────────────────────────────────────────
 
 .PHONY: open
-open: ## Open all URLs in browser (requires xdg-open or similar)
-	@xdg-open http://localhost:8888 2>/dev/null || echo "Open http://localhost:8888 manually"
-	@xdg-open http://localhost:8000/docs 2>/dev/null || echo "Open http://localhost:8000/docs manually"
+open: ## Open dashboard in Chrome
+	@(google-chrome --new-window http://localhost:3001 2>/dev/null || \
+	  "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" http://localhost:3001 2>/dev/null || \
+	  xdg-open http://localhost:3001 2>/dev/null) || echo "Open http://localhost:3001 manually"
 
 .PHONY: api-docs
 api-docs: ## Open API documentation

@@ -1,5 +1,6 @@
 import { api } from '../../lib/api';
 import ScoreBar from '../../components/ScoreBar';
+import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,11 +106,15 @@ export default async function DataWarehousePage() {
 
     return (
         <div className="grid" style={{ gap: 24 }}>
-            {/* Header */}
-            <div className="page-header">
-                <h1>Data Warehouse</h1>
-                <p>Explore raw, processed, and operational data across the telecom intelligence pipeline</p>
-            </div>
+            <PageInfoBar
+                eyebrow="Data Lake · Raw · Processed · Curated"
+                description="What's physically sitting in the platform? Browse every OSS anomaly, BSS anomaly, SLA score, correlation and pipeline run across the 3-layer data lake (MinIO raw → processed → curated) and the 8 PostgreSQL tables behind them. This is the receipt for every insight shown elsewhere."
+                values={[
+                    { text: `${totalRecords.toLocaleString()} total records across 5 datasets` },
+                    { text: `${runData.length} pipeline runs recorded` },
+                    { text: `Last updated: ${lastUpdated}` },
+                ]}
+            />
 
             {/* KPI Strip */}
             <div className="summary-strip">

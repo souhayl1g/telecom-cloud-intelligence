@@ -554,42 +554,69 @@ def run_once() -> None:
 
     print(f"\n[pipeline] run_id={run_id}  seed={run_seed}")
 
-    # ── 1. MinIO buckets ───────────────────────────────────────────────
-    print("[1/22] Ensuring MinIO buckets ...")
+    # Record pipeline start BEFORE any work so started_at captures real total time
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            print("[1/22] Inserting pipeline_runs record ...")
+            cur.execute(
+                "INSERT INTO pipeline_runs (run_id, status) VALUES (%s, %s);",
+                (run_id, "started"),
+            )
+
+    try:
+        _run_pipeline_steps(run_id, now, window_start, window_end, region, run_seed)
+    except Exception as e:
+        print(f"\n[pipeline] ✗ run {run_id} FAILED: {e}")
+        try:
+            with get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE pipeline_runs SET status=%s, finished_at=now(), error_message=%s WHERE run_id=%s;",
+                        ("failed", str(e)[:500], run_id),
+                    )
+        except Exception as db_err:
+            print(f"[pipeline] could not update pipeline_runs: {db_err}")
+        raise
+
+
+def _run_pipeline_steps(
+    run_id: str,
+    now: datetime,
+    window_start: datetime,
+    window_end: datetime,
+    region: str,
+    run_seed: int,
+) -> None:
+    # ── 2. MinIO buckets ───────────────────────────────────────────────
+    print("[2/22] Ensuring MinIO buckets ...")
     s3 = get_s3()
     ensure_buckets(s3, ["raw", "processed", "curated"])
 
-    # ── 2–3. Synthetic data with fault injection ─────────────────────────
-    print("[2/22] Generating synthetic OSS data (with fault injection) ...")
+    # ── 3–4. Synthetic data with fault injection ─────────────────────────
+    print("[3/22] Generating synthetic OSS data (with fault injection) ...")
     oss_records, fault_info = generate_oss(200, region, seed=run_seed)
     print(
         f"  {len(oss_records)} OSS records — "
         f"faults: {fault_info['fault_records']} records on cells {fault_info['fault_cells']}"
     )
 
-    print("[3/22] Generating synthetic BSS data (with correlated dips) ...")
+    print("[4/22] Generating synthetic BSS data (with correlated dips) ...")
     bss_records = generate_bss(200, region, seed=run_seed + 1, fault_info=fault_info)
     print(f"  {len(bss_records)} BSS records generated")
 
-    # ── 4–5. Upload raw layer ────────────────────────────────────────────
+    # ── 5–6. Upload raw layer ────────────────────────────────────────────
     date_prefix = now.strftime("%Y/%m/%d")
     oss_key = f"oss/{date_prefix}/{run_id}.json"
     bss_key = f"bss/{date_prefix}/{run_id}.json"
 
-    print("[4/22] Uploading OSS dataset to MinIO raw layer ...")
+    print("[5/22] Uploading OSS dataset to MinIO raw layer ...")
     upload_json(s3, "raw", oss_key, oss_records)
 
-    print("[5/22] Uploading BSS dataset to MinIO raw layer ...")
+    print("[6/22] Uploading BSS dataset to MinIO raw layer ...")
     upload_json(s3, "raw", bss_key, bss_records)
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-            # ── 6. pipeline_runs ─────────────────────────────────────────
-            print("[6/22] Inserting pipeline_runs record ...")
-            cur.execute(
-                "INSERT INTO pipeline_runs (run_id, status) VALUES (%s, %s);",
-                (run_id, "started"),
-            )
 
             # ── 7. dataset_registry (raw) ─────────────────────────────────
             print("[7/22] Registering raw datasets ...")

@@ -1,7 +1,16 @@
 {
   "mcpServers": {
     "Rube": {
+      "type": "http",
       "url": "https://mcp.rube.app/mcp"
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "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"
+      }
     }
   }
 }

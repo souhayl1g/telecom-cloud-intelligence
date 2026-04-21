@@ -1,0 +1,35 @@
+<clickhouse>
+    <!-- ZooKeeper connection for ClickHouse replicated tables -->
+    <zookeeper>
+        <node>
+            <host>zookeeper-1</host>
+            <port>2181</port>
+        </node>
+    </zookeeper>
+    <!-- Single-node cluster required by SigNoz query-service EE -->
+    <remote_servers>
+        <cluster>
+            <shard>
+                <replica>
+                    <host>clickhouse</host>
+                    <port>9000</port>
+                    <user>admin</user>
+                    <password>27ff0399-0d3a-4bd8-919d-17c2181e6fb9</password>
+                </replica>
+            </shard>
+        </cluster>
+    </remote_servers>
+
+    <!-- Macros for ReplicatedMergeTree tables -->
+    <macros>
+        <cluster>cluster</cluster>
+        <shard>01</shard>
+        <replica>01-01</replica>
+    </macros>
+
+    <!-- Suppress verbose logs in dev -->
+    <logger>
+        <level>warning</level>
+        <console>true</console>
+    </logger>
+</clickhouse>

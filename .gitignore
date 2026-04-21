@@ -224,3 +224,6 @@ dashboard/tsconfig.tsbuildinfo
 # Local env files (never commit secrets)
 dashboard/.env.local
 .env.local
+
+# Confidential Tunisie Telecom data — NEVER commit
+TT_data/

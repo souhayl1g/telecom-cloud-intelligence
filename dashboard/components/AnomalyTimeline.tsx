@@ -14,7 +14,7 @@ interface TimelineEvent {
     title: string;
     detail: string;
     region: string;
-    timestamp: Date;
+    timestamp: string;
     raw: any;
 }
 
@@ -29,10 +29,10 @@ function classifyLevel(sev: number): "critical" | "warning" | "low" {
     return "low";
 }
 
-function parseTs(a: any): Date {
-    if (a.created_at) return new Date(a.created_at);
-    if (a.ts) return new Date(a.ts);
-    return new Date();
+function parseTs(a: any): string {
+    if (a.created_at) return new Date(a.created_at).toISOString();
+    if (a.ts) return new Date(a.ts).toISOString();
+    return new Date().toISOString();
 }
 
 function buildEvents(oss: any[], bss: any[]): TimelineEvent[] {
@@ -71,7 +71,7 @@ function buildEvents(oss: any[], bss: any[]): TimelineEvent[] {
         });
     });
 
-    return events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 /* ── Component ────────────────────────────────────────────────────────────── */
@@ -161,7 +161,7 @@ export default function AnomalyTimeline({ ossAnomalies, bssAnomalies }: AnomalyT
                                 </span>
                                 <span className="tl-region">{event.region}</span>
                                 <span className="tl-time">
-                                    {event.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                    {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                                 </span>
                             </div>
                             <div className="tl-event-title">{event.title}</div>

@@ -1,6 +1,8 @@
 "use client";
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import LiveIndicator from './LiveIndicator';
 import ThemeToggle from './ThemeToggle';
 
@@ -73,7 +75,6 @@ interface NavItem {
     href: string;
     label: string;
     icon: React.ReactNode;
-    glow?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -82,6 +83,9 @@ const navItems: NavItem[] = [
     { href: '/sla-risk', label: 'SLA Risk', icon: Icons.slaRisk },
     { href: '/correlations', label: 'Correlations', icon: Icons.correlations },
     { href: '/intelligence', label: 'Intelligence', icon: Icons.intelligence },
+    { href: '/predictive', label: 'Forecast', icon: Icons.slaRisk },
+    { href: '/topology', label: 'Topology', icon: Icons.correlations },
+    { href: '/capacity', label: 'Capacity', icon: Icons.health },
     { href: '/data-warehouse', label: 'DWH', icon: Icons.dwh },
     { href: '/pipeline-runs', label: 'Pipelines', icon: Icons.pipelines },
     { href: '/ops-metrics', label: 'Health', icon: Icons.health },
@@ -103,10 +107,17 @@ export default function TopNav() {
     return (
         <header className="topnav">
             <div className="topnav-brand">
-                <div className="logo-group">
-                    <span className="logo-sparkly">NexOps AI</span>
-                    <div className="logo-badge">Telecom Intelligence</div>
-                </div>
+                <Link href="/overview" className="logo-group" style={{ textDecoration: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Image src="/images/logo.svg" alt="Cloud Intelligence" width={28} height={28} priority />
+                        <div>
+                            <span className="logo-sparkly">
+                                <span className="hw-red">Cloud</span> Intelligence
+                            </span>
+                            <div className="logo-badge">ADN Operations</div>
+                        </div>
+                    </div>
+                </Link>
             </div>
 
             <nav className="topnav-links">
@@ -137,6 +148,11 @@ export default function TopNav() {
             </nav>
 
             <div className="topnav-actions">
+                <a href="http://localhost:3301" target="_blank" rel="noreferrer" className="pill-btn" title="SigNoz Observability — Traces, Metrics, Logs">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg> SigNoz
+                </a>
                 <a href="http://localhost:9001" target="_blank" rel="noreferrer" className="pill-btn" title="MinIO Object Storage Console">
                     {Icons.minio} MinIO
                 </a>

@@ -121,8 +121,8 @@ export default function CommandPalette() {
         { id: "act-logout", label: "Sign Out", description: "Log out of the dashboard", group: "Actions", icon: CmdIcons.logout, action: () => { fetch("/api/logout", { method: "POST" }).then(() => { router.push("/login"); router.refresh(); }); close(); }, keywords: ["logout", "sign out", "exit"] },
         // External Tools
         { id: "ext-minio", label: "Open MinIO Console", description: "Object storage management", group: "External Tools", icon: CmdIcons.external, action: () => { window.open("http://localhost:9001", "_blank"); close(); }, keywords: ["minio", "storage", "s3", "bucket"] },
-        { id: "ext-grafana", label: "Open Grafana", description: "Monitoring dashboards", group: "External Tools", icon: CmdIcons.external, action: () => { window.open("http://localhost:3000/d/ai-ops-overview?orgId=1", "_blank"); close(); }, keywords: ["grafana", "monitoring", "metrics", "dashboard", "dwh"] },
-        { id: "ext-prometheus", label: "Open Prometheus", description: "Metrics & alerting", group: "External Tools", icon: CmdIcons.external, action: () => { window.open("http://localhost:9090", "_blank"); close(); }, keywords: ["prometheus", "metrics", "alerts", "scrape"] },
+        { id: "ext-signoz", label: "Open SigNoz", description: "Observability — traces, metrics, logs", group: "External Tools", icon: CmdIcons.external, action: () => { window.open("http://localhost:3301", "_blank"); close(); }, keywords: ["signoz", "monitoring", "metrics", "traces", "logs", "observability", "otel"] },
+        { id: "ext-otel", label: "OTel Collector", description: "OpenTelemetry OTLP endpoint :4318", group: "External Tools", icon: CmdIcons.external, action: () => { window.open("http://localhost:4318", "_blank"); close(); }, keywords: ["otel", "opentelemetry", "collector", "otlp", "metrics"] },
     ], [theme, toggleTheme, router, close]);
 
     /* ── Filtered & grouped results ───────────────────────────────────────── */

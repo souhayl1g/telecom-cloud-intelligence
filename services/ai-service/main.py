@@ -22,11 +22,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import os
+
 import joblib
 import numpy as np
 from fastapi import FastAPI
-from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+
+def _setup_tracing() -> None:
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        return
+    resource = Resource.create({
+        "service.name": os.getenv("OTEL_SERVICE_NAME", "ai-service"),
+        "service.version": "2.0",
+    })
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
+    trace.set_tracer_provider(provider)
+
+
+_setup_tracing()
 
 # ── constants ─────────────────────────────────────────────────────────────────
 
@@ -165,8 +188,9 @@ def load_models(force: bool = False):
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(title="AI Service", version=MODEL_VERSION)
+FastAPIInstrumentor.instrument_app(app)
 
-Instrumentator().instrument(app).expose(app)
+FastAPIInstrumentor.instrument_app(app)
 
 # Initialize model cache at startup
 print("[ai-service] initializing model cache...")
@@ -220,6 +244,33 @@ class RevenueAnomalyRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok", "model_version": MODEL_VERSION}
+
+
+@app.post("/models/reload")
+def reload_models():
+    """Force-reload all ML models from disk. Used by L4 Agent pb-model-retrain playbook."""
+    try:
+        sla, anomaly, revenue = load_models(force=True)
+        return {
+            "status": "reloaded",
+            "models": {
+                "sla_risk": {
+                    "loaded": sla is not None,
+                    "path": str(SLA_MODEL_PATH),
+                },
+                "anomaly": {
+                    "loaded": anomaly is not None,
+                    "path": str(ANOMALY_MODEL_PATH),
+                },
+                "revenue_anomaly": {
+                    "loaded": revenue is not None,
+                    "path": str(REVENUE_ANOMALY_MODEL_PATH),
+                },
+            },
+            "model_version": MODEL_VERSION,
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 
 @app.post("/infer/sla-risk")
@@ -336,10 +387,9 @@ def infer_anomaly(req: AnomalyRequest):
 
 @app.post("/infer/revenue-anomaly")
 def infer_revenue_anomaly(req: RevenueAnomalyRequest):
+    """Detect anomalous BSS revenue/usage records with IsolationForest."""
     # Reload models to get latest trained versions
     _, _, _revenue_anomaly_model = load_models()
-
-    """Detect anomalous BSS revenue/usage records with IsolationForest."""
     if not req.records:
         return {
             "anomaly_rate": 0.0,

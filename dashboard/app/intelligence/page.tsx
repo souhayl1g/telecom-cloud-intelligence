@@ -1,6 +1,7 @@
 import { api } from '../../lib/api';
 import RootCauseAnalysis from '../../components/RootCauseAnalysis';
 import AnomalyTimeline from '../../components/AnomalyTimeline';
+import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +24,15 @@ export default async function IntelligencePage() {
 
     return (
         <div className="grid" style={{ gap: 24 }}>
-            {/* Header */}
-            <div className="page-header">
-                <h1>AI Intelligence</h1>
-                <p>Root cause analysis and real-time anomaly event stream across OSS and BSS domains</p>
-            </div>
+            <PageInfoBar
+                eyebrow="Synthesis · Cross-Domain Intelligence"
+                description="Why did this happen? Four signals — SLA risk, OSS anomalies, BSS anomalies, OSS↔BSS correlations — are fused into a single causal narrative. Instead of reading four dashboards, you read one root-cause story with the evidence attached."
+                values={[
+                    { text: `${totalAnomalies} anomalies · ${criticalCount} critical` },
+                    { text: `SLA risk: ${((slaData?.score ?? 0) * 100).toFixed(1)}%` },
+                    { text: `${strongCorrs} strong cross-domain correlations feeding the narrative` },
+                ]}
+            />
 
             {/* Quick stats */}
             <div className="summary-strip">

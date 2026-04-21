@@ -1,6 +1,7 @@
 import { api } from '../../lib/api';
 import ScoreBar from '../../components/ScoreBar';
 import AnomalyHeatmap from '../../components/AnomalyHeatmap';
+import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +21,15 @@ export default async function AnomaliesPage() {
 
     return (
         <div className="grid" style={{ gap: 24 }}>
-            <div className="page-header">
-                <h1>Anomaly Detection</h1>
-                <p>IsolationForest-powered anomaly detection across OSS network KPIs and BSS revenue streams</p>
-            </div>
+            <PageInfoBar
+                eyebrow="Detection · IsolationForest v2.0"
+                description="Where did the platform notice something weird? Two unsupervised IsolationForest models (F1 0.88 on OSS cells, F1 1.00 on BSS subscribers) continuously score every record; anything above the 0.9 severity band is a candidate for L4 remediation."
+                values={[
+                    { text: `${ossCritical} OSS critical · ${ossWarning} warning` },
+                    { text: `${bssHigh} BSS high-impact subscribers` },
+                    { text: `${(oss?.length ?? 0) + (bss?.length ?? 0)} total anomalies flagged in current cycle` },
+                ]}
+            />
 
             {/* Summary Strip */}
             <div className="summary-strip">

@@ -1,4 +1,5 @@
 import { api } from '../../lib/api';
+import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +20,15 @@ export default async function PipelineRunsPage() {
 
     return (
         <div className="grid" style={{ gap: 24 }}>
-            <div className="page-header">
-                <h1>Pipeline Execution History</h1>
-                <p>22-step data pipeline: ingest \u2192 process \u2192 AI inference \u2192 correlation \u2192 persist</p>
-            </div>
+            <PageInfoBar
+                eyebrow="Pipeline · 2-min Cadence"
+                description="Is the platform actually running? Every 2 minutes the worker executes the 22-step ETL: ingest OSS + BSS → stage to MinIO (raw/processed/curated) → run 3 ML models → compute OSS↔BSS correlations → persist to PostgreSQL. This page is the audit trail for each cycle."
+                values={[
+                    { text: `${total} runs · ${successRate}% success rate` },
+                    { text: `${succeeded} succeeded · ${failed} failed` },
+                    { text: `Avg duration: ${avgDuration.toFixed(1)}s per cycle` },
+                ]}
+            />
 
             {/* Stats */}
             <div className="grid grid-4">

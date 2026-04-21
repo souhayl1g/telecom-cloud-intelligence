@@ -2,8 +2,8 @@ import './globals.css';
 import ClientLayout from './ClientLayout';
 
 export const metadata = {
-    title: 'NexOps AI | Telecom Cloud Intelligence',
-    description: 'AI-Powered Telecom Operations Intelligence Platform',
+    title: 'Huawei Cloud Intelligence | ADN Operations',
+    description: 'AI-Powered Telecom CEM-CVM Intelligence Platform — Huawei Cloud Stack',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -41,14 +41,12 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
-    // Prevent flash of wrong theme
-    if (!mounted) {
-        return <div style={{ visibility: 'hidden' }}>{children}</div>;
-    }
-
+    // Prevent flash of wrong theme - always render children to avoid hydration mismatch
     return (
         <ThemeContext.Provider value={{ theme, toggleTheme }}>
-            {children}
+            <div style={{ visibility: mounted ? 'visible' : 'hidden' }}>
+                {children}
+            </div>
         </ThemeContext.Provider>
     );
 }
