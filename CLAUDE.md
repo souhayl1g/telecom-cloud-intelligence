@@ -1,4 +1,4 @@
-# CLAUDE.md — Telecom Cloud Intelligence Platform
+# CLAUDE.md — Telecom NeXoligence Platform
 
 > Last updated: 2026-04-15 | Phase 5.5 (Real Data + L4 Playbooks + Actions System) complete, on `dev` branch | Full audit pass complete
 
@@ -248,7 +248,7 @@ Custom chart components (all SVG, no dependencies):
 ## Components
 
 ### `dashboard/components/AICopilotIcon.tsx`
-Floating Action Button (bottom-right corner) — NexOps AI Agent launcher.
+Floating Action Button (bottom-right corner) — NeXo Agent launcher.
 - Opens menu with links to: L4 Agent Chat, Model Evaluation, Intelligence Hub
 - **Key architecture:** menu and button are siblings (not nested) to avoid click propagation issues
 - `useRef + mousedown` listener for outside-click close
@@ -428,6 +428,7 @@ docker-compose.yml      # 10-service orchestration
 - [x] **Phase 4:** Auth service (JWT + OAuth), dashboard auth integration, CI/CD pipeline
 - [x] **Phase 5:** ADN L4 Agent (auto-approve logic, 3 tabs, toasts), Model Evaluation page (real metrics), AI Copilot FAB, SSR auth proxy, Ollama Qwen2.5:7b integration
 - [x] **Phase 5.5:** Dashboard containerized, all data made real (Forecast uses anomaly-stats, Capacity uses KPI summary from JSONB), L4 Agent playbooks execute real backend operations (model reload, anomaly triage, revenue protection, SLA breach analysis, capacity scaling), `agent_actions` table for persistence, 6 new API endpoints, ai-service /models/reload
+- [x] **Phase 1 Backend Restructuring (2026-04-25):** All services modularized — pipeline-worker (config/db/storage/generators/processors/analytics/inference/pipeline modules, 23 tests), api-gateway (9 routers + auth/config/db, 1 test), ai-service (model_cache + 4 routers, 2 tests). `ruff check services/` = 0 errors. Docker builds pass.
 
 ### Remaining Work
 - [ ] **Phase 3.5:** Real TT data ingestion + Rolling Window Engine (BSS 500K loaded, waiting for OSS) — CEM-oriented subscriber profiling
@@ -512,3 +513,135 @@ All 25 dashboard routes compile. Zero TypeScript errors. Zero Python syntax erro
 - **Model: Qwen2.5:7b** (Q4_K_M, ~4.7GB) — default for L4 Agent chat
 - **No extra chart dependencies** — all charts are custom SVG components (Sparkline, DonutChart, RadarChart, FeatureImportanceChart, ConfusionMatrix)
 - **`pipeline_runner.py`** at repo root is an alternative pipeline runner used only by `Dockerfile.notebooks` (Jupyter container). It runs a simplified 3-step pipeline, NOT the full 22-step one. The real pipeline is `services/pipeline-worker/worker/__main__.py`
+
+## DATA CONFIDENTIALITY — CRITICAL
+
+**TT_data/ contains real Tunisie Telecom subscriber and network data. This is STRICTLY CONFIDENTIAL.**
+
+- NEVER commit any data from TT_data/ to git
+- NEVER export, share, or upload the data anywhere
+- All processing must stay local in your system
+- The data is used only for model training and inference within this project
+- TT_data/ is already in .gitignore — DO NOT remove it
+
+---
+
+## NeXo — Project Update (April 2026)
+
+### Real Data Received:
+| Month | BSS (Subscriber) | OSS (Cell) |
+|-------|-----------------|-----------|
+| **February 2026** | 468,077 ✅ real | coming soon ✅ real |
+| **March 2026** | 500,000 ✅ real | coming soon ✅ real |
+| **April 2026** | simulated | simulated |
+| **May 2026** | simulated | simulated |
+| **June 2026** | simulated (training) | simulated (training) |
+
+### Data Files:
+```
+TT_data/BSS/
+  smartcare_Acem_feb.csv    (February 2026 — 468K subscribers, REAL)
+  request_data_1month_500K.csv (March 2026 — 500K subscribers, REAL)
+
+TT_data/OSS/
+  (coming soon — real OSS cell KPIs for Feb + March)
+```
+
+### Data Strategy:
+- **BSS**: 2 real months (Feb + Mar) + 3 simulated (Apr-Jun)
+- **OSS**: 2 real months (Feb + Mar) + 3 simulated (Apr-Jun)
+- Simulation maintains same area distribution + realistic temporal drift
+- Churn emergence patterns in simulated months
+
+### NeXo Architecture — Multi-Agent System:
+Based on Huawei ADN Level 4 + Cloud-Network Convergence:
+
+```
+┌─────────────────────────────────────────────────────┐
+│      NeXo — TT Intelligence Agent       │
+│   (Huawei ADN + Cloud-Network Style)  │
+├─────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────┐ │
+│  │   Orchestrator (LLM-powered)       │ │
+│  │   Intent → Agent Dispatch        │ │
+│  └───────┬──────────────┬─────────────┘ │
+│          │              │             │
+│  ┌──────┴─────┐ ┌───┴────┐ ┌────┴────┐  │
+│  │  CEM Agent │ │Network │ │ Action  │  │
+│  │ (Mate)    │ │ Agent  │ │ Agent   │  │
+│  │            │ │(Spirit)│ │(Spirit)│  │
+│  └──────┬─────┘ └───┬────┘ └───┬────┘  │
+│         │           │          │        │
+│  ┌─────┴───────────┴──────────┴────────┐│
+│  │   OSS+BSS CONVERGENCE ENGINE       ││
+│  │   (Area-level join)              ││
+│  └─────────────────────────────────┘│
+└──────────────────────────────────────┘
+```
+
+### Agent Roles:
+| Agent | Role | Purpose |
+|-------|------|---------|
+| **CEMAgent** | Experience Analysis | Subscriber CEM scoring (0-1), NPS prediction |
+| **NetworkAgent** | Network Monitoring | Cell KPI monitoring, capacity analysis |
+| **ActionAgent** | Remediation | Auto-execution, playbook triggers |
+| **Orchestrator** | Intent Routing | LLM-powered task understanding |
+
+### OSS+BSS Convergence:
+The backbone of this project — correlates subscriber experience with network performance:
+
+```
+BSS (subscriber level)          OSS (cell level)
+   imsi ─────────────────► No direct link
+   area │                  area │
+        │                       │
+        ▼                       ▼
+   ┌──────────────────────────────────┐
+   │   CONVERGENCE at AREA level        │
+   │   - Map subscriber to cells     │
+   │   - Network quality → CEM      │
+   │   - RAT underservice detection  │
+   │   - Anomaly correlation        │
+   └──────────────────────────────────┘
+```
+
+### Implementation Timeline:
+| Phase | Content | Duration |
+|-------|---------|----------|
+| Phase 1 | Data loading + BSS features + CEM scoring | Weeks 1-3 |
+| Phase 2 | OSS simulation + convergence engine | Weeks 4-6 |
+| Phase 3 | Multi-agent system + Ollama integration | Weeks 7-9 |
+| Phase 4 | Real-time + dashboard + polish | Weeks 10-12 |
+
+### Hardware Available:
+- CPU: Ryzen 5 5600H (6 cores, 3.3GHz)
+- RAM: 24GB (19.9GB usable)
+- GPU: RTX 3050 4GB VRAM (for PyTorch training)
+- Disk: ~1000GB available on D:/
+
+### LLM: Qwen2.5:7b via Ollama
+Model size: 7B parameters (~4.7GB)
+Used for: Intent classification, agent reasoning, natural language queries
+
+### Key Decisions (Confirmed):
+- Q1: Model — Qwen2.5:7b ✅
+- Q2: OSS — Full simulation (cell-focused) ✅
+- Q3: Agents — 3 agents (CEM + Network + Action) ✅
+- Q4: Real-time — 30-second windows ✅
+- Q5: Deadline — July 1st, 2026 ✅
+
+### Client:
+TT — Tunisie Telecom (Tunisia)
+Focus: CEM subscriber profiling + OSS+BSS convergence
+
+---
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
