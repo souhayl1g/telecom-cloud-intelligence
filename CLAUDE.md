@@ -1,6 +1,6 @@
 # CLAUDE.md — Telecom NeXoligence Platform
 
-> Last updated: 2026-04-15 | Phase 5.5 (Real Data + L4 Playbooks + Actions System) complete, on `dev` branch | Full audit pass complete
+> Last updated: 2026-04-27 | Phase 1 Backend Restructuring complete (modular services, 26 tests, ruff clean) | Next: Phase 3.5 (BSS ETL + Rolling Window) blocked on OSS data arrival
 
 ---
 
@@ -540,16 +540,32 @@ All 25 dashboard routes compile. Zero TypeScript errors. Zero Python syntax erro
 ### Data Files:
 ```
 TT_data/BSS/
-  smartcare_Acem_feb.csv    (February 2026 — 468K subscribers, REAL)
-  request_data_1month_500K.csv (March 2026 — 500K subscribers, REAL)
+  smartcare_cem_feb.csv     (February 2026 — 468K subscribers, REAL)
+  smartcare_cem_mars.csv    (March 2026 — 500K subscribers, REAL)
+  smartcare_cem_jan.csv     (January 2026 — 500K subscribers, BOOTSTRAP SIMULATED)
+  smartcare_cem_avr.csv     (April 2026 — 500K subscribers, BOOTSTRAP SIMULATED)
+  smartcare_cem_mai.csv     (May 2026 — 500K subscribers, BOOTSTRAP SIMULATED)
 
 TT_data/OSS/
   (coming soon — real OSS cell KPIs for Feb + March)
 ```
 
+### Bootstrap Simulation Method (BSS Simulated Months)
+All simulated BSS files generated via **stratified bootstrap with log-normal perturbation** from real Feb+Mar data:
+1. **Base sampling**: Sample 500K rows with replacement from 968K real rows. Preserves all categorical joint distributions and variable correlations exactly.
+2. **Numerical perturbation**: Multiply numerical columns by `exp(N(0, 0.06))` — prevents exact duplicates while keeping distributions realistic.
+3. **Month drift applied**:
+   - **Jan**: DOU ×0.88, 5G traffic ×0.65, 8% 5G→4G demotion, silent users -3%
+   - **Apr**: DOU ×1.18, 5G traffic ×1.35, 12% 4G→5G promotion per unit of 5G factor, silent users +4%
+   - **May**: DOU ×1.35, 5G traffic ×1.65, 12% 4G→5G promotion per unit of 5G factor, silent users +8%
+4. **Identity replacement**: New IMSI (`60502` + 10 random digits) and TAC (15 random digits) for every record. Original identities never appear.
+5. **DOU guard**: If traffic sum exceeds 1.5× DOU, DOU is raised to match.
+
+Script: `services/data-ingest/generate_bss_months.py`
+
 ### Data Strategy:
-- **BSS**: 2 real months (Feb + Mar) + 3 simulated (Apr-Jun)
-- **OSS**: 2 real months (Feb + Mar) + 3 simulated (Apr-Jun)
+- **BSS**: 2 real months (Feb + Mar) + 3 simulated (Jan + Apr + May)
+- **OSS**: 2 real months (Feb + Mar) + simulated (pending real data arrival)
 - Simulation maintains same area distribution + realistic temporal drift
 - Churn emergence patterns in simulated months
 
@@ -645,3 +661,66 @@ Rules:
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+
+---
+
+## NeXo — Complete Outputs & Deliverables (2026-04-27)
+
+### 1. Data Layer
+| Deliverable | Description | Status |
+|---|---|---|
+| BSS Subscribers | 970K real subscribers (Feb 468K + Mar 500K) | ✅ Ready |
+| OSS Cell KPIs | Cell-focused network data | 🔜 Coming |
+| Simulated Months | Apr/May/Jun with realistic drift + churn emergence | 📋 Planned |
+| Rolling Window Engine | Stratified batch sampler per 2-min cycle | 📋 Planned |
+
+### 2. Target Database Schema (v3.0)
+| Table | Purpose | Key Columns |
+|---|---|---|
+| `bss_subscribers` | Raw subscriber CEM data | 26 features + month_year |
+| `oss_cells` | Network KPIs per cell | ~10 cols (tbd on OSS arrival) |
+| `cem_scores` | Computed CEM scores | imsi, score, features, timestamp |
+| `experience_anomalies` | AE-detected anomalies | imsi, anomaly_score, timestamp |
+| `churn_trajectory` | LSTM predictions | imsi, churn_prob, trajectory |
+| `rat_underservice` | XGBoost predictions | imsi, underservice_risk, gap |
+| `ob_convergence` | OSS+BSS correlations | area, correlation, p_value |
+| `agent_actions` | L4 action audit trail | status, execution_log JSONB |
+
+### 3. ML Models v3.0 (target)
+| Model | Algorithm | Key Features | Output |
+|---|---|---|---|
+| CEM Score | GBR + SHAP | attach_rates, usage, RAT_gap, area_oss | 0-1 score + explainability |
+| RAT Underservice | XGBoost | generation vs highest_rat, device tier | underservice_risk |
+| Experience Anomaly | PyTorch Autoencoder | 26 CEM features + OSS | anomaly_score |
+| Churn Trajectory | LSTM (PyTorch) | Rolling window sequences | churn_prob + trajectory |
+
+**Target metrics:** CEM Score R² > 0.90 | RAT F1 > 0.85 | Anomaly ROC-AUC > 0.90 | Churn AUC > 0.85
+
+### 4. Planned API Endpoints (Phase 3.5+)
+| Service | Endpoint | Purpose |
+|---|---|---|
+| api-gateway | GET /cem-score/{imsi} | Single subscriber CEM |
+| api-gateway | POST /cem-score/batch | Bulk scoring |
+| api-gateway | GET /rat-underservice | Device vs actual RAT gap |
+| api-gateway | GET /convergence/area | Area-level OSS+BSS correlations |
+| api-gateway | GET /convergence/degradation | OSS degradation → CEM impact |
+| ai-service | POST /infer/autoencoder | Experience anomaly detection |
+| ai-service | POST /infer/lstm-churn | Temporal churn prediction |
+
+### 5. Planned Dashboard Pages (Phase 3.5+)
+| Page | Data Source |
+|---|---|
+| `/cem-scores` | Real CEM distribution heatmap |
+| `/convergence` | OSS degradation + CEM impact |
+| `/churn-trajectory` | LSTM predictions over time |
+| `/rat-underservice` | Subscribers underserved by RAT |
+| `/anomalies` | AE-detected experience anomalies (replaces IF-based) |
+
+### 6. Key Metrics Expected
+| Model | Metric | Target |
+|---|---|---|
+| CEM Score (GBR) | R² | > 0.90 |
+| RAT Underservice (XGBoost) | F1 | > 0.85 |
+| Experience Anomaly (AE) | ROC-AUC | > 0.90 |
+| Churn Trajectory (LSTM) | AUC | > 0.85 |
+| O+B Convergence (Granger) | p-value | < 0.05 |
