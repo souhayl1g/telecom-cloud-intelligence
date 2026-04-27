@@ -35,7 +35,7 @@ Any behavior that could surprise a reader. Edge cases. Side effects.
 - For ML/AI code: explain the mathematical intuition in plain language alongside the code
 - For async code: describe the execution order explicitly
 - Never assume context — if the function name is ambiguous, state what you're inferring
-- For this project (Telecom Cloud Intelligence): connect explanations to ADN, CEM, OSS/BSS, pipeline stages where relevant
+- For this project (Telecom NeXoligence): connect explanations to ADN, CEM, OSS/BSS, pipeline stages where relevant
 
 ## Output Format
 
