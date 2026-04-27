@@ -1,5 +1,5 @@
 """
-Telecom Cloud Intelligence — Auth Service
+Telecom NeXoligence — Auth Service
 Handles user signup/login with email+password, Google OAuth, and GitHub OAuth.
 Issues JWT tokens for authenticated access to all platform APIs.
 """
@@ -43,7 +43,7 @@ _setup_tracing()
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
-app = FastAPI(title="Telecom Cloud Intelligence — Auth Service", version="1.0")
+app = FastAPI(title="Telecom NeXoligence — Auth Service", version="1.0")
 FastAPIInstrumentor.instrument_app(app)
 
 # ---------------------------------------------------------------------------
