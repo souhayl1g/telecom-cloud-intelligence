@@ -3,8 +3,10 @@ import hashlib
 import uuid
 from datetime import datetime, timezone, timedelta
 
+import numpy as np
 import psycopg2.extras
 
+from worker.config import SYNTHETIC_N_RECORDS
 from worker.db import get_conn
 from worker.storage import get_s3, ensure_buckets, upload_json
 from worker.generators.oss import generate_oss
@@ -14,6 +16,37 @@ from worker.processors.bss import build_processed_bss, build_curated_dataset
 from worker.analytics.features import compute_oss_features, compute_bss_features
 from worker.analytics.correlations import compute_correlations
 from worker.inference.client import infer_sla_risk, infer_anomaly, infer_revenue_anomaly
+from worker.sampler import USE_REAL_DATA, sample_bss_records, sample_oss_records
+
+
+def _enrich_bss_for_inference(bss_sampled: list[dict], seed: int) -> list[dict]:
+    """Merge sampled subscriber identity with synthetic revenue/churn fields.
+
+    Real BSS data does not contain revenue_tnd or churn_risk (CEM data, not billing).
+    We generate plausible synthetic values correlated with the subscriber's
+    network quality profile so the downstream v2.0 revenue-anomaly model still
+    receives a compatible schema. This is a bridge until real billing data arrives.
+    """
+    rng = np.random.default_rng(seed)
+    enriched = []
+    for rec in bss_sampled:
+        # Use network experience as a proxy for "value"
+        ne_index = rec.get("s1_mme_sr", 0.5) * 0.5 + rec.get("iu_attach_sr", 0.5) * 0.3 + rec.get("gb_attach_sr", 0.5) * 0.2
+        base_revenue = 10.0 + ne_index * 40.0  # 10-50 TND range
+        revenue = round(base_revenue * rng.uniform(0.7, 1.3), 2)
+        churn_risk = round(max(0.0, min(1.0, 1.0 - ne_index + rng.normal(0, 0.1))), 4)
+        enriched.append({
+            **rec,
+            "revenue_tnd": revenue,
+            "data_used_gb": round((rec.get("dou_total", 0) / 1e9) * rng.uniform(0.8, 1.2), 2),
+            "voice_min": round(rng.uniform(0, 300), 1),
+            "sms_count": int(rng.uniform(0, 100)),
+            "churn_risk": churn_risk,
+            "operator": "TT",
+            "line_type": "prepaid" if rng.random() < 0.8 else "postpaid",
+            "plan": "default",
+        })
+    return enriched
 
 
 def run_once() -> None:
@@ -66,17 +99,36 @@ def _run_pipeline_steps(
     s3 = get_s3()
     ensure_buckets(s3, ["raw", "processed", "curated"])
 
-    # ── 3–4. Synthetic data with fault injection ─────────────────────────
-    print("[3/22] Generating synthetic OSS data (with fault injection) ...")
-    oss_records, fault_info = generate_oss(200, region, seed=run_seed)
-    print(
-        f"  {len(oss_records)} OSS records — "
-        f"faults: {fault_info['fault_records']} records on cells {fault_info['fault_cells']}"
-    )
+    # ── 3–4. Data generation (real or synthetic) ─────────────────────────
+    if USE_REAL_DATA:
+        print("[3/22] Sampling real OSS data from Postgres ...")
+        oss_records = sample_oss_records(SYNTHETIC_N_RECORDS)
+        fault_info = {
+            "fault_cells": [],
+            "fault_start_idx": 0,
+            "fault_end_idx": 0,
+            "fault_records": sum(1 for r in oss_records if r.get("is_fault")),
+        }
+        print(
+            f"  {len(oss_records)} OSS records sampled — "
+            f"faults: {fault_info['fault_records']} records"
+        )
 
-    print("[4/22] Generating synthetic BSS data (with correlated dips) ...")
-    bss_records = generate_bss(200, region, seed=run_seed + 1, fault_info=fault_info)
-    print(f"  {len(bss_records)} BSS records generated")
+        print("[4/22] Sampling real BSS subscriber data from Postgres ...")
+        bss_sampled = sample_bss_records(SYNTHETIC_N_RECORDS)
+        bss_records = _enrich_bss_for_inference(bss_sampled, run_seed)
+        print(f"  {len(bss_records)} BSS records sampled + enriched")
+    else:
+        print("[3/22] Generating synthetic OSS data (with fault injection) ...")
+        oss_records, fault_info = generate_oss(SYNTHETIC_N_RECORDS, region, seed=run_seed)
+        print(
+            f"  {len(oss_records)} OSS records — "
+            f"faults: {fault_info['fault_records']} records on cells {fault_info['fault_cells']}"
+        )
+
+        print("[4/22] Generating synthetic BSS data (with correlated dips) ...")
+        bss_records = generate_bss(SYNTHETIC_N_RECORDS, region, seed=run_seed + 1, fault_info=fault_info)
+        print(f"  {len(bss_records)} BSS records generated")
 
     # ── 5–6. Upload raw layer ────────────────────────────────────────────
     date_prefix = now.strftime("%Y/%m/%d")
