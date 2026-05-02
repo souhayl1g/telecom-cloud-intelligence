@@ -23,8 +23,14 @@ echo ""
 python services/data-ingest/ingest_bss.py
 
 echo ""
-echo "[Phase 2.2] OSS Cell KPI Simulation"
-echo "  → Generating 24 areas × 10 cells × 5 months"
+echo "[Phase 2.2a] OSS Real Data Ingestion (2G/3G/4G)"
+echo "  → Loading real Huawei U2000 KPI exports (~18M rows)"
+echo ""
+python services/data-ingest/ingest_oss_real.py
+
+echo ""
+echo "[Phase 2.2b] OSS Cell KPI Simulation (fallback)"
+echo "  → Generating 24 areas × 10 cells × 5 months (if real data missing)"
 echo ""
 python services/data-ingest/simulate_oss.py
 

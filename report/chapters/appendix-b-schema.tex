@@ -7,7 +7,7 @@
 \section{Complete PostgreSQL DDL}
 
 \begin{lstlisting}[language=SQL, caption={Complete PostgreSQL DDL --- 8 tables.}]
--- Telecom Cloud Intelligence Platform
+-- Telecom NeXoligence Platform
 -- PostgreSQL 16 Schema
 -- Apply: psql -U telecom -d telecom_intel -f schema.sql
 
@@ -110,14 +110,22 @@ CREATE TABLE IF NOT EXISTS revenue_anomalies (
 
 \section{Table Relationships}
 
-All result tables (\texttt{anomalies}, \texttt{sla\_risk\_scores}, \texttt{correlation\_insights}, \texttt{revenue\_anomalies}) reference \texttt{pipeline\_runs(run\_id)} as a foreign key. This enables:
+All result tables (\texttt{anomalies}, \texttt{sla\_risk\_scores},
+\texttt{correlation\_insights}, \texttt{revenue\_anomalies}) reference
+\texttt{pipeline\_runs(run\_id)} as a foreign key. This enables:
 
 \begin{itemize}
-  \item \textbf{Run-level traceability:} Every result can be traced to the exact pipeline execution that produced it.
-  \item \textbf{Temporal queries:} Results can be filtered by pipeline run timestamp.
-  \item \textbf{Cascade behaviour:} \texttt{ON DELETE SET NULL} --- if a pipeline run is deleted, results are preserved but orphaned.
+  \item \textbf{Run-level traceability:} Every result can be traced to the
+        exact pipeline execution that produced it.
+  \item \textbf{Temporal queries:} Results can be filtered by pipeline run
+        timestamp.
+  \item \textbf{Cascade behaviour:} \texttt{ON DELETE SET NULL} --- if a
+        pipeline run is deleted, results are preserved but orphaned.
 \end{itemize}
 
-The \texttt{dataset\_registry} table links datasets to runs and tracks their location in the data lake (\texttt{object\_key}), enabling full data lineage from raw ingestion through curated output.
+The \texttt{dataset\_registry} table links datasets to runs and tracks their
+location in the data lake (\texttt{object\_key}), enabling full data lineage
+from raw ingestion through curated output.
 
-The \texttt{model\_registry} table records model versions and artifact locations, supporting model version tracking and rollback.
+The \texttt{model\_registry} table records model versions and artifact
+locations, supporting model version tracking and rollback.

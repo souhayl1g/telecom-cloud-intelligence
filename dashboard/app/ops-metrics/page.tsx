@@ -24,13 +24,13 @@ type HealthPayload = {
 };
 
 const CATEGORY_META: Record<ServiceCheck["category"], { label: string; color: string; icon: string }> = {
-    api:    { label: "API",       color: "var(--color-info)",    icon: "⚡" },
-    ml:     { label: "ML",        color: "var(--color-purple)",  icon: "🧠" },
-    auth:   { label: "Auth",      color: "var(--brand-accent)",  icon: "🔐" },
-    data:   { label: "Data",      color: "var(--color-warning)", icon: "💾" },
-    worker: { label: "Pipeline",  color: "var(--color-success)", icon: "⚙" },
-    ui:     { label: "Frontend",  color: "var(--brand-primary)", icon: "◆" },
-    obs:    { label: "Observ.",   color: "var(--color-success)", icon: "📡" },
+    api: { label: "API", color: "var(--color-info)", icon: "⚡" },
+    ml: { label: "ML", color: "var(--color-purple)", icon: "🧠" },
+    auth: { label: "Auth", color: "var(--brand-accent)", icon: "🔐" },
+    data: { label: "Data", color: "var(--color-warning)", icon: "💾" },
+    worker: { label: "Pipeline", color: "var(--color-success)", icon: "⚙" },
+    ui: { label: "Frontend", color: "var(--brand-primary)", icon: "◆" },
+    obs: { label: "Observ.", color: "var(--color-success)", icon: "📡" },
 };
 
 export default function OpsMetricsPage() {
@@ -65,8 +65,8 @@ export default function OpsMetricsPage() {
     const overallLabel = data?.overall ?? (loading ? "checking" : "unknown");
     const overallColor =
         data?.overall === "healthy" ? "var(--color-success)" :
-        data?.overall === "degraded" ? "var(--color-warning)" :
-        data?.overall === "down"     ? "var(--color-danger)"  : "var(--text-muted)";
+            data?.overall === "degraded" ? "var(--color-warning)" :
+                data?.overall === "down" ? "var(--color-danger)" : "var(--text-muted)";
 
     return (
         <div className="grid" style={{ gap: 24 }}>
@@ -76,7 +76,7 @@ export default function OpsMetricsPage() {
                     <div className="health-hero-kicker">Platform Observability</div>
                     <h1 className="health-hero-title">System Health</h1>
                     <p className="health-hero-sub">
-                        Live status of every microservice in the Telecom Cloud Intelligence stack.
+                        Live status of every microservice in the NeXo operations stack.
                         Auto-refreshes every 15 seconds.
                     </p>
                     <div className="health-hero-meta">
@@ -148,10 +148,10 @@ export default function OpsMetricsPage() {
 
             {/* Quick links */}
             <div className="health-links">
-                <QuickLink href="http://localhost:9001"      title="MinIO Console"    sub="Buckets · objects · policies"           accent="var(--color-warning)" />
-                <QuickLink href="http://localhost:8000/docs" title="API Swagger"      sub="Interactive REST API explorer"          accent="var(--color-info)" />
-                <QuickLink href="http://localhost:8001/docs" title="AI Service Docs"  sub="ML inference endpoints"                 accent="var(--color-purple)" />
-                <QuickLink href="http://localhost:8002/docs" title="Auth Docs"        sub="Signup · login · OAuth flows"           accent="var(--brand-accent)" />
+                <QuickLink href="http://localhost:9001" title="MinIO Console" sub="Buckets · objects · policies" accent="var(--color-warning)" />
+                <QuickLink href="http://localhost:8000/docs" title="API Swagger" sub="Interactive REST API explorer" accent="var(--color-info)" />
+                <QuickLink href="http://localhost:8001/docs" title="AI Service Docs" sub="ML inference endpoints" accent="var(--color-purple)" />
+                <QuickLink href="http://localhost:8002/docs" title="Auth Docs" sub="Signup · login · OAuth flows" accent="var(--brand-accent)" />
             </div>
         </div>
     );
@@ -161,10 +161,10 @@ function ServiceCard({ svc }: { svc: ServiceCheck }) {
     const meta = CATEGORY_META[svc.category];
     const statusColor =
         svc.status === "up" ? "var(--color-success)" :
-        svc.status === "down" ? "var(--color-danger)" : "var(--text-muted)";
+            svc.status === "down" ? "var(--color-danger)" : "var(--text-muted)";
     const statusBg =
         svc.status === "up" ? "var(--color-success-bg)" :
-        svc.status === "down" ? "var(--color-danger-bg)" : "var(--bg-elevated)";
+            svc.status === "down" ? "var(--color-danger-bg)" : "var(--bg-elevated)";
 
     return (
         <div className="health-card" style={{ borderColor: statusColor }}>

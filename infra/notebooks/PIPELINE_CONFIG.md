@@ -1,5 +1,5 @@
 # Pipeline Configuration
-# Telecom Cloud Intelligence — Automated Pipeline
+# Telecom NeXoligence — Automated Pipeline
 
 ## Environment Variables
 

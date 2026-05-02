@@ -1,0 +1,1339 @@
+{
+    "nodes": [
+        {
+            "id": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "label": "main.py",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L1"
+        },
+        {
+            "id": "main_setup_tracing",
+            "label": "_setup_tracing()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L28"
+        },
+        {
+            "id": "main_get_conn",
+            "label": "get_conn()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L81"
+        },
+        {
+            "id": "main_db",
+            "label": "_db()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L88"
+        },
+        {
+            "id": "main_ensure_tables",
+            "label": "_ensure_tables()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L100"
+        },
+        {
+            "id": "main_on_startup",
+            "label": "on_startup()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L126"
+        },
+        {
+            "id": "main_signuprequest",
+            "label": "SignupRequest",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L135"
+        },
+        {
+            "id": "basemodel",
+            "label": "BaseModel",
+            "file_type": "code",
+            "source_file": "",
+            "source_location": ""
+        },
+        {
+            "id": "main_loginrequest",
+            "label": "LoginRequest",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L141"
+        },
+        {
+            "id": "main_tokenresponse",
+            "label": "TokenResponse",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L146"
+        },
+        {
+            "id": "main_userresponse",
+            "label": "UserResponse",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L153"
+        },
+        {
+            "id": "main_create_token",
+            "label": "_create_token()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L169"
+        },
+        {
+            "id": "main_verify_token",
+            "label": "verify_token()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L182"
+        },
+        {
+            "id": "main_user_to_dict",
+            "label": "_user_to_dict()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L190"
+        },
+        {
+            "id": "main_signup",
+            "label": "signup()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L209"
+        },
+        {
+            "id": "main_login",
+            "label": "login()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L233"
+        },
+        {
+            "id": "main_get_current_user",
+            "label": "get_current_user()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L262"
+        },
+        {
+            "id": "main_google_login",
+            "label": "google_login()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L289"
+        },
+        {
+            "id": "main_google_callback",
+            "label": "google_callback()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L309"
+        },
+        {
+            "id": "main_github_login",
+            "label": "github_login()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L363"
+        },
+        {
+            "id": "main_github_callback",
+            "label": "github_callback()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L378"
+        },
+        {
+            "id": "main_upsert_oauth_user",
+            "label": "_upsert_oauth_user()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L455"
+        },
+        {
+            "id": "main_health",
+            "label": "health()",
+            "file_type": "code",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L516"
+        },
+        {
+            "id": "main_rationale_1",
+            "label": "Telecom NeXoligence \u2014 Auth Service Handles user signup/login with email+p",
+            "file_type": "rationale",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L1"
+        },
+        {
+            "id": "main_rationale_101",
+            "label": "Create the users table if it doesn't exist.",
+            "file_type": "rationale",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L101"
+        },
+        {
+            "id": "main_rationale_462",
+            "label": "Insert new OAuth user or update existing one. Returns user dict.",
+            "file_type": "rationale",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L462"
+        }
+    ],
+    "edges": [
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "os",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L7",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "secrets",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L8",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "contextlib",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L9",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "datetime",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L10",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "httpx",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L12",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "psycopg2",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L13",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "psycopg2_extras",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L14",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "fastapi",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L15",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "fastapi_responses",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L16",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "pydantic",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L17",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "passlib_context",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L18",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "jose",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L19",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "opentelemetry",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L20",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "opentelemetry_exporter_otlp_proto_grpc_trace_exporter",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L21",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "opentelemetry_instrumentation_fastapi",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L22",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "opentelemetry_sdk_resources",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L23",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "opentelemetry_sdk_trace",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L24",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "opentelemetry_sdk_trace_export",
+            "relation": "imports_from",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L25",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_setup_tracing",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L28",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_get_conn",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L81",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_db",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L88",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_ensure_tables",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L100",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_on_startup",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L126",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_signuprequest",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L135",
+            "weight": 1.0
+        },
+        {
+            "source": "main_signuprequest",
+            "target": "basemodel",
+            "relation": "inherits",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L135",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_loginrequest",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L141",
+            "weight": 1.0
+        },
+        {
+            "source": "main_loginrequest",
+            "target": "basemodel",
+            "relation": "inherits",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L141",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_tokenresponse",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L146",
+            "weight": 1.0
+        },
+        {
+            "source": "main_tokenresponse",
+            "target": "basemodel",
+            "relation": "inherits",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L146",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_userresponse",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L153",
+            "weight": 1.0
+        },
+        {
+            "source": "main_userresponse",
+            "target": "basemodel",
+            "relation": "inherits",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L153",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_create_token",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L169",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_verify_token",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L182",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_user_to_dict",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L190",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_signup",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L209",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_login",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L233",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_get_current_user",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L262",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_google_login",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L289",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_google_callback",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L309",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_github_login",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L363",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_github_callback",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L378",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_upsert_oauth_user",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L455",
+            "weight": 1.0
+        },
+        {
+            "source": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "target": "main_health",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L516",
+            "weight": 1.0
+        },
+        {
+            "source": "main_db",
+            "target": "main_get_conn",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L89",
+            "weight": 1.0
+        },
+        {
+            "source": "main_ensure_tables",
+            "target": "main_db",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L102",
+            "weight": 1.0
+        },
+        {
+            "source": "main_on_startup",
+            "target": "main_ensure_tables",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L127",
+            "weight": 1.0
+        },
+        {
+            "source": "main_signup",
+            "target": "main_db",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L212",
+            "weight": 1.0
+        },
+        {
+            "source": "main_signup",
+            "target": "main_create_token",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L224",
+            "weight": 1.0
+        },
+        {
+            "source": "main_signup",
+            "target": "main_tokenresponse",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L225",
+            "weight": 1.0
+        },
+        {
+            "source": "main_signup",
+            "target": "main_user_to_dict",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L228",
+            "weight": 1.0
+        },
+        {
+            "source": "main_login",
+            "target": "main_db",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L234",
+            "weight": 1.0
+        },
+        {
+            "source": "main_login",
+            "target": "main_create_token",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L248",
+            "weight": 1.0
+        },
+        {
+            "source": "main_login",
+            "target": "main_tokenresponse",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L249",
+            "weight": 1.0
+        },
+        {
+            "source": "main_login",
+            "target": "main_user_to_dict",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L252",
+            "weight": 1.0
+        },
+        {
+            "source": "main_get_current_user",
+            "target": "main_verify_token",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L268",
+            "weight": 1.0
+        },
+        {
+            "source": "main_get_current_user",
+            "target": "main_db",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L270",
+            "weight": 1.0
+        },
+        {
+            "source": "main_get_current_user",
+            "target": "main_user_to_dict",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L280",
+            "weight": 1.0
+        },
+        {
+            "source": "main_google_callback",
+            "target": "main_upsert_oauth_user",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L342",
+            "weight": 1.0
+        },
+        {
+            "source": "main_google_callback",
+            "target": "main_create_token",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L350",
+            "weight": 1.0
+        },
+        {
+            "source": "main_github_callback",
+            "target": "main_upsert_oauth_user",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L436",
+            "weight": 1.0
+        },
+        {
+            "source": "main_github_callback",
+            "target": "main_create_token",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L444",
+            "weight": 1.0
+        },
+        {
+            "source": "main_upsert_oauth_user",
+            "target": "main_db",
+            "relation": "calls",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L463",
+            "weight": 1.0
+        },
+        {
+            "source": "main_rationale_1",
+            "target": "home_souhayl_projects_telecom_cloud_intelligence_services_auth_service_main_py",
+            "relation": "rationale_for",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L1",
+            "weight": 1.0
+        },
+        {
+            "source": "main_rationale_101",
+            "target": "main_ensure_tables",
+            "relation": "rationale_for",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L101",
+            "weight": 1.0
+        },
+        {
+            "source": "main_rationale_462",
+            "target": "main_upsert_oauth_user",
+            "relation": "rationale_for",
+            "confidence": "EXTRACTED",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L462",
+            "weight": 1.0
+        }
+    ],
+    "raw_calls": [
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "getenv",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L29"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "create",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L32"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "getenv",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L33"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "TracerProvider",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L36"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "add_span_processor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L37"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "BatchSpanProcessor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L37"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "OTLPSpanExporter",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L37"
+        },
+        {
+            "caller_nid": "main_setup_tracing",
+            "callee": "set_tracer_provider",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L38"
+        },
+        {
+            "caller_nid": "main_get_conn",
+            "callee": "RuntimeError",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L83"
+        },
+        {
+            "caller_nid": "main_get_conn",
+            "callee": "connect",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L84"
+        },
+        {
+            "caller_nid": "main_db",
+            "callee": "commit",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L92"
+        },
+        {
+            "caller_nid": "main_db",
+            "callee": "rollback",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L94"
+        },
+        {
+            "caller_nid": "main_db",
+            "callee": "close",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L97"
+        },
+        {
+            "caller_nid": "main_ensure_tables",
+            "callee": "cursor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L103"
+        },
+        {
+            "caller_nid": "main_ensure_tables",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L104"
+        },
+        {
+            "caller_nid": "main_create_token",
+            "callee": "str",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L172"
+        },
+        {
+            "caller_nid": "main_create_token",
+            "callee": "now",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L175"
+        },
+        {
+            "caller_nid": "main_create_token",
+            "callee": "timedelta",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L175"
+        },
+        {
+            "caller_nid": "main_create_token",
+            "callee": "now",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L176"
+        },
+        {
+            "caller_nid": "main_create_token",
+            "callee": "encode",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L178"
+        },
+        {
+            "caller_nid": "main_verify_token",
+            "callee": "decode",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L184"
+        },
+        {
+            "caller_nid": "main_verify_token",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L187"
+        },
+        {
+            "caller_nid": "main_user_to_dict",
+            "callee": "isoformat",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L199"
+        },
+        {
+            "caller_nid": "main_signup",
+            "callee": "hash",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L210"
+        },
+        {
+            "caller_nid": "main_signup",
+            "callee": "cursor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L213"
+        },
+        {
+            "caller_nid": "main_signup",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L214"
+        },
+        {
+            "caller_nid": "main_signup",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L220"
+        },
+        {
+            "caller_nid": "main_signup",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L222"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "cursor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L235"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L236"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L237"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L240"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "verify",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L242"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L243"
+        },
+        {
+            "caller_nid": "main_login",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L246"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L263"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "startswith",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L264"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L265"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "split",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L267"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "cursor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L271"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L272"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "int",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L272"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L273"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L276"
+        },
+        {
+            "caller_nid": "main_get_current_user",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L278"
+        },
+        {
+            "caller_nid": "main_google_login",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L291"
+        },
+        {
+            "caller_nid": "main_google_login",
+            "callee": "token_urlsafe",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L293"
+        },
+        {
+            "caller_nid": "main_google_login",
+            "callee": "RedirectResponse",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L303"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L311"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "AsyncClient",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L313"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "post",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L315"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L326"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "json",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L329"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L332"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L337"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "json",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L340"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L344"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L345"
+        },
+        {
+            "caller_nid": "main_google_callback",
+            "callee": "RedirectResponse",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L352"
+        },
+        {
+            "caller_nid": "main_github_login",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L365"
+        },
+        {
+            "caller_nid": "main_github_login",
+            "callee": "token_urlsafe",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L367"
+        },
+        {
+            "caller_nid": "main_github_login",
+            "callee": "RedirectResponse",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L374"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L380"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "AsyncClient",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L382"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "post",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L384"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L395"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "json",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L398"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L399"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L401"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L404"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L412"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "json",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L413"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L416"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L418"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "json",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L426"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L427"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L427"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "HTTPException",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L432"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L438"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L438"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "get",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L439"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "str",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L441"
+        },
+        {
+            "caller_nid": "main_github_callback",
+            "callee": "RedirectResponse",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L445"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "cursor",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L464"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L466"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L470"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L474"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L481"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L484"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L485"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L489"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L498"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "execute",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L501"
+        },
+        {
+            "caller_nid": "main_upsert_oauth_user",
+            "callee": "fetchone",
+            "source_file": "/home/souhayl/projects/telecom-cloud-intelligence/services/auth-service/main.py",
+            "source_location": "L507"
+        }
+    ]
+}

@@ -13,12 +13,20 @@ Computes derived CEM features from real BSS data + simulated OSS KPIs:
 Also aggregates area-level health metrics into area_network_health table.
 """
 
+import json
 import os
 
 import psycopg2
 from psycopg2.extras import execute_values, Json
 
 DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+
+# Load cell-to-governorate mapping (OSS cell tower names → BSS governorate names)
+_MAPPING_PATH = os.path.join(os.path.dirname(__file__), "cell_governorate_map.json")
+CELL_GOVERNORATE_MAP = {}
+if os.path.exists(_MAPPING_PATH):
+    with open(_MAPPING_PATH) as f:
+        CELL_GOVERNORATE_MAP = json.load(f)
 
 
 def get_conn():
@@ -69,7 +77,7 @@ def compute_features_for_month(month_year: str):
             cur.execute("""
                 SELECT id, imsi_hash, generation, highest_rat, usim_flag,
                        dou_total, duration, s1_mme_sr, iu_attach_sr, gb_attach_sr,
-                       usertype, area
+                       usertype, area, churned
                 FROM bss_subscribers
                 WHERE month_year = %s
             """, (month_year,))
@@ -89,7 +97,35 @@ def compute_features_for_month(month_year: str):
                 WHERE month_year = %s
                 GROUP BY area
             """, (month_year,))
-            oss_agg = {row[0]: row[1:] for row in cur.fetchall()}
+            raw_oss = {row[0]: row[1:] for row in cur.fetchall()}
+
+    # Remap OSS aggregates from cell tower names → governorates
+    oss_agg = {}
+    for cell_area, (avg_tp, avg_lat, avg_pl, avg_rsrp, anomaly_count) in raw_oss.items():
+        gov = CELL_GOVERNORATE_MAP.get(cell_area)
+        if not gov:
+            continue
+        if gov not in oss_agg:
+            oss_agg[gov] = {"tp_sum": 0.0, "lat_sum": 0.0, "pl_sum": 0.0,
+                            "rsrp_sum": 0.0, "anomaly_count": 0, "cell_count": 0}
+        # Weighted average by cell count (each area aggregate is from one cell area)
+        oss_agg[gov]["tp_sum"] += avg_tp or 0
+        oss_agg[gov]["lat_sum"] += avg_lat or 0
+        oss_agg[gov]["pl_sum"] += avg_pl or 0
+        oss_agg[gov]["rsrp_sum"] += avg_rsrp or 0
+        oss_agg[gov]["anomaly_count"] += anomaly_count or 0
+        oss_agg[gov]["cell_count"] += 1
+
+    # Convert sums to averages
+    for gov in oss_agg:
+        cnt = oss_agg[gov]["cell_count"]
+        oss_agg[gov] = (
+            oss_agg[gov]["tp_sum"] / max(cnt, 1),
+            oss_agg[gov]["lat_sum"] / max(cnt, 1),
+            oss_agg[gov]["pl_sum"] / max(cnt, 1),
+            oss_agg[gov]["rsrp_sum"] / max(cnt, 1),
+            oss_agg[gov]["anomaly_count"],
+        )
 
     feature_rows = []
     area_stats = {}
@@ -97,7 +133,8 @@ def compute_features_for_month(month_year: str):
     for sub in subs:
         (_id, imsi_hash, generation, highest_rat, usim_flag,
          dou_total, duration, s1_mme_sr, iu_attach_sr, gb_attach_sr,
-         usertype, area) = sub
+         usertype, area, churned) = sub
+        churned = churned if churned is not None else False
 
         dou_total = dou_total or 0
         duration = duration or 0
@@ -135,7 +172,7 @@ def compute_features_for_month(month_year: str):
             round(rat_gap, 4), usim_bottleneck,
             round(data_intensity, 2), round(ne_index, 4),
             round(cem_target, 4), round(cem_target, 4),  # cem_score = target for now
-            churn_risk, Json(features_json)
+            churn_risk, churned, Json(features_json)
         ))
 
         # Accumulate area stats (skip null areas)
@@ -160,7 +197,7 @@ def compute_features_for_month(month_year: str):
             INSERT INTO subscriber_features (
                 imsi_hash, month_year, rat_gap_score, usim_bottleneck,
                 data_intensity, network_experience_index, cem_score,
-                cem_score_target, churn_risk_flag, features_json
+                cem_score_target, churn_risk_flag, churned, features_json
             ) VALUES %s
             ON CONFLICT (imsi_hash, month_year) DO UPDATE SET
                 rat_gap_score = EXCLUDED.rat_gap_score,
@@ -170,6 +207,7 @@ def compute_features_for_month(month_year: str):
                 cem_score = EXCLUDED.cem_score,
                 cem_score_target = EXCLUDED.cem_score_target,
                 churn_risk_flag = EXCLUDED.churn_risk_flag,
+                churned = EXCLUDED.churned,
                 features_json = EXCLUDED.features_json
         """
         with get_conn() as conn:
@@ -219,7 +257,7 @@ def compute_features_for_month(month_year: str):
 
 
 def main():
-    months = ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06"]
+    months = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
     for month in months:
         compute_features_for_month(month)
     print("\n[done] Feature computation complete for all months")

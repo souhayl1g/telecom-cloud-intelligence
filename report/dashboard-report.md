@@ -1,4 +1,4 @@
-# Telecom Cloud Intelligence - Dashboard Report
+# Telecom NeXoligence - Dashboard Report
 ## L4 Autonomous AI Operations Agent Platform
 
 ---
@@ -299,4 +299,4 @@ cd dashboard && npm run dev   # Start dashboard on :3001
 
 ---
 
-*Generated: March 2026 | Telecom Cloud Intelligence Platform v2.0*
+*Generated: March 2026 | Telecom NeXoligence Platform v2.0*

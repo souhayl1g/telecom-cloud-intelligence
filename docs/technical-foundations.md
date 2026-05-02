@@ -1,6 +1,6 @@
 # Technical Foundations — Complete Reference
 
-> A deep-dive technical course covering every concept behind the Telecom Cloud Intelligence Platform.  
+> A deep-dive technical course covering every concept behind the Telecom NeXoligence Platform.  
 > Written for: Souhayl Guenichi | April 2026
 
 ---

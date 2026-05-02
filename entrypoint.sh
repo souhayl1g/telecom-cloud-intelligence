@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Telecom Cloud Intelligence — Container Entrypoint
+# Telecom NeXoligence — Container Entrypoint
 # 
 # Environment Variables:
 #   AUTO_PIPELINE    (true|false)  - Run pipeline on startup (default: false)

@@ -1,4 +1,4 @@
-# Telecom Cloud Intelligence Platform
+# Telecom NeXoligence Platform
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
@@ -29,7 +29,7 @@
 
 ## Overview
 
-Telecom Cloud Intelligence is a fully containerised platform that:
+Telecom NeXoligence is a fully containerised platform that:
 
 1. **Ingests** synthetic OSS (network KPI) and BSS (revenue/usage) data per pipeline run — 200 OSS records from 10 cell towers + 200 BSS subscriber records from 3 Tunisian operators
 2. **Injects realistic faults**: 2–3 random cells degrade (throughput collapse, latency spike) + correlated BSS dips (data usage drops, churn spikes)

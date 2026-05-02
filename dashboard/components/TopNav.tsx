@@ -53,6 +53,21 @@ const Icons = {
             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
         </svg>
     ),
+    cemScores: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+        </svg>
+    ),
+    ratUnderservice: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 20h20" /><path d="M5 20v-5" /><path d="M9 20v-8" /><path d="M13 20V9" /><path d="M17 20V5" /><path d="M21 20V2" />
+        </svg>
+    ),
+    vaeAnomalies: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+    ),
     dwh: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
@@ -90,6 +105,9 @@ const navItems: NavItem[] = [
     { href: '/pipeline-runs', label: 'Pipelines', icon: Icons.pipelines },
     { href: '/ops-metrics', label: 'Health', icon: Icons.health },
     { href: '/model-evaluation', label: 'Models', icon: Icons.intelligence },
+    { href: '/cem-scores', label: 'CEM', icon: Icons.cemScores },
+    { href: '/rat-underservice', label: 'RAT', icon: Icons.ratUnderservice },
+    { href: '/vae-anomalies', label: 'VAE', icon: Icons.vaeAnomalies },
 ];
 
 export default function TopNav() {
@@ -109,7 +127,7 @@ export default function TopNav() {
             <div className="topnav-brand">
                 <Link href="/overview" className="logo-group" style={{ textDecoration: 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Image src="/images/logo.svg" alt="Cloud Intelligence" width={28} height={28} priority />
+                        <Image src="/images/logo.svg" alt="NeXo" width={28} height={28} priority />
                         <div>
                             <span className="logo-sparkly">
                                 <span className="hw-red">Cloud</span> Intelligence
@@ -150,7 +168,7 @@ export default function TopNav() {
             <div className="topnav-actions">
                 <a href="http://localhost:3301" target="_blank" rel="noreferrer" className="pill-btn" title="SigNoz Observability — Traces, Metrics, Logs">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                     </svg> SigNoz
                 </a>
                 <a href="http://localhost:9001" target="_blank" rel="noreferrer" className="pill-btn" title="MinIO Object Storage Console">

@@ -17,6 +17,7 @@ const SERVICES: Omit<ServiceCheck, "status" | "latencyMs" | "statusCode" | "erro
     { id: "api-gateway",   name: "API Gateway",     category: "api",    url: "http://api-gateway:8000/health",   publicUrl: "http://localhost:8000/docs", port: 8000 },
     { id: "ai-service",    name: "AI Service",      category: "ml",     url: "http://ai-service:8001/health",    publicUrl: "http://localhost:8001/docs", port: 8001 },
     { id: "auth-service",  name: "Auth Service",    category: "auth",   url: "http://auth-service:8002/health",  publicUrl: "http://localhost:8002/docs", port: 8002 },
+    { id: "agent-service", name: "Agent Service",   category: "ml",     url: "http://agent-service:8003/health", publicUrl: "http://localhost:8003/docs", port: 8003 },
     { id: "minio",         name: "MinIO Storage",   category: "data",   url: "http://minio:9000/minio/health/live", publicUrl: "http://localhost:9001", port: 9000 },
     { id: "postgres",      name: "PostgreSQL",      category: "data",   url: "http://api-gateway:8000/health",   port: 5432 },
     { id: "pipeline",      name: "Pipeline Worker", category: "worker", url: "http://api-gateway:8000/pipeline-runs?limit=1", port: 0 },

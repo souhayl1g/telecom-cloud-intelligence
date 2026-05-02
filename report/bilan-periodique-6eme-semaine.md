@@ -64,7 +64,7 @@ J'ai respecté les grandes étapes du planning en livrant 6 phases sur 10 dans l
 
 ### Prendre des initiatives : 4/4
 
-J'ai pris de nombreuses initiatives au-delà du périmètre initial du projet : mise en place du monitoring complet avec Prometheus et Grafana, implémentation d'un pipeline CI/CD en 6 étapes, ajout de l'authentification OAuth2 avec Google et GitHub, rebranding complet de la plateforme sous "NexOps AI", et implémentation de la Command Palette pour améliorer l'UX. Ces ajouts n'étaient pas explicitement demandés mais apportent une valeur significative au projet.
+J'ai pris de nombreuses initiatives au-delà du périmètre initial du projet : mise en place du monitoring complet avec Prometheus et Grafana, implémentation d'un pipeline CI/CD en 6 étapes, ajout de l'authentification OAuth2 avec Google et GitHub, rebranding complet de la plateforme sous "NeXo", et implémentation de la Command Palette pour améliorer l'UX. Ces ajouts n'étaient pas explicitement demandés mais apportent une valeur significative au projet.
 
 ### Réaliser un travail de qualité : 4/4
 

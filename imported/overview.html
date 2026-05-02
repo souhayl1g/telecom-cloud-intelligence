@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NeXo Platform Overview Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&amp;family=Fira+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#410001",
+                        "outline-variant": "#5d3f3b",
+                        "surface-dim": "#041423",
+                        "primary-fixed-dim": "#ffb4aa",
+                        "inverse-primary": "#c0000a",
+                        "tertiary-container": "#0056e1",
+                        "primary": "#ffb4aa",
+                        "border-active": "rgba(255, 255, 255, 0.16)",
+                        "secondary-fixed": "#ffdad5",
+                        "on-tertiary-container": "#d4ddff",
+                        "tertiary-fixed": "#dbe1ff",
+                        "border-base": "rgba(255, 255, 255, 0.08)",
+                        "bg-surface": "rgba(255, 255, 255, 0.03)",
+                        "outline": "#ae8883",
+                        "text-primary": "#E8ECF1",
+                        "primary-container": "#c7000b",
+                        "on-surface-variant": "#e7bdb7",
+                        "primary-fixed": "#ffdad5",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#00174b",
+                        "on-secondary-container": "#fff1ef",
+                        "surface-bright": "#2b3b4b",
+                        "on-surface": "#d4e4f9",
+                        "surface-container-low": "#0c1d2c",
+                        "background": "#041423",
+                        "surface-container-lowest": "#010f1e",
+                        "text-muted": "#546478",
+                        "on-background": "#d4e4f9",
+                        "surface-tint": "#ffb4aa",
+                        "inverse-surface": "#d4e4f9",
+                        "secondary-container": "#e10211",
+                        "surface-container": "#112130",
+                        "info": "#00A9CE",
+                        "secondary-fixed-dim": "#ffb4aa",
+                        "secondary": "#ffb4aa",
+                        "surface-container-highest": "#273646",
+                        "on-primary-fixed": "#410001",
+                        "inverse-on-surface": "#223242",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-primary-container": "#ffd5cf",
+                        "text-secondary": "#8494A7",
+                        "surface-container-high": "#1c2b3b",
+                        "surface": "#041423",
+                        "on-primary-fixed-variant": "#930005",
+                        "ai-purple": "#8B5CF6",
+                        "warning": "#FBBF24",
+                        "accent-orange": "#F08A24",
+                        "on-secondary": "#690003",
+                        "on-tertiary-fixed-variant": "#003ea7",
+                        "error": "#ffb4ab",
+                        "bg-root": "#0A0F1C",
+                        "on-primary": "#690003",
+                        "bg-elevated": "rgba(255, 255, 255, 0.06)",
+                        "on-secondary-fixed-variant": "#930007",
+                        "danger": "#EF4444",
+                        "on-tertiary": "#002a77",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "tertiary": "#b4c5ff",
+                        "surface-variant": "#273646",
+                        "success": "#34D399"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "space-8": "32px",
+                        "base": "8px",
+                        "space-2": "8px",
+                        "space-3": "12px",
+                        "space-4": "16px",
+                        "space-6": "24px",
+                        "space-1": "4px"
+                    },
+                    "fontFamily": {
+                        "h3-card": ["Fira Sans"],
+                        "h1-page": ["Fira Code"],
+                        "display-hero": ["Fira Code"],
+                        "caption-meta": ["Fira Sans"],
+                        "body-standard": ["Fira Sans"],
+                        "h2-section": ["Fira Code"],
+                        "badge-status": ["Fira Sans"]
+                    },
+                    "fontSize": {
+                        "h3-card": ["0.9375rem", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "h1-page": ["1.5rem", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "display-hero": ["2.5rem", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption-meta": ["0.75rem", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-standard": ["0.875rem", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "h2-section": ["1.125rem", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "badge-status": ["0.6875rem", { "lineHeight": "1", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .live-pulse {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-bg-root text-text-primary min-h-screen flex flex-col font-body-standard">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-gray-950/80 backdrop-blur-md border-b border-white/10 shadow-2xl shadow-red-900/10">
+<div class="flex justify-between items-center px-6 h-14 w-full">
+<div class="flex items-center gap-space-4">
+<span class="text-xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent font-['Space_Grotesk'] tracking-tight">NeXo Intelligence</span>
+<div class="hidden md:flex items-center gap-space-6 ml-space-8">
+<a class="font-['Space_Grotesk'] text-sm tracking-tight text-white border-b-2 border-red-600 pb-1 hover:text-white transition-colors opacity-80 transition-opacity" href="#">Network</a>
+<a class="font-['Space_Grotesk'] text-sm tracking-tight text-gray-400 pb-1 hover:text-white transition-colors" href="#">Operations</a>
+<a class="font-['Space_Grotesk'] text-sm tracking-tight text-gray-400 pb-1 hover:text-white transition-colors" href="#">Automation</a>
+<a class="font-['Space_Grotesk'] text-sm tracking-tight text-gray-400 pb-1 hover:text-white transition-colors" href="#">Analytics</a>
+</div>
+</div>
+<div class="flex items-center gap-space-4">
+<div class="bg-surface-variant text-text-primary px-space-2 py-space-1 rounded border border-border-base font-badge-status text-badge-status flex items-center gap-space-1">
+<span class="w-1.5 h-1.5 rounded-full bg-info relative flex justify-center items-center">
+<span class="absolute w-full h-full rounded-full bg-info live-pulse"></span>
+</span>
+                    OSS ∩ BSS
+                </div>
+<button class="text-red-600 font-['Space_Grotesk'] text-sm tracking-tight hover:text-white transition-colors">Deploy AI</button>
+<div class="flex gap-space-2 text-red-600">
+<button class="hover:text-white transition-colors"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span></button>
+<button class="hover:text-white transition-colors"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span></button>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar & Main Content Wrapper -->
+<div class="flex flex-1 pt-14">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col py-4 justify-between bg-gray-950 text-red-600 font-mono text-xs uppercase tracking-widest fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-20 hover:w-64 transition-all duration-300 z-40 border-r border-white/5 overflow-hidden group">
+<div class="flex flex-col gap-space-2">
+<div class="px-space-4 py-space-2 mb-space-4 whitespace-nowrap flex items-center gap-space-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center border border-border-base">
+<span class="material-symbols-outlined text-text-muted text-sm">person</span>
+</div>
+<div>
+<div class="font-black text-red-600 truncate">NOC_ALPHA_01</div>
+<div class="text-text-muted text-[10px] truncate">Active Session</div>
+</div>
+</div>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 text-gray-500 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">router</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Nodes</span>
+</a>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 bg-red-600/10 text-red-500 border-l-4 border-red-600 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">show_chart</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Traffic</span>
+</a>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 text-gray-500 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">error_outline</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Anomalies</span>
+</a>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 text-gray-500 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">smart_toy</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Agents</span>
+</a>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 text-gray-500 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">terminal</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Logs</span>
+</a>
+</div>
+<div class="flex flex-col gap-space-2 mt-auto">
+<button class="mx-space-4 mb-space-4 py-space-2 px-space-3 bg-surface-variant border border-border-base text-text-primary text-xs rounded hover:border-border-active transition-colors whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                    System Health
+                </button>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 text-gray-500 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">help_outline</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Support</span>
+</a>
+<a class="flex items-center gap-space-4 px-space-4 py-space-3 text-gray-500 hover:bg-white/5 hover:text-white hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">description</span>
+<span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Documentation</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 ml-0 md:ml-20 p-space-6 overflow-y-auto">
+<!-- Page Header -->
+<header class="mb-space-6 flex justify-between items-end">
+<div>
+<h1 class="font-h1-page text-h1-page text-text-primary">Platform Overview</h1>
+<p class="font-body-standard text-body-standard text-text-secondary mt-space-1">Real-time telemetric aggregation &amp; agent status</p>
+</div>
+<div class="flex items-center gap-space-2">
+<span class="font-badge-status text-badge-status text-text-muted">Last sync: 2s ago</span>
+<div class="w-2 h-2 rounded-full bg-success relative flex justify-center items-center">
+<span class="absolute w-full h-full rounded-full bg-success live-pulse"></span>
+</div>
+</div>
+</header>
+<!-- KPI Cards Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-4 mb-space-6">
+<!-- KPI 1 -->
+<div class="bg-bg-elevated border border-border-base rounded-lg p-space-4 hover:border-border-active transition-colors shadow-[0_4px_12px_rgba(0,0,0,0.4)] relative overflow-hidden flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<span class="font-caption-meta text-caption-meta text-text-secondary uppercase tracking-wider">Pipeline Runs</span>
+<span class="material-symbols-outlined text-info" style="font-variation-settings: 'FILL' 0;">data_object</span>
+</div>
+<div class="flex items-end justify-between mt-space-2">
+<div class="font-h1-page text-h1-page text-text-primary">12,492</div>
+<div class="flex items-center text-success font-caption-meta text-caption-meta gap-1">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                            4.2%
+                        </div>
+</div>
+<!-- Mock Sparkline -->
+<div class="absolute bottom-0 left-0 w-full h-8 opacity-30">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 100 30">
+<path class="text-info" d="M0,30 L0,20 Q10,10 20,25 T40,15 T60,28 T80,5 T100,10 L100,30 Z" fill="currentColor"></path>
+</svg>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-bg-elevated border border-border-base rounded-lg p-space-4 hover:border-border-active transition-colors shadow-[0_4px_12px_rgba(0,0,0,0.4)] relative overflow-hidden flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<span class="font-caption-meta text-caption-meta text-text-secondary uppercase tracking-wider">Active Anomalies</span>
+<span class="material-symbols-outlined text-danger" style="font-variation-settings: 'FILL' 0;">warning</span>
+</div>
+<div class="flex items-end justify-between mt-space-2">
+<div class="font-h1-page text-h1-page text-danger" style="text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">03</div>
+<div class="flex items-center text-danger font-caption-meta text-caption-meta gap-1">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                            2
+                        </div>
+</div>
+<!-- Mock Sparkline -->
+<div class="absolute bottom-0 left-0 w-full h-8 opacity-30">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 100 30">
+<path class="text-danger" d="M0,30 L0,28 L20,25 L40,28 L60,10 L80,25 L100,5 L100,30 Z" fill="currentColor"></path>
+</svg>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-bg-elevated border border-border-base rounded-lg p-space-4 hover:border-border-active transition-colors shadow-[0_4px_12px_rgba(0,0,0,0.4)] relative overflow-hidden flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<span class="font-caption-meta text-caption-meta text-text-secondary uppercase tracking-wider">SLA Risk</span>
+<span class="material-symbols-outlined text-warning" style="font-variation-settings: 'FILL' 0;">timer</span>
+</div>
+<div class="flex items-end justify-between mt-space-2">
+<div class="font-h1-page text-h1-page text-text-primary">1.2%</div>
+<div class="flex items-center text-success font-caption-meta text-caption-meta gap-1">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+                            0.5%
+                        </div>
+</div>
+<!-- Mock Sparkline -->
+<div class="absolute bottom-0 left-0 w-full h-8 opacity-30">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 100 30">
+<path class="text-warning" d="M0,30 L0,5 L20,10 L40,8 L60,20 L80,25 L100,28 L100,30 Z" fill="currentColor"></path>
+</svg>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-bg-elevated border border-border-base rounded-lg p-space-4 hover:border-border-active transition-colors shadow-[0_4px_12px_rgba(0,0,0,0.4)] relative overflow-hidden flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<span class="font-caption-meta text-caption-meta text-text-secondary uppercase tracking-wider">Subscribers</span>
+<span class="material-symbols-outlined text-ai-purple" style="font-variation-settings: 'FILL' 0;">group</span>
+</div>
+<div class="flex items-end justify-between mt-space-2">
+<div class="font-h1-page text-h1-page text-text-primary">8.4M</div>
+<div class="flex items-center text-text-muted font-caption-meta text-caption-meta gap-1">
+<span class="material-symbols-outlined text-[14px]">horizontal_rule</span>
+                            0.0%
+                        </div>
+</div>
+<!-- Mock Sparkline -->
+<div class="absolute bottom-0 left-0 w-full h-8 opacity-30">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 100 30">
+<path class="text-ai-purple" d="M0,30 L0,15 L20,14 L40,16 L60,15 L80,14 L100,15 L100,30 Z" fill="currentColor"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Main Data Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-space-6">
+<!-- Left: Line Chart Panel -->
+<div class="lg:col-span-2 bg-surface border border-border-base rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.4)] p-space-4 flex flex-col h-96">
+<div class="flex justify-between items-center mb-space-4">
+<h2 class="font-h2-section text-h2-section text-text-primary">Network Traffic &amp; Inference Volume</h2>
+<div class="flex gap-space-2">
+<button class="px-space-2 py-space-1 text-xs font-badge-status border border-border-base rounded bg-bg-surface text-text-secondary hover:text-text-primary transition-colors">1H</button>
+<button class="px-space-2 py-space-1 text-xs font-badge-status border border-border-active rounded bg-surface-variant text-text-primary">24H</button>
+<button class="px-space-2 py-space-1 text-xs font-badge-status border border-border-base rounded bg-bg-surface text-text-secondary hover:text-text-primary transition-colors">7D</button>
+</div>
+</div>
+<div class="flex-1 relative border-l border-b border-border-base/50">
+<!-- Y Axis Labels -->
+<div class="absolute -left-8 top-0 h-full flex flex-col justify-between font-caption-meta text-caption-meta text-text-muted py-2">
+<span>100G</span>
+<span>75G</span>
+<span>50G</span>
+<span>25G</span>
+<span>0</span>
+</div>
+<!-- X Axis Labels -->
+<div class="absolute -bottom-6 left-0 w-full flex justify-between font-caption-meta text-caption-meta text-text-muted px-2">
+<span>00:00</span>
+<span>06:00</span>
+<span>12:00</span>
+<span>18:00</span>
+<span>Now</span>
+</div>
+<!-- Chart Lines (Mock SVG) -->
+<svg class="w-full h-full absolute inset-0 overflow-visible" preserveaspectratio="none" viewbox="0 0 100 100">
+<!-- Grid lines -->
+<line stroke="rgba(255,255,255,0.05)" stroke-width="0.5" x1="0" x2="100" y1="25" y2="25"></line>
+<line stroke="rgba(255,255,255,0.05)" stroke-width="0.5" x1="0" x2="100" y1="50" y2="50"></line>
+<line stroke="rgba(255,255,255,0.05)" stroke-width="0.5" x1="0" x2="100" y1="75" y2="75"></line>
+<!-- Traffic Line -->
+<path class="opacity-80" d="M0,80 Q10,75 20,60 T40,65 T60,30 T80,40 T100,20" fill="none" stroke="#00A9CE" stroke-width="2"></path>
+<!-- Inference Line -->
+<path d="M0,90 Q15,85 30,70 T50,80 T70,50 T90,60 T100,40" fill="none" stroke="#8B5CF6" stroke-dasharray="2,2" stroke-width="1.5"></path>
+<!-- Anomaly Marker 1 -->
+<g transform="translate(60, 30)">
+<circle class="live-pulse" fill="rgba(239, 68, 68, 0.2)" r="6"></circle>
+<circle fill="#EF4444" filter="drop-shadow(0 0 4px #EF4444)" r="3"></circle>
+</g>
+</svg>
+<!-- Legend -->
+<div class="absolute top-2 right-2 flex gap-space-4 bg-surface-dim/80 backdrop-blur border border-border-base p-space-2 rounded font-caption-meta text-caption-meta">
+<div class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-info"></span> Traffic</div>
+<div class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-ai-purple"></span> Inference</div>
+</div>
+</div>
+</div>
+<!-- Right: Model Health Panel -->
+<div class="bg-surface border border-border-base rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.4)] p-space-4 flex flex-col h-96">
+<h2 class="font-h2-section text-h2-section text-text-primary mb-space-4">Agent Ecosystem Health</h2>
+<div class="flex-1 flex flex-col items-center justify-center relative">
+<!-- Mock Donut Chart SVG -->
+<div class="relative w-48 h-48">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 100 100">
+<!-- Background circle -->
+<circle cx="50" cy="50" fill="none" r="40" stroke="rgba(255,255,255,0.05)" stroke-width="12"></circle>
+<!-- Segments -->
+<!-- Healthy (75%) -->
+<circle cx="50" cy="50" fill="none" r="40" stroke="#34D399" stroke-dasharray="251.2" stroke-dashoffset="62.8" stroke-width="12"></circle>
+<!-- Warning (15%) -->
+<circle cx="50" cy="50" fill="none" r="40" stroke="#FBBF24" stroke-dasharray="251.2" stroke-dashoffset="213.52" stroke-width="12" transform="rotate(270 50 50)"></circle>
+<!-- Critical (10%) -->
+<circle cx="50" cy="50" fill="none" r="40" stroke="#EF4444" stroke-dasharray="251.2" stroke-dashoffset="226.08" stroke-width="12" transform="rotate(324 50 50)"></circle>
+</svg>
+<!-- Center Text -->
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="font-h1-page text-[2rem] leading-none text-text-primary">92</span>
+<span class="font-caption-meta text-caption-meta text-text-muted mt-1">Health Score</span>
+</div>
+</div>
+<!-- Legend/Stats below donut -->
+<div class="w-full mt-space-6 flex flex-col gap-space-2">
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-space-2 text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-success"></span> Optimal
+                                </div>
+<span class="font-mono text-text-primary">342</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-space-2 text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-warning"></span> Degraded
+                                </div>
+<span class="font-mono text-text-primary">48</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-space-2 text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-danger"></span> Fault
+                                </div>
+<span class="font-mono text-text-primary">12</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Pending Actions Banner -->
+<div class="mt-space-6 bg-surface-variant/50 border-l-4 border-warning border-t border-r border-b border-border-base rounded-r-lg p-space-4 flex justify-between items-center">
+<div class="flex items-start gap-space-3">
+<span class="material-symbols-outlined text-warning mt-0.5" style="font-variation-settings: 'FILL' 1;">precision_manufacturing</span>
+<div>
+<h3 class="font-h3-card text-h3-card text-text-primary">Traffic Re-routing Recommended</h3>
+<p class="font-body-standard text-body-standard text-text-secondary">Node Alpha-7 showing persistent latency. Agent suggests migrating to Beta-2.</p>
+</div>
+</div>
+<div class="flex items-center gap-space-4">
+<div class="text-right">
+<div class="font-mono text-success text-sm">98.2% Confidence</div>
+</div>
+<div class="flex gap-space-2">
+<button class="px-space-3 py-space-1.5 border border-border-base text-text-secondary hover:text-text-primary rounded transition-colors text-sm font-medium">Reject</button>
+<button class="px-space-3 py-space-1.5 bg-gradient-to-r from-red-600 to-orange-500 text-white rounded hover:opacity-90 transition-opacity text-sm font-medium shadow-[0_0_10px_rgba(220,38,38,0.5)]">Authorize</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

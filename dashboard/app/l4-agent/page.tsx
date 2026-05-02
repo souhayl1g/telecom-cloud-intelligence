@@ -278,6 +278,7 @@ export default function L4AgentPage() {
     const [runningPlaybook, setRunningPlaybook] = useState<string | null>(null);
     const [agentSpeed, setAgentSpeed] = useState<number>(0);
     const [selectedModel, setSelectedModel] = useState<string>('kimi-k2.5:cloud');
+    const [chatMode, setChatMode] = useState<'ollama' | 'orchestrator'>('orchestrator');
     const chatEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const startTimeRef = useRef<number>(Date.now());
@@ -299,7 +300,7 @@ export default function L4AgentPage() {
         setNotifications(prev => [notif, ...prev].slice(0, 20));
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(`Cloud Intelligence: ${n.title}`, { body: n.message, icon: '/favicon.ico' });
+            new Notification(`NeXoligence: ${n.title}`, { body: n.message, icon: '/favicon.ico' });
         }
         // Auto-dismiss after 5s
         setTimeout(() => {
@@ -526,7 +527,7 @@ export default function L4AgentPage() {
         }
     };
 
-    // Chat send
+    // Chat send — supports both Ollama direct chat and Orchestrator multi-agent mode
     const sendMessage = async () => {
         const text = input.trim();
         if (!text || streaming) return;
@@ -540,6 +541,52 @@ export default function L4AgentPage() {
         setMessages(prev => [...prev, assistantMsg]);
 
         try {
+            if (chatMode === 'orchestrator') {
+                // ── NeXo Orchestrator mode ──────────────────────────────────────
+                const res = await fetch('/api/agent-query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: text }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Connection failed' }));
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        updated[updated.length - 1] = {
+                            ...updated[updated.length - 1],
+                            content: `Error: ${err.error || 'Failed to connect to NeXo Orchestrator.'}`,
+                        };
+                        return updated;
+                    });
+                    setStreaming(false);
+                    return;
+                }
+
+                const data = await res.json();
+                const responseText = data.response || data.error || 'No response from orchestrator.';
+                const agentName = data.agent_result?.agent_name || 'Orchestrator';
+                const classification = data.classification || {};
+
+                // Build rich response with agent metadata
+                let richContent = responseText;
+                if (classification.agent && classification.action) {
+                    richContent = `[${agentName} · ${classification.action}]\n\n${responseText}`;
+                }
+
+                setMessages(prev => {
+                    const updated = [...prev];
+                    updated[updated.length - 1] = {
+                        ...updated[updated.length - 1],
+                        content: richContent,
+                    };
+                    return updated;
+                });
+                setStreaming(false);
+                return;
+            }
+
+            // ── Ollama direct chat mode ──────────────────────────────────────
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -605,7 +652,7 @@ export default function L4AgentPage() {
                 const updated = [...prev];
                 updated[updated.length - 1] = {
                     ...updated[updated.length - 1],
-                    content: 'Error: Cannot connect to L4 Agent LLM. Ensure Ollama is running on localhost:11434.',
+                    content: 'Error: Cannot connect to AI service. Ensure services are running.',
                 };
                 return updated;
             });
@@ -774,8 +821,8 @@ export default function L4AgentPage() {
                     <div className="l4-model-selector-bar">
                         <div className="l4-model-info">
                             <span className="l4-model-label">🤖 Model:</span>
-                            <select 
-                                value={selectedModel} 
+                            <select
+                                value={selectedModel}
                                 onChange={(e) => setSelectedModel(e.target.value)}
                                 className="l4-model-select"
                                 disabled={streaming}
@@ -791,11 +838,11 @@ export default function L4AgentPage() {
                             </span>
                         </div>
                         <div className="l4-chat-actions">
-                            <button 
+                            <button
                                 onClick={() => {
                                     setMessages([]);
                                     localStorage.removeItem('l4-agent-chat-history');
-                                }} 
+                                }}
                                 className="l4-clear-chat-btn"
                                 title="Clear chat history"
                             >
@@ -851,7 +898,37 @@ export default function L4AgentPage() {
                         <div ref={chatEndRef} />
                     </div>
 
-                    {/* Input */}
+                    {/* Mode Toggle + Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mode</div>
+                        <div style={{ display: 'flex', gap: 4, background: 'var(--bg-elevated)', borderRadius: 6, padding: 2 }}>
+                            <button
+                                onClick={() => setChatMode('orchestrator')}
+                                style={{
+                                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                                    background: chatMode === 'orchestrator' ? 'var(--brand-primary)' : 'transparent',
+                                    color: chatMode === 'orchestrator' ? '#fff' : 'var(--text-secondary)',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                NeXo Orchestrator
+                            </button>
+                            <button
+                                onClick={() => setChatMode('ollama')}
+                                style={{
+                                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                                    background: chatMode === 'ollama' ? 'var(--brand-primary)' : 'transparent',
+                                    color: chatMode === 'ollama' ? '#fff' : 'var(--text-secondary)',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                Ollama Chat
+                            </button>
+                        </div>
+                        <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-muted)' }}>
+                            {chatMode === 'orchestrator' ? 'CEM + Network + Action agents' : 'Direct LLM conversation'}
+                        </div>
+                    </div>
                     <div className="l4-chat-input-wrap">
                         <textarea
                             ref={inputRef}
@@ -859,12 +936,16 @@ export default function L4AgentPage() {
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
-                            placeholder={ollamaReady === false ? 'Ollama not running...' : 'Ask the L4 Agent...'}
-                            disabled={streaming || ollamaReady === false}
+                            placeholder={
+                                streaming ? 'Thinking...' :
+                                chatMode === 'orchestrator' ? 'Ask NeXo about subscribers, cells, or actions...' :
+                                ollamaReady === false ? 'Ollama not running...' : 'Ask the L4 Agent...'
+                            }
+                            disabled={streaming || (chatMode === 'ollama' && ollamaReady === false)}
                             className="l4-chat-input"
                             rows={1}
                         />
-                        <button onClick={sendMessage} disabled={!input.trim() || streaming || ollamaReady === false} className="l4-send-btn">
+                        <button onClick={sendMessage} disabled={!input.trim() || streaming || (chatMode === 'ollama' && ollamaReady === false)} className="l4-send-btn">
                             {streaming ? <div className="l4-send-spinner" /> : (
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                             )}
@@ -937,8 +1018,8 @@ export default function L4AgentPage() {
                                         const isOpen = expandedGroups.has(group.key);
                                         const countClass =
                                             group.severity === 'critical' ? 'action-group-count-critical'
-                                            : group.severity === 'warning' ? 'action-group-count-warning'
-                                            : '';
+                                                : group.severity === 'warning' ? 'action-group-count-warning'
+                                                    : '';
                                         return (
                                             <div key={group.key} className="action-group">
                                                 <div className="action-group-header" onClick={() => toggleGroup(group.key)}>

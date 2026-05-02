@@ -116,7 +116,7 @@ export default function CommandPalette() {
         { id: "nav-health", label: "Ops Metrics", description: "Platform observability & health", group: "Pages", icon: CmdIcons.page, action: () => { router.push("/ops-metrics"); close(); }, keywords: ["health", "grafana", "prometheus", "monitoring"] },
         { id: "nav-agent", label: "L4 Agent", description: "Autonomous operations workspace", group: "Pages", icon: CmdIcons.page, action: () => { router.push("/l4-agent"); close(); }, keywords: ["agent", "autonomous", "remediation", "ai"] },
         // Actions
-        { id: "act-theme", label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Theme`, description: "Toggle NexOps theme", group: "Actions", icon: CmdIcons.theme, action: () => { toggleTheme(); close(); }, keywords: ["theme", "dark", "light", "mode", "toggle"] },
+        { id: "act-theme", label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Theme`, description: "Toggle NeXo theme", group: "Actions", icon: CmdIcons.theme, action: () => { toggleTheme(); close(); }, keywords: ["theme", "dark", "light", "mode", "toggle"] },
         { id: "act-refresh", label: "Refresh Data", description: "Reload the current page data", group: "Actions", icon: CmdIcons.action, action: () => { router.refresh(); close(); }, keywords: ["reload", "refresh", "update"] },
         { id: "act-logout", label: "Sign Out", description: "Log out of the dashboard", group: "Actions", icon: CmdIcons.logout, action: () => { fetch("/api/logout", { method: "POST" }).then(() => { router.push("/login"); router.refresh(); }); close(); }, keywords: ["logout", "sign out", "exit"] },
         // External Tools

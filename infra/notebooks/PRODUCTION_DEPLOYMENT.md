@@ -1,5 +1,5 @@
 # Production Deployment Guide
-# Telecom Cloud Intelligence — Automated Pipeline
+# Telecom NeXoligence — Automated Pipeline
 
 ## Quick Start
 

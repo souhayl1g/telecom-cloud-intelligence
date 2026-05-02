@@ -1,4 +1,4 @@
-# Telecom Cloud Intelligence Platform — Full Technical Documentation
+# Telecom NeXoligence Platform — Full Technical Documentation
 
 > **Version:** 2.0 | **Date:** 2026-04-15 | **Author:** Souhayl Guenichi (ESPRIT / Huawei Tunisia)
 > **Branch:** `dev` | **Phase:** 5.5 complete
@@ -28,7 +28,7 @@
 
 ### What This System Does
 
-The **Telecom Cloud Intelligence Platform** is a cloud-native AI Operations Agent designed for Huawei's CEM-CVM convergence strategy. It bridges **OSS** (Operations Support Systems) network KPIs and **BSS** (Business Support Systems) subscriber/revenue data through three ML models, statistical correlation analysis, and an ADN (Autonomous Driving Network) Level 4 agent that can autonomously execute remediation playbooks.
+The **Telecom NeXoligence Platform** is a cloud-native AI Operations Agent designed for Huawei's CEM-CVM convergence strategy. It bridges **OSS** (Operations Support Systems) network KPIs and **BSS** (Business Support Systems) subscriber/revenue data through three ML models, statistical correlation analysis, and an ADN (Autonomous Driving Network) Level 4 agent that can autonomously execute remediation playbooks.
 
 ### Strategic Context
 

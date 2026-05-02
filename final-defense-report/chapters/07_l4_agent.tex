@@ -85,7 +85,7 @@ The conversational intelligence layer uses Qwen2.5 7B~\cite{qwen2024}, a high-pe
 The LLM receives live platform data as context with each query:
 
 \begin{lstlisting}[language=Python, caption={LLM context injection}]
-system_prompt = f"""You are the NexOps L4 Agent...
+system_prompt = f"""You are the NeXo L4 Agent...
 
 --- LIVE PLATFORM DATA ---
 SLA Risk Score: {sla_risk.score}

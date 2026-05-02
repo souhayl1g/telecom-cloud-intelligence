@@ -1,297 +1,360 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>NexOps AI — Project Gantt Chart</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; padding: 30px; }
+  <meta charset="UTF-8">
+  <title>NeXo — Project Gantt Chart</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  h2 {
-    text-align: center;
-    margin-bottom: 6px;
-    font-size: 20px;
-    color: #1a1a2e;
-    letter-spacing: 0.5px;
-  }
-  p.subtitle {
-    text-align: center;
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 24px;
-  }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f6f9;
+      padding: 30px;
+    }
 
-  .gantt-wrapper {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
-  }
+    h2 {
+      text-align: center;
+      margin-bottom: 6px;
+      font-size: 20px;
+      color: #1a1a2e;
+      letter-spacing: 0.5px;
+    }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
+    p.subtitle {
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 24px;
+    }
 
-  thead th {
-    background: #1a1a2e;
-    color: #fff;
-    padding: 10px 14px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.3px;
-  }
-  thead th.chart-header { text-align: center; }
+    .gantt-wrapper {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
 
-  tbody tr:nth-child(even) { background: #f8f9fc; }
-  tbody tr:hover { background: #eef1f8; transition: background 0.15s; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
 
-  td {
-    padding: 10px 14px;
-    border-bottom: 1px solid #eee;
-    vertical-align: middle;
-  }
+    thead th {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
 
-  .phase-name {
-    font-weight: 700;
-    color: #1a1a2e;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-  .sprint-label {
-    font-size: 10px;
-    font-weight: 700;
-    color: #9ca3af;
-    letter-spacing: 0.5px;
-    margin-top: 3px;
-  }
+    thead th.chart-header {
+      text-align: center;
+    }
 
-  .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-  }
+    tbody tr:nth-child(even) {
+      background: #f8f9fc;
+    }
 
-  .chart-cell { padding: 8px 10px; }
+    tbody tr:hover {
+      background: #eef1f8;
+      transition: background 0.15s;
+    }
 
-  .bar-track {
-    position: relative;
-    height: 20px;
-    background: #f0f2f7;
-    border-radius: 6px;
-    overflow: hidden;
-  }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
 
-  .bar {
-    position: absolute;
-    height: 100%;
-    border-radius: 6px;
-    opacity: 0.92;
-    transition: opacity 0.2s;
-  }
-  .bar:hover { opacity: 1; }
+    .phase-name {
+      font-weight: 700;
+      color: #1a1a2e;
+      font-size: 13px;
+      white-space: nowrap;
+    }
 
-  /* Month ruler */
-  .ruler-row td { padding: 0; border-bottom: 2px solid #dde1ec; }
-  .ruler { display: flex; width: 100%; }
-  .ruler-month {
-    flex: 1;
-    text-align: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: #9ca3af;
-    padding: 5px 0;
-    border-right: 1px solid #e5e7eb;
-    letter-spacing: 0.5px;
-  }
-  .ruler-month:last-child { border-right: none; }
+    .sprint-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #9ca3af;
+      letter-spacing: 0.5px;
+      margin-top: 3px;
+    }
 
-  .active-row { background: #faf5ff !important; }
-</style>
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .chart-cell {
+      padding: 8px 10px;
+    }
+
+    .bar-track {
+      position: relative;
+      height: 20px;
+      background: #f0f2f7;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .bar {
+      position: absolute;
+      height: 100%;
+      border-radius: 6px;
+      opacity: 0.92;
+      transition: opacity 0.2s;
+    }
+
+    .bar:hover {
+      opacity: 1;
+    }
+
+    /* Month ruler */
+    .ruler-row td {
+      padding: 0;
+      border-bottom: 2px solid #dde1ec;
+    }
+
+    .ruler {
+      display: flex;
+      width: 100%;
+    }
+
+    .ruler-month {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #9ca3af;
+      padding: 5px 0;
+      border-right: 1px solid #e5e7eb;
+      letter-spacing: 0.5px;
+    }
+
+    .ruler-month:last-child {
+      border-right: none;
+    }
+
+    .active-row {
+      background: #faf5ff !important;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>NexOps AI — Project Planning</h2>
-<p class="subtitle">Cloud-Native AI Operations Agent · Huawei Tunisia · Feb 2026 – Aug 2026</p>
+  <h2>NeXo — Project Planning</h2>
+  <p class="subtitle">Cloud-Native AI Operations Agent · Huawei Tunisia · Feb 2026 – Aug 2026</p>
 
-<div class="gantt-wrapper">
-<table>
-  <thead>
-    <tr>
-      <th style="min-width:260px;">Phase &amp; Deliverables</th>
-      <th>Category</th>
-      <th>Sprint</th>
-      <th>Start</th>
-      <th class="chart-header" style="min-width:580px;">Timeline (Feb → Aug 2026)</th>
-    </tr>
-  </thead>
-  <tbody>
+  <div class="gantt-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:260px;">Phase &amp; Deliverables</th>
+          <th>Category</th>
+          <th>Sprint</th>
+          <th>Start</th>
+          <th class="chart-header" style="min-width:580px;">Timeline (Feb → Aug 2026)</th>
+        </tr>
+      </thead>
+      <tbody>
 
-    <!-- Month ruler -->
-    <tr class="ruler-row">
-      <td colspan="4"></td>
-      <td class="chart-cell">
-        <div class="ruler">
-          <div class="ruler-month">Feb</div>
-          <div class="ruler-month">Mar</div>
-          <div class="ruler-month">Apr</div>
-          <div class="ruler-month">May</div>
-          <div class="ruler-month">Jun</div>
-          <div class="ruler-month">Jul</div>
-          <div class="ruler-month">Aug</div>
-        </div>
-      </td>
-    </tr>
+        <!-- Month ruler -->
+        <tr class="ruler-row">
+          <td colspan="4"></td>
+          <td class="chart-cell">
+            <div class="ruler">
+              <div class="ruler-month">Feb</div>
+              <div class="ruler-month">Mar</div>
+              <div class="ruler-month">Apr</div>
+              <div class="ruler-month">May</div>
+              <div class="ruler-month">Jun</div>
+              <div class="ruler-month">Jul</div>
+              <div class="ruler-month">Aug</div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Design &amp; Architecture</div>
-      </td>
-      <td><span class="badge" style="background:#6366f1;">Planning</span></td>
-      <td><div class="sprint-label">Sprint 1</div></td>
-      <td>10 Feb</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:0%;width:8%;background:#6366f1;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Design &amp; Architecture</div>
+          </td>
+          <td><span class="badge" style="background:#6366f1;">Planning</span></td>
+          <td>
+            <div class="sprint-label">Sprint 1</div>
+          </td>
+          <td>10 Feb</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:0%;width:8%;background:#6366f1;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Infrastructure &amp; Data Lake</div>
-      </td>
-      <td><span class="badge" style="background:#0ea5e9;">DevOps</span></td>
-      <td><div class="sprint-label">Sprint 2</div></td>
-      <td>24 Feb</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:8%;width:8%;background:#0ea5e9;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Infrastructure &amp; Data Lake</div>
+          </td>
+          <td><span class="badge" style="background:#0ea5e9;">DevOps</span></td>
+          <td>
+            <div class="sprint-label">Sprint 2</div>
+          </td>
+          <td>24 Feb</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:8%;width:8%;background:#0ea5e9;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr class="active-row">
-      <td>
-        <div class="phase-name" style="color:#8b5cf6;">ML Models &amp; AI Service</div>
-      </td>
-      <td><span class="badge" style="background:#8b5cf6;">MLOps</span></td>
-      <td><div class="sprint-label">Sprint 3</div></td>
-      <td>10 Mar</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:16%;width:50%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);box-shadow:0 0 8px rgba(139,92,246,0.35);"></div>
-        </div>
-      </td>
-    </tr>
+        <tr class="active-row">
+          <td>
+            <div class="phase-name" style="color:#8b5cf6;">ML Models &amp; AI Service</div>
+          </td>
+          <td><span class="badge" style="background:#8b5cf6;">MLOps</span></td>
+          <td>
+            <div class="sprint-label">Sprint 3</div>
+          </td>
+          <td>10 Mar</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar"
+                style="left:16%;width:50%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);box-shadow:0 0 8px rgba(139,92,246,0.35);">
+              </div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Dashboard &amp; Visualization</div>
-      </td>
-      <td><span class="badge" style="background:#06b6d4;">Frontend</span></td>
-      <td><div class="sprint-label">Sprint 4</div></td>
-      <td>24 Mar</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:24%;width:8%;background:#06b6d4;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Dashboard &amp; Visualization</div>
+          </td>
+          <td><span class="badge" style="background:#06b6d4;">Frontend</span></td>
+          <td>
+            <div class="sprint-label">Sprint 4</div>
+          </td>
+          <td>24 Mar</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:24%;width:8%;background:#06b6d4;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Auth, Security &amp; CI/CD</div>
-      </td>
-      <td><span class="badge" style="background:#f59e0b;">Security</span></td>
-      <td><div class="sprint-label">Sprint 5</div></td>
-      <td>07 Apr</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:32%;width:8%;background:#f59e0b;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Auth, Security &amp; CI/CD</div>
+          </td>
+          <td><span class="badge" style="background:#f59e0b;">Security</span></td>
+          <td>
+            <div class="sprint-label">Sprint 5</div>
+          </td>
+          <td>07 Apr</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:32%;width:8%;background:#f59e0b;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">HCS Cloud Mapping</div>
-      </td>
-      <td><span class="badge" style="background:#ef4444;">Cloud</span></td>
-      <td><div class="sprint-label">Sprint 6</div></td>
-      <td>21 Apr</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:40%;width:8%;background:#ef4444;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">HCS Cloud Mapping</div>
+          </td>
+          <td><span class="badge" style="background:#ef4444;">Cloud</span></td>
+          <td>
+            <div class="sprint-label">Sprint 6</div>
+          </td>
+          <td>21 Apr</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:40%;width:8%;background:#ef4444;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Advanced AI Features</div>
-      </td>
-      <td><span class="badge" style="background:#8b5cf6;">MLOps</span></td>
-      <td><div class="sprint-label">Sprint 7</div></td>
-      <td>05 May</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:48%;width:9%;background:#8b5cf6;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Advanced AI Features</div>
+          </td>
+          <td><span class="badge" style="background:#8b5cf6;">MLOps</span></td>
+          <td>
+            <div class="sprint-label">Sprint 7</div>
+          </td>
+          <td>05 May</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:48%;width:9%;background:#8b5cf6;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">End-to-End Testing</div>
-      </td>
-      <td><span class="badge" style="background:#f97316;">QA</span></td>
-      <td><div class="sprint-label">Sprint 8</div></td>
-      <td>02 Jun</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:64%;width:12%;background:#f97316;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">End-to-End Testing</div>
+          </td>
+          <td><span class="badge" style="background:#f97316;">QA</span></td>
+          <td>
+            <div class="sprint-label">Sprint 8</div>
+          </td>
+          <td>02 Jun</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:64%;width:12%;background:#f97316;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Report Writing</div>
-      </td>
-      <td><span class="badge" style="background:#64748b;">Academic</span></td>
-      <td><div class="sprint-label">Sprint 9</div></td>
-      <td>22 Jun</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:76%;width:12%;background:#64748b;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Report Writing</div>
+          </td>
+          <td><span class="badge" style="background:#64748b;">Academic</span></td>
+          <td>
+            <div class="sprint-label">Sprint 9</div>
+          </td>
+          <td>22 Jun</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:76%;width:12%;background:#64748b;"></div>
+            </div>
+          </td>
+        </tr>
 
-    <tr>
-      <td>
-        <div class="phase-name">Defense Preparation</div>
-      </td>
-      <td><span class="badge" style="background:#e11d48;">Defense</span></td>
-      <td><div class="sprint-label">Sprint 10</div></td>
-      <td>13 Jul</td>
-      <td class="chart-cell">
-        <div class="bar-track">
-          <div class="bar" style="left:88%;width:12%;background:#e11d48;"></div>
-        </div>
-      </td>
-    </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Defense Preparation</div>
+          </td>
+          <td><span class="badge" style="background:#e11d48;">Defense</span></td>
+          <td>
+            <div class="sprint-label">Sprint 10</div>
+          </td>
+          <td>13 Jul</td>
+          <td class="chart-cell">
+            <div class="bar-track">
+              <div class="bar" style="left:88%;width:12%;background:#e11d48;"></div>
+            </div>
+          </td>
+        </tr>
 
-  </tbody>
-</table>
-</div>
+      </tbody>
+    </table>
+  </div>
 
 </body>
+
 </html>

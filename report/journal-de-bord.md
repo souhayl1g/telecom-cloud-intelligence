@@ -3,7 +3,7 @@
 **Nom et Prénom :** Souhayl Guenichi  
 **Spécialité :** Ingénierie Informatique  
 **Organisme d'accueil :** Huawei Tunisia — Cloud IT / Sales-Solution  
-**Projet :** Telecom Cloud Intelligence Platform (NexOps AI)
+**Projet :** Telecom NeXoligence Platform (NeXo)
 
 ---
 
@@ -114,7 +114,7 @@ L'intégration OAuth2 avec les callbacks et la gestion des tokens entre le front
 J'ai appris l'importance du branding et de l'expérience utilisateur dans un produit professionnel. J'ai découvert comment implémenter une Command Palette (Ctrl+K) pour la navigation rapide, un pattern UX moderne utilisé dans les outils développeur.
 
 **Quelles missions ai-je accomplies ?**  
-- Rebranding complet de la plateforme sous le nom "NexOps AI"
+- Rebranding complet de la plateforme sous le nom "NeXo"
 - Implémentation de la Command Palette (Ctrl+K) pour navigation rapide
 - Mise en valeur du L4 Agent CTA (Call-To-Action)
 - Création de la page Data Warehouse

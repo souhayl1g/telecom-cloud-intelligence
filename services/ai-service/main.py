@@ -1,19 +1,15 @@
 """
-AI Service — Real inference with pre-trained scikit-learn models.
+AI Service — Real inference with pre-trained ML models.
 
-Models are loaded dynamically from /app/models/ on each inference request
-to support continuous training in notebooks:
+v2.0 models (legacy):
   sla_risk_model.joblib            — GradientBoostingRegressor
-                                      Predicts SLA breach risk (0–1) from aggregated KPI features.
   anomaly_model.joblib             — IsolationForest
-                                      Detects anomalous OSS KPI records from per-record features.
   revenue_anomaly_model.joblib     — IsolationForest
-                                      Detects anomalous BSS revenue/usage records.
 
-Training notebooks:
-  notebooks/01_data_preparation_eda.ipynb   — Data generation & EDA
-  notebooks/02_sla_risk_model.ipynb         — SLA risk model training & evaluation
-  notebooks/03_anomaly_detection_models.ipynb — Anomaly models training & evaluation
+v3.0 models (real-data, GPU-trained on 1.5M+ records):
+  cem_v3_lightgbm_gpu.joblib       — LightGBM (DART) for CEM experience scoring
+  rat_v3_xgb_gpu.joblib            — XGBoost for RAT underservice detection
+  oss_vae_v3_gpu.pt                — PyTorch VAE for OSS anomaly detection
 """
 
 import os
@@ -31,6 +27,9 @@ from routers.health import router as health_router
 from routers.v2.sla_risk import router as sla_risk_router
 from routers.v2.anomaly import router as anomaly_router
 from routers.v2.revenue import router as revenue_router
+from routers.v3.cem import router as cem_router
+from routers.v3.rat import router as rat_router
+from routers.v3.vae_anomaly import router as vae_router
 from model_cache import load_models
 
 
@@ -40,7 +39,7 @@ def _setup_tracing() -> None:
         return
     resource = Resource.create({
         "service.name": os.getenv("OTEL_SERVICE_NAME", "ai-service"),
-        "service.version": "2.0",
+        "service.version": "3.0",
     })
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
@@ -54,10 +53,14 @@ FastAPIInstrumentor.instrument_app(app)
 
 # Initialize model cache at startup
 print("[ai-service] initializing model cache...")
-_sla_model, _anomaly_model, _revenue_anomaly_model = load_models(force=True)
-print("[ai-service] models ready — 3 models loaded")
+_models = load_models(force=True)
+loaded_count = sum(1 for k in ["sla", "anomaly", "revenue", "cem", "rat", "vae"] if _models.get(k) is not None)
+print(f"[ai-service] models ready — {loaded_count}/6 models loaded")
 
 app.include_router(health_router)
 app.include_router(sla_risk_router)
 app.include_router(anomaly_router)
 app.include_router(revenue_router)
+app.include_router(cem_router)
+app.include_router(rat_router)
+app.include_router(vae_router)

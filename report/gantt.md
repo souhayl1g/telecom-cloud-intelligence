@@ -1,5 +1,5 @@
 gantt
-    title NexOps AI — Project Planning (Huawei Tunisia)
+    title NeXo — Project Planning (Huawei Tunisia)
     dateFormat YYYY-MM-DD
     axisFormat %d/%m
 

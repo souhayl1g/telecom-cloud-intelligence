@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     const cookieStore = cookies();
     const token = cookieStore.get("auth_token")?.value;
 
-    const [sla, history, anomalies, revenue, correlations, runs, anomalyStats, kpiSummary, actions, infraStats] = await Promise.all([
+    const [sla, history, anomalies, revenue, correlations, runs, anomalyStats, kpiSummary, actions, infraStats, areas] = await Promise.all([
         safeFetch("/sla-risk", token),
         safeFetch("/sla-risk/history", token),
         safeFetch("/anomalies", token),
@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
         safeFetch("/kpi-summary", token),
         safeFetch("/actions", token),
         safeFetch("/infra-stats", token),
+        safeFetch("/areas", token),
     ]);
 
     return NextResponse.json({
@@ -77,6 +78,7 @@ export async function GET(req: NextRequest) {
         kpiSummary: kpiSummary ?? [],
         actions: actions ?? [],
         infraStats: infraStats ?? null,
+        areas: areas?.areas ?? [],
     });
 }
 

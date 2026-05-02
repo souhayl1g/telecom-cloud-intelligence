@@ -1,22 +1,24 @@
 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Cloud Intelligence Platform Logo — Huawei Red + Network/AI motif -->
-  <!-- Outer hexagonal frame (network node) -->
-  <path d="M20 2L35.32 10.5V27.5L20 36L4.68 27.5V10.5L20 2Z" fill="none" stroke="#C7000B" stroke-width="1.5" opacity="0.3"/>
-  <!-- Inner cloud shape -->
-  <path d="M12 22c-2.2 0-4-1.8-4-4s1.8-4 4-4c.4-2.8 2.8-5 5.7-5 2.1 0 3.9 1.1 4.9 2.8C23.2 11.3 24 11 25 11c2.2 0 4 1.8 4 4 0 .3 0 .5-.1.8 1.2.7 2.1 2 2.1 3.5 0 2.2-1.8 4-4 4H12z" fill="#C7000B" opacity="0.15"/>
-  <path d="M12 22c-2.2 0-4-1.8-4-4s1.8-4 4-4c.4-2.8 2.8-5 5.7-5 2.1 0 3.9 1.1 4.9 2.8C23.2 11.3 24 11 25 11c2.2 0 4 1.8 4 4 0 .3 0 .5-.1.8 1.2.7 2.1 2 2.1 3.5 0 2.2-1.8 4-4 4H12z" fill="none" stroke="#C7000B" stroke-width="1.5"/>
-  <!-- AI neural dots -->
-  <circle cx="15" cy="17" r="1.5" fill="#C7000B"/>
-  <circle cx="20" cy="15" r="1.5" fill="#C7000B"/>
-  <circle cx="25" cy="17" r="1.5" fill="#C7000B"/>
-  <circle cx="17.5" cy="20" r="1" fill="#C7000B" opacity="0.6"/>
-  <circle cx="22.5" cy="20" r="1" fill="#C7000B" opacity="0.6"/>
-  <!-- Neural connections -->
-  <line x1="15" y1="17" x2="20" y2="15" stroke="#C7000B" stroke-width="0.8" opacity="0.4"/>
-  <line x1="20" y1="15" x2="25" y2="17" stroke="#C7000B" stroke-width="0.8" opacity="0.4"/>
-  <line x1="15" y1="17" x2="17.5" y2="20" stroke="#C7000B" stroke-width="0.6" opacity="0.3"/>
-  <line x1="25" y1="17" x2="22.5" y2="20" stroke="#C7000B" stroke-width="0.6" opacity="0.3"/>
-  <line x1="17.5" y1="20" x2="22.5" y2="20" stroke="#C7000B" stroke-width="0.6" opacity="0.3"/>
-  <!-- Bottom text baseline indicator -->
-  <rect x="14" y="27" width="12" height="1.5" rx="0.75" fill="#C7000B" opacity="0.5"/>
+  <!-- NeXo Platform Logo — Advanced Hexagonal Network Mark -->
+  <!-- Outer hexagonal frame -->
+  <path d="M20 2L36 11.5V28.5L20 38L4 28.5V11.5L20 2Z" fill="none" stroke="url(#nx-grad)" stroke-width="1.8" opacity="0.9"/>
+  <!-- Inner hexagon -->
+  <path d="M20 8L30 14V26L20 32L10 26V14L20 8Z" fill="none" stroke="url(#nx-grad)" stroke-width="1.2" opacity="0.5"/>
+  <!-- N letter mark -->
+  <path d="M14 16V26M14 16L20 26V16M26 16V26" stroke="url(#nx-grad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Connection dots -->
+  <circle cx="20" cy="6" r="1.8" fill="url(#nx-grad)"/>
+  <circle cx="34" cy="13" r="1.5" fill="url(#nx-grad)" opacity="0.7"/>
+  <circle cx="34" cy="27" r="1.5" fill="url(#nx-grad)" opacity="0.7"/>
+  <circle cx="20" cy="34" r="1.8" fill="url(#nx-grad)"/>
+  <circle cx="6" cy="27" r="1.5" fill="url(#nx-grad)" opacity="0.7"/>
+  <circle cx="6" cy="13" r="1.5" fill="url(#nx-grad)" opacity="0.7"/>
+  <!-- Glow filter -->
+  <defs>
+    <linearGradient id="nx-grad" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4FF"/>
+      <stop offset="0.5" stop-color="#7B61FF"/>
+      <stop offset="1" stop-color="#FF006E"/>
+    </linearGradient>
+  </defs>
 </svg>

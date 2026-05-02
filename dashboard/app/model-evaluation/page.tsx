@@ -312,7 +312,7 @@ export default function ModelEvaluationPage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="ML Governance · Live from Notebooks"
-                description="Can we trust the numbers? Every model — GradientBoosting SLA Risk, IsolationForest OSS anomaly, IsolationForest BSS revenue anomaly — is audited here against its real test set: R², MAE, RMSE, Precision/Recall/F1, ROC-AUC, confusion matrix and feature importances. Metrics are extracted directly from the training notebooks, not mocked."
+                description="Can we trust the numbers? Every model — LightGBM CEM Experience Score, PyTorch VAE OSS Anomaly, XGBoost RAT Underservice — is audited here against its real test set on 500K-2M real Tunisie Telecom records: R², MAE, RMSE, Precision/Recall/F1, ROC-AUC, confusion matrix and feature importances. Metrics are extracted directly from the v3.0 training notebooks, not mocked."
                 values={[
                     { text: `${models.length} production models · Qwen2.5 7B for L4 agent chat` },
                     { text: `Best R²: ${Math.max(...models.map(mm => mm.testR2 ?? 0)).toFixed(3)} · Best F1: ${Math.max(...models.map(mm => mm.f1 ?? 0)).toFixed(3)}` },

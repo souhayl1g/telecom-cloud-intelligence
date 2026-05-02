@@ -1,7 +1,7 @@
 # AGENTS.md — Telecom NeXoligence Platform
 
 > AI agent context for the **Telecom NeXoligence** project.  
-> Last updated: 2026-04-27
+> Last updated: 2026-04-28
 
 ---
 
@@ -10,10 +10,10 @@
 **Telecom NeXoligence** is a cloud-native AI operations platform that bridges OSS (network KPIs) and BSS (subscriber experience data) for telecom operators. It is designed for deployment on **Huawei Cloud Stack (HCS)** and aligns with Huawei's **ADN (Autonomous Driving Network)** architecture.
 
 **What it does:**
-- Ingests synthetic OSS network data (200 records from 10 cell towers) and BSS subscriber data (200 records, 80% prepaid / 20% postpaid) per 2-minute pipeline cycle.
-- Injects realistic faults (cell degradation, throughput collapse, latency spikes, correlated BSS dips).
+- Ingests real + simulated OSS network data (18.8M real cell KPIs + 200K simulated) and BSS subscriber data (968K real + 1.5M simulated) across 5-6 months.
+- Injects realistic faults via bootstrap simulation with temporal drift and Gaussian noise.
 - Stores data in a 3-layer MinIO data lake (`raw` → `processed` → `curated`).
-- Runs 3 ML models: SLA risk scoring (GradientBoostingRegressor), OSS anomaly detection (IsolationForest), BSS revenue anomaly detection (IsolationForest).
+- Runs 6 ML models: v2.0 legacy (SLA GBR, OSS IF, BSS IF) + v3.0 real-data (CEM LightGBM/DART, VAE PyTorch, RAT XGBoost GPU).
 - Computes OSS–BSS correlations (Pearson + Spearman on 5 metric pairs).
 - Persists all results to PostgreSQL (9 tables).
 - Serves insights through a FastAPI REST gateway and a Next.js dashboard with an ADN L4 autonomous operations agent.
@@ -59,7 +59,7 @@ The platform is orchestrated via `docker-compose.yml` with 15+ containers.
 | `postgres` | 5432 | Serving store + metadata | `docs/db/schema.sql` |
 | `minio` | 9000 / 9001 | S3-compatible data lake | — |
 | `api-gateway` | 8000 | Public REST API (FastAPI, JWT-protected) | `services/api-gateway/` |
-| `ai-service` | 8001 | ML inference engine (3 models) | `services/ai-service/` |
+| `ai-service` | 8001 | ML inference engine (6 models: 3 v2 + 3 v3) | `services/ai-service/` |
 | `auth-service` | 8002 | Authentication (JWT + OAuth2) | `services/auth-service/` |
 | `pipeline-worker` | — | 22-step ETL orchestrator (daemon, 2-min cycles) | `services/pipeline-worker/` |
 | `agent-service` | 8003 | LLM-powered multi-agent orchestrator | `services/agent-service/` |
@@ -80,13 +80,17 @@ The platform is orchestrated via `docker-compose.yml` with 15+ containers.
 ### Data Flow
 
 ```
-pipeline-worker (daemon, 22 steps, every 120s)
-  ├── generate 200 OSS records + 200 BSS records
+pipeline-worker (manual mode, 22 steps, controlled cycles)
+  ├── Load real OSS (18.8M) + BSS (968K) + simulated OSS (200K) + BSS (1.5M)
+  ├── generate 200 OSS records + 200 BSS records (from bootstrap reservoirs)
   ├── upload raw JSON → minio  s3://raw/oss/...  s3://raw/bss/...
   ├── process + enrich → minio  s3://processed/oss/...  s3://processed/bss/...
-  ├── POST /infer/sla-risk → ai-service (GBR, 9 features)
-  ├── POST /infer/anomaly → ai-service (IsolationForest, OSS)
-  ├── POST /infer/revenue-anomaly → ai-service (IsolationForest, BSS)
+  ├── POST /infer/sla-risk → ai-service (GBR v2.0, 9 features)
+  ├── POST /infer/anomaly → ai-service (IsolationForest v2.0, OSS)
+  ├── POST /infer/revenue-anomaly → ai-service (IsolationForest v2.0, BSS)
+  ├── POST /infer/cem → ai-service (LightGBM v3.0, 13 features)
+  ├── POST /infer/vae-anomaly → ai-service (PyTorch VAE v3.0, 9 features)
+  ├── POST /infer/rat-underservice → ai-service (XGBoost v3.0, 10 features)
   ├── compute Pearson + Spearman correlations (5 pairs × 2 methods)
   ├── build curated dataset → minio s3://curated/...
   └── INSERT → postgres (9 tables)
@@ -142,19 +146,24 @@ telecom-cloud-intelligence/
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
 │   ├── ai-service/                 # ML inference engine
-│   │   ├── main.py                 # App factory
-│   │   ├── config.py               # Model paths + env
-│   │   ├── model_cache.py          # Lazy model loader
+│   │   ├── main.py                 # App factory (mounts v2 + v3 routers)
+│   │   ├── config.py               # Model paths + env (v2 + v3)
+│   │   ├── model_cache.py          # Lazy model loader (6 models)
+│   │   ├── vae_arch.py             # PyTorch VAE architectures (Legacy + v3)
 │   │   ├── bootstrap_models.py     # Initial training script
 │   │   ├── routers/
 │   │   │   ├── health.py
-│   │   │   └── v2/
-│   │   │       ├── sla_risk.py
-│   │   │       ├── anomaly.py
-│   │   │       └── revenue.py
-│   │   ├── models/                 # .joblib model files
+│   │   │   ├── v2/
+│   │   │   │   ├── sla_risk.py
+│   │   │   │   ├── anomaly.py
+│   │   │   │   └── revenue.py
+│   │   │   └── v3/
+│   │   │       ├── cem.py
+│   │   │       ├── rat.py
+│   │   │       └── vae_anomaly.py
+│   │   ├── models/                 # .joblib + .pt model files
 │   │   ├── tests/
-│   │   ├── requirements.txt
+│   │   ├── requirements.txt        # includes torch, lightgbm, xgboost
 │   │   └── Dockerfile
 │   ├── auth-service/               # Authentication (JWT + OAuth)
 │   │   ├── main.py                 # Single-file service
@@ -180,9 +189,11 @@ telecom-cloud-intelligence/
 │   │   ├── tests/                  # 5 test files
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
-│   └── data-ingest/                # Real TT data loaders + BSS simulator
+│   └── data-ingest/                # Real TT data loaders + BSS/OSS simulators
 │       ├── ingest_bss.py           # Load real BSS CSVs into PostgreSQL
-│       ├── simulate_oss.py         # Generate synthetic OSS cell KPIs
+│       ├── ingest_oss_real.py      # Load real OSS KPI CSVs (2G/3G/4G) via chunked COPY
+│       ├── simulate_oss_bootstrap.py  # Bootstrap-simulate OSS from real reservoir
+│       ├── simulate_oss.py         # Generate synthetic OSS cell KPIs (legacy)
 │       ├── compute_features.py     # Build subscriber_features + area_network_health
 │       └── generate_bss_months.py  # Bootstrap-simulate BSS months from real data
 │
@@ -214,7 +225,13 @@ Script: `services/data-ingest/generate_bss_months.py`
 │   ├── 01_data_preparation_eda.ipynb
 │   ├── 02_sla_risk_model.ipynb
 │   ├── 03_anomaly_detection_models.ipynb
-│   ├── models/                     # Trained .joblib files
+│   ├── 04_phase2_data_foundation.ipynb
+│   ├── 05_real_data_etl_engineering.ipynb  # ETL + feature engineering for real data
+│   ├── 06_cem_v3_training.ipynb            # CEM LightGBM v3.0
+│   ├── 07_oss_vae_anomaly.ipynb            # PyTorch VAE anomaly v3.0
+│   ├── 08_rat_underservice.ipynb           # XGBoost RAT v3.0
+│   ├── 09_master_v3_training.py            # Master combined training (1.5M+ data)
+│   ├── models/                     # Trained .joblib + .pt files
 │   └── data/                       # Training NPZ + evaluation PNGs
 │
 ├── docs/
@@ -329,7 +346,7 @@ Tests are located in `services/<service>/tests/` and run with **pytest**.
 | Service | Test Files | Coverage Focus |
 |---|---|---|
 | `pipeline-worker` | 5 files (`test_generators.py`, `test_processors.py`, `test_correlations.py`, `test_inference_client.py`, `test_config.py`) | Data generation, enrichment, correlations, HTTP client, config |
-| `ai-service` | 1 file (`test_model_cache.py`) | Model lazy-loading cache |
+| `ai-service` | 1 file (`test_model_cache.py`) | Model lazy-loading cache (v2 + v3) |
 | `api-gateway` | 1 file (`test_health.py`) | Health endpoint |
 | `auth-service` | — | (tests should be added) |
 
@@ -407,7 +424,7 @@ Schema file: `docs/db/schema.sql` (applied automatically on first postgres start
 | `users` | Authentication & OAuth | Supports local / Google / GitHub OAuth. `provider` + `provider_id` unique. |
 | `pipeline_runs` | Run lifecycle | Parent table. FK from 5 others via `run_id`. |
 | `dataset_registry` | MinIO object metadata | 2 raw + 2 processed + 1 curated per run. |
-| `model_registry` | Model artifact registry | `sla-risk`, `anomaly`, `revenue-anomaly` (v2.0). |
+| `model_registry` | Model artifact registry | `sla-risk`, `anomaly`, `revenue-anomaly` (v2.0); `cem`, `vae-anomaly`, `rat-underservice` (v3.0). |
 | `sla_risk_scores` | GBR predictions | `score` CHECK (0–1). `explanation` is JSONB. |
 | `anomalies` | OSS per-record anomalies | `severity`, `kpi_name`, `cell_id`, `model_version`. |
 | `revenue_anomalies` | BSS per-subscriber anomalies | `operator`, `line_type`, `plan`, `severity`. |
@@ -448,13 +465,16 @@ All endpoints except `/health` require `Authorization: Bearer <JWT>`.
 
 ### ai-service (`:8001`) — internal
 
-| Method | Path | Model |
-|---|---|---|
-| GET | `/health` | Returns model version |
-| POST | `/infer/sla-risk` | GradientBoostingRegressor v2.0 |
-| POST | `/infer/anomaly` | IsolationForest v2.0 (OSS) |
-| POST | `/infer/revenue-anomaly` | IsolationForest v2.0 (BSS) |
-| POST | `/models/reload` | Hot-reload all models from disk |
+| Method | Path | Model | Version |
+|---|---|---|---|
+| GET | `/health` | Returns model version + load status | — |
+| POST | `/infer/sla-risk` | GradientBoostingRegressor | v2.0 (legacy) |
+| POST | `/infer/anomaly` | IsolationForest | v2.0 (legacy, OSS) |
+| POST | `/infer/revenue-anomaly` | IsolationForest | v2.0 (legacy, BSS) |
+| POST | `/infer/cem` | LightGBM (DART) | v3.0 |
+| POST | `/infer/vae-anomaly` | PyTorch VAE | v3.0 |
+| POST | `/infer/rat-underservice` | XGBoost (GPU) | v3.0 |
+| POST | `/models/reload` | Hot-reload all 6 models from disk | — |
 
 ### auth-service (`:8002`)
 
@@ -533,10 +553,13 @@ All endpoints except `/health` require `Authorization: Bearer <JWT>`.
 3. Endpoints are auto-instrumented by OpenTelemetry FastAPI instrumentation.
 
 ### Adding a New ML Model
-1. Train in `notebooks/` or `services/ai-service/bootstrap_models.py`.
-2. Add inference router in `services/ai-service/routers/v2/`.
-3. Add pipeline step in `services/pipeline-worker/worker/pipeline.py`.
-4. Register model in `model_registry` table.
+1. Train in `notebooks/` (save artifacts to `notebooks/models/`).
+2. Copy artifacts to `services/ai-service/models/` (`.joblib` for sklearn, `.pt` for PyTorch).
+3. Add inference router in `services/ai-service/routers/v3/` (follow existing patterns).
+4. Add model path to `services/ai-service/config.py`.
+5. Add loader to `services/ai-service/model_cache.py`.
+6. Add pipeline step in `services/pipeline-worker/worker/pipeline.py`.
+7. Register model in `model_registry` table.
 
 ### Frontend Development
 1. Pages in `dashboard/app/` (Next.js App Router).
@@ -569,12 +592,15 @@ Real playbook execution happens via `POST /actions/{id}/execute`:
 - **Recharts MUST stay at v2.x** (`2.15.3`). Recharts v3.x is a full TypeScript rewrite that causes React error #310 ("Objects are not valid as React child"). **Do NOT upgrade to recharts 3.x.**
 
 ### Runtime Notes
-- Pipeline worker runs on **2-minute cycles** in daemon mode.
+- Pipeline worker switched to **manual mode** (`RUN_MODE=manual`) for controlled v3.0 pipeline cycles.
 - All services share the same Docker bridge network.
 - OAuth credentials are optional (empty by default for local dev).
-- Data is synthetic (demo mode) until real TT data is integrated, but all dashboard pages now consume real pipeline output (no hardcoded values).
-- **Real BSS data received:** 970K subscribers (Feb 468K + Mar 500K) in `TT_data/BSS/`.
-- **Waiting for OSS data** before Phase 3.5 (rolling window engine + O+B convergence).
+- **Real data integrated:** BSS 968K real + 1.5M simulated, OSS 18.8M real + 200K simulated.
+- All v3.0 models trained on combined real+simulated data (1.5M+ records).
+- Dashboard model-evaluation page shows real v3.0 metrics (not mocked).
+- **LightGBM GPU:** Not available in pip build (OpenCL/CUDA not compiled). Uses CPU with DART + deep trees + regularization.
+- **XGBoost GPU:** Uses `tree_method="hist"` + `device="cuda"` (XGBoost 3.x API).
+- **VAE GPU:** Full CUDA acceleration via PyTorch.
 
 ### Hardware Context
 - CPU: Ryzen 5 5600H (6 cores, 3.3GHz)

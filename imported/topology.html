@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NeXo Network Topology</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&amp;family=Fira+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#930005",
+                        "tertiary": "#b4c5ff",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "primary-fixed": "#ffdad5",
+                        "danger": "#EF4444",
+                        "surface-tint": "#ffb4aa",
+                        "on-primary-fixed": "#410001",
+                        "surface-container-low": "#0c1d2c",
+                        "border-base": "rgba(255, 255, 255, 0.08)",
+                        "on-tertiary-container": "#d4ddff",
+                        "text-secondary": "#8494A7",
+                        "secondary": "#ffb4aa",
+                        "on-error": "#690005",
+                        "tertiary-container": "#0056e1",
+                        "primary-fixed-dim": "#ffb4aa",
+                        "inverse-on-surface": "#223242",
+                        "bg-root": "#0A0F1C",
+                        "on-background": "#d4e4f9",
+                        "surface-container": "#112130",
+                        "surface-dim": "#041423",
+                        "error": "#ffb4ab",
+                        "background": "#041423",
+                        "tertiary-fixed": "#dbe1ff",
+                        "on-tertiary": "#002a77",
+                        "secondary-fixed": "#ffdad5",
+                        "secondary-container": "#e10211",
+                        "surface": "#041423",
+                        "inverse-surface": "#d4e4f9",
+                        "text-primary": "#E8ECF1",
+                        "text-muted": "#546478",
+                        "on-error-container": "#ffdad6",
+                        "on-surface-variant": "#e7bdb7",
+                        "on-secondary-fixed": "#410001",
+                        "bg-surface": "rgba(255, 255, 255, 0.03)",
+                        "border-active": "rgba(255, 255, 255, 0.16)",
+                        "accent-orange": "#F08A24",
+                        "outline": "#ae8883",
+                        "on-tertiary-fixed": "#00174b",
+                        "on-primary": "#690003",
+                        "on-primary-container": "#ffd5cf",
+                        "surface-container-lowest": "#010f1e",
+                        "secondary-fixed-dim": "#ffb4aa",
+                        "primary": "#ffb4aa",
+                        "ai-purple": "#8B5CF6",
+                        "success": "#34D399",
+                        "warning": "#FBBF24",
+                        "surface-container-highest": "#273646",
+                        "surface-variant": "#273646",
+                        "info": "#00A9CE",
+                        "on-tertiary-fixed-variant": "#003ea7",
+                        "on-secondary-container": "#fff1ef",
+                        "surface-bright": "#2b3b4b",
+                        "on-surface": "#d4e4f9",
+                        "inverse-primary": "#c0000a",
+                        "bg-elevated": "rgba(255, 255, 255, 0.06)",
+                        "primary-container": "#c7000b",
+                        "surface-container-high": "#1c2b3b",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#930007",
+                        "on-secondary": "#690003",
+                        "outline-variant": "#5d3f3b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "space-2": "8px",
+                        "space-8": "32px",
+                        "space-4": "16px",
+                        "space-3": "12px",
+                        "space-1": "4px",
+                        "space-6": "24px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "h2-section": ["Fira Code"],
+                        "h1-page": ["Fira Code"],
+                        "body-standard": ["Fira Sans"],
+                        "h3-card": ["Fira Sans"],
+                        "caption-meta": ["Fira Sans"],
+                        "badge-status": ["Fira Sans"],
+                        "display-hero": ["Fira Code"]
+                    },
+                    "fontSize": {
+                        "h2-section": ["1.125rem", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "h1-page": ["1.5rem", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "body-standard": ["0.875rem", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "h3-card": ["0.9375rem", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "caption-meta": ["0.75rem", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "badge-status": ["0.6875rem", { "lineHeight": "1", "fontWeight": "500" }],
+                        "display-hero": ["2.5rem", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .mesh-bg {
+            background: radial-gradient(circle at top left, rgba(240, 138, 36, 0.15) 0%, transparent 40%),
+                        radial-gradient(circle at bottom right, rgba(199, 0, 11, 0.15) 0%, transparent 40%);
+        }
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0F1C;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #273646;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #546478;
+        }
+    </style>
+</head>
+<body class="bg-bg-root text-text-primary h-screen w-screen overflow-hidden flex font-body-standard">
+<!-- SideNavBar (from JSON) -->
+<nav class="h-screen w-64 border-r fixed left-0 top-0 border-r border-white/5 dark:border-zinc-900 bg-neutral-950 dark:bg-black flex flex-col pt-16 pb-4 z-40">
+<!-- Header Info (Visual Only, TopAppBar handles Brand) -->
+<div class="px-space-4 mb-space-8 mt-space-8">
+<div class="font-h3-card text-h3-card text-text-primary">NeXo Core</div>
+<div class="font-caption-meta text-caption-meta text-success flex items-center gap-2 mt-1">
+<span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                NOC-A-01 ONLINE
+            </div>
+</div>
+<div class="flex-1 flex flex-col gap-1 px-2">
+<!-- Active Tab: Network Topology -->
+<a class="bg-red-950/20 text-[#C7000B] border-l-2 border-[#C7000B] flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50 hover:text-white group" href="#">
+<span class="material-symbols-outlined text-lg">hub</span>
+                Network Topology
+            </a>
+<a class="text-zinc-500 hover:text-zinc-200 flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined text-lg">neurology</span>
+                Autonomous Ops
+            </a>
+<a class="text-zinc-500 hover:text-zinc-200 flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined text-lg">grid_view</span>
+                Health Matrix
+            </a>
+<a class="text-zinc-500 hover:text-zinc-200 flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined text-lg">terminal</span>
+                Log Forensic
+            </a>
+<a class="text-zinc-500 hover:text-zinc-200 flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined text-lg">smart_toy</span>
+                Agent Config
+            </a>
+</div>
+<div class="mt-auto px-2 flex flex-col gap-1 border-t border-border-base pt-4">
+<a class="text-zinc-500 hover:text-zinc-200 flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined text-lg">menu_book</span>
+                Docs
+            </a>
+<a class="text-zinc-500 hover:text-zinc-200 flex items-center gap-3 px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ease-in-out hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined text-lg">support_agent</span>
+                Support
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 flex flex-col h-full relative mesh-bg">
+<!-- TopAppBar (from JSON) -->
+<header class="flex justify-between items-center w-full px-6 h-14 sticky top-0 z-50 bg-neutral-950 dark:bg-black border-b border-white/10 dark:border-zinc-800">
+<div class="flex items-center gap-6 w-1/3">
+<div class="text-xl font-black tracking-tighter text-red-600 dark:text-[#C7000B] font-['Space_Grotesk'] uppercase">
+                    NeXo Intelligence
+                </div>
+</div>
+<!-- Search Bar: on_left (simulated visual location) -->
+<div class="w-1/3 flex justify-center">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">search</span>
+<input class="w-full bg-bg-surface border border-border-base rounded text-text-primary px-9 py-1.5 text-sm focus:outline-none focus:border-border-active focus:ring-1 focus:ring-border-active placeholder-text-muted font-body-standard" placeholder="Search nodes, IPs, alerts..." type="text"/>
+<div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-text-muted font-caption-meta text-[10px] border border-border-base">⌘</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-text-muted font-caption-meta text-[10px] border border-border-base">K</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-end gap-3 w-1/3">
+<!-- Trailing Icon Actions -->
+<button class="w-8 h-8 flex items-center justify-center rounded text-zinc-500 hover:bg-white/5 hover:text-white transition-colors duration-150 active:scale-95 duration-75">
+<span class="material-symbols-outlined text-[20px]">dark_mode</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-zinc-500 hover:bg-white/5 hover:text-white transition-colors duration-150 active:scale-95 duration-75 relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full border-2 border-black"></span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-zinc-500 hover:bg-white/5 hover:text-white transition-colors duration-150 active:scale-95 duration-75 mr-2">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+<!-- Actions -->
+<button class="px-3 py-1.5 border border-border-base rounded text-text-secondary font-h3-card text-h3-card hover:bg-bg-surface hover:text-text-primary transition-colors active:scale-95">
+                    System Status
+                </button>
+<button class="px-4 py-1.5 bg-gradient-to-r from-accent-orange to-primary-container rounded text-white font-h3-card text-h3-card hover:opacity-90 transition-opacity active:scale-95 shadow-[0_0_15px_rgba(199,0,11,0.3)]">
+                    Deploy Agent
+                </button>
+</div>
+</header>
+<!-- Canvas Area -->
+<div class="flex-1 flex overflow-hidden relative">
+<!-- Network Graph Canvas (Simulated) -->
+<div class="flex-1 relative bg-bg-root/50 z-0">
+<!-- Status Legend Overlay -->
+<div class="absolute top-4 left-4 flex gap-4 bg-surface/80 backdrop-blur-md border border-border-base rounded px-4 py-2 z-10">
+<div class="flex items-center gap-2 font-caption-meta text-caption-meta text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span> Optimal
+                    </div>
+<div class="flex items-center gap-2 font-caption-meta text-caption-meta text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-warning shadow-[0_0_8px_rgba(251,191,36,0.6)]"></span> Degraded
+                    </div>
+<div class="flex items-center gap-2 font-caption-meta text-caption-meta text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-danger shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span> Critical
+                    </div>
+</div>
+<!-- Simulated Graph Elements -->
+<svg class="w-full h-full" preserveaspectratio="xMidYMid slice" viewbox="0 0 1000 800">
+<!-- Edges (Paths) -->
+<path d="M300,400 L500,250" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"></path>
+<path d="M500,250 L750,300" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"></path>
+<path d="M500,250 L600,500" fill="none" stroke="rgba(239,68,68,0.3)" stroke-dasharray="4,4" stroke-width="2"></path>
+<path d="M600,500 L800,600" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"></path>
+<path d="M300,400 L450,650" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"></path>
+<!-- Nodes -->
+<!-- Core Router (Warning) -->
+<g transform="translate(500,250)">
+<circle class="shadow-[0_0_15px_rgba(251,191,36,0.3)]" fill="#112130" r="30" stroke="#FBBF24" stroke-width="2"></circle>
+<circle class="animate-pulse" fill="#FBBF24" r="4"></circle>
+<text fill="#8494A7" font-family="Fira Sans" font-size="12" text-anchor="middle" x="0" y="45">CORE-RT-01</text>
+</g>
+<!-- Edge Node 1 (Success) -->
+<g transform="translate(300,400)">
+<circle fill="#112130" r="20" stroke="#34D399" stroke-width="1.5"></circle>
+<text fill="#8494A7" font-family="Fira Sans" font-size="10" text-anchor="middle" x="0" y="35">EDG-ZN-A</text>
+</g>
+<!-- App Server (Danger - Selected) -->
+<g transform="translate(600,500)">
+<circle fill="#2b3b4b" r="25" stroke="#EF4444" stroke-width="3" style="filter: drop-shadow(0 0 10px rgba(239,68,68,0.5));"></circle>
+<text fill="#E8ECF1" font-family="Fira Sans" font-size="12" font-weight="600" text-anchor="middle" x="0" y="40">APP-SVC-04</text>
+</g>
+<!-- DB Cluster (Success) -->
+<g transform="translate(750,300)">
+<circle fill="#112130" r="22" stroke="#34D399" stroke-width="1.5"></circle>
+<text fill="#8494A7" font-family="Fira Sans" font-size="10" text-anchor="middle" x="0" y="35">DB-CLS-M</text>
+</g>
+<!-- Edge Node 2 (Success) -->
+<g transform="translate(450,650)">
+<circle fill="#112130" r="18" stroke="#34D399" stroke-width="1.5"></circle>
+<text fill="#8494A7" font-family="Fira Sans" font-size="10" text-anchor="middle" x="0" y="30">EDG-ZN-B</text>
+</g>
+<g transform="translate(800,600)">
+<circle fill="#112130" r="15" stroke="#34D399" stroke-width="1.5"></circle>
+</g>
+</svg>
+<!-- Zoom Controls -->
+<div class="absolute bottom-6 left-6 flex flex-col gap-2 bg-surface/80 backdrop-blur-md border border-border-base rounded p-1">
+<button class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 rounded transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+<div class="w-full h-px bg-border-base"></div>
+<button class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 rounded transition-colors">
+<span class="material-symbols-outlined text-sm">remove</span>
+</button>
+<div class="w-full h-px bg-border-base"></div>
+<button class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 rounded transition-colors">
+<span class="material-symbols-outlined text-sm">fit_screen</span>
+</button>
+</div>
+</div>
+<!-- Detail Sidebar (Right) -->
+<aside class="w-96 border-l border-border-base bg-surface-container-lowest/95 backdrop-blur-xl flex flex-col h-full z-10 overflow-y-auto">
+<!-- Header -->
+<div class="p-space-4 border-b border-border-base">
+<div class="flex justify-between items-start mb-2">
+<div>
+<div class="font-caption-meta text-caption-meta text-text-muted uppercase tracking-wider mb-1">Application Server</div>
+<h2 class="font-h2-section text-h2-section text-text-primary">APP-SVC-04</h2>
+</div>
+<div class="px-2 py-1 rounded bg-danger/10 border border-danger/20 text-danger font-badge-status text-badge-status flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-danger animate-pulse shadow-[0_0_5px_rgba(239,68,68,0.8)]"></span>
+                            CRITICAL
+                        </div>
+</div>
+<p class="font-body-standard text-body-standard text-text-secondary text-sm">Main authentication service node experiencing high latency and packet loss.</p>
+</div>
+<!-- Telemetry Section -->
+<div class="p-space-4 border-b border-border-base bg-bg-elevated">
+<h3 class="font-h3-card text-h3-card text-text-muted uppercase tracking-wider text-xs mb-4">Live Telemetry</h3>
+<div class="grid grid-cols-2 gap-3">
+<!-- KPI Card -->
+<div class="p-3 border border-border-base rounded bg-surface">
+<div class="font-caption-meta text-caption-meta text-text-secondary mb-1">CPU Load</div>
+<div class="font-h1-page text-h1-page text-danger">98.4%</div>
+<div class="mt-2 h-8 w-full flex items-end gap-0.5">
+<div class="w-full bg-danger/20 h-full rounded-sm relative">
+<div class="absolute bottom-0 w-full bg-danger rounded-sm" style="height: 98%;"></div>
+</div>
+</div>
+</div>
+<!-- KPI Card -->
+<div class="p-3 border border-border-base rounded bg-surface">
+<div class="font-caption-meta text-caption-meta text-text-secondary mb-1">Latency</div>
+<div class="font-h1-page text-h1-page text-warning">452ms</div>
+<div class="mt-2 h-8 w-full flex items-end gap-0.5">
+<div class="w-1/6 bg-white/10 h-[20%] rounded-sm"></div>
+<div class="w-1/6 bg-white/10 h-[30%] rounded-sm"></div>
+<div class="w-1/6 bg-white/10 h-[25%] rounded-sm"></div>
+<div class="w-1/6 bg-white/10 h-[50%] rounded-sm"></div>
+<div class="w-1/6 bg-warning h-[80%] rounded-sm"></div>
+<div class="w-1/6 bg-warning h-[90%] rounded-sm"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Dependencies Section -->
+<div class="p-space-4 border-b border-border-base">
+<h3 class="font-h3-card text-h3-card text-text-muted uppercase tracking-wider text-xs mb-3">Downstream Impact</h3>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between p-2 rounded bg-bg-surface border border-border-base hover:border-border-active transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-warning text-[18px]">dns</span>
+<span class="font-body-standard text-body-standard text-text-primary text-sm">Auth DB Replica</span>
+</div>
+<span class="font-caption-meta text-caption-meta text-warning">Degraded</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-bg-surface border border-border-base hover:border-border-active transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-success text-[18px]">api</span>
+<span class="font-body-standard text-body-standard text-text-primary text-sm">User Gateway API</span>
+</div>
+<span class="font-caption-meta text-caption-meta text-success">Optimal</span>
+</div>
+</div>
+</div>
+<!-- L4 Action Area -->
+<div class="p-space-4 mt-auto">
+<div class="p-4 border border-warning/30 rounded bg-warning/5 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-warning"></div>
+<div class="flex items-start gap-3 mb-3">
+<span class="material-symbols-outlined text-warning">smart_toy</span>
+<div>
+<h4 class="font-h3-card text-h3-card text-text-primary text-sm">Agent Recommendation</h4>
+<p class="font-caption-meta text-caption-meta text-text-secondary mt-1">Isolate node and reroute traffic to standby pool APP-SVC-B to prevent cascading failure.</p>
+</div>
+</div>
+<div class="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+<div class="font-caption-meta text-caption-meta text-text-muted flex items-center gap-1">
+                                Confidence <span class="text-text-primary font-mono">94%</span>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 border border-border-base rounded text-text-secondary font-h3-card text-h3-card hover:bg-bg-surface transition-colors text-xs">Reject</button>
+<button class="px-3 py-1.5 bg-gradient-to-r from-accent-orange to-primary-container rounded text-white font-h3-card text-h3-card hover:opacity-90 transition-opacity text-xs shadow-[0_0_10px_rgba(199,0,11,0.2)]">Execute</button>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</body></html>

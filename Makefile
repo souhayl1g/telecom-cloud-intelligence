@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Telecom Cloud Intelligence — Makefile
+# Telecom NeXoligence — Makefile
 # 
 # Usage:
 #   make start-nextops    - Start entire stack with auto-pipeline
@@ -61,10 +61,10 @@ endef
 .PHONY: help
 help: 
 	@echo ""
-	@echo "$(BOLD)Telecom Cloud Intelligence — Available Commands$(NC)"
+	@echo "$(BOLD)Telecom NeXoligence — Available Commands$(NC)"
 	@echo ""
 	@echo "$(GREEN)Startup:$(NC)"
-	@echo "  $(YELLOW)make start-nexops$(NC)     Start full stack with AUTO_PIPELINE enabled + dashboard"
+	@echo "  $(YELLOW)make start-NeXo$(NC)     Start full stack with AUTO_PIPELINE enabled + dashboard"
 	@echo "  $(YELLOW)make start-dev$(NC)          Start stack in development mode (no auto-pipeline)"
 	@echo ""
 	@echo "$(GREEN)Control:$(NC)"
@@ -94,16 +94,16 @@ help:
 	@echo "  $(YELLOW)make pipeline-force$(NC)     Force run pipeline in running notebooks"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make start-nexops          # Full production-like start with dashboard"
+	@echo "  make start-NeXo          # Full production-like start with dashboard"
 	@echo "  make logs notebooks         # Watch notebooks logs"
 	@echo "  make db-shell               # Connect to database"
 	@echo ""
 
 # ── Main Startup Commands ────────────────────────────────────────────────────
 
-.PHONY: start-nexops
-start-nexops: ## Start entire stack with auto-pipeline enabled + dashboard
-	$(call print_header,"STARTING NEXOPS — FULL STACK")
+.PHONY: start-NeXo
+start-NeXo: ## Start entire stack with auto-pipeline enabled + dashboard
+	$(call print_header,"STARTING NeXo — FULL STACK")
 
 	@echo "$(YELLOW)This will:$(NC)"
 	@echo "  • Start all Docker services (postgres, minio, ai-service, pipeline-worker, etc.)"
@@ -135,7 +135,7 @@ start-nexops: ## Start entire stack with auto-pipeline enabled + dashboard
 
 	@echo ""
 	@echo "$(BOLD)═══════════════════════════════════════════$(NC)"
-	@echo "$(GREEN)   NexOps AI is ready!$(NC)"
+	@echo "$(GREEN)   NeXo is ready!$(NC)"
 	@echo "$(BOLD)═══════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo "$(BOLD)Access URLs:$(NC)"

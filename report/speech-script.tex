@@ -32,7 +32,8 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\color{stagedir}\textit{Speech Script --- Telecom Cloud Intelligence}}
+\fancyhead[L]{\small\color{stagedir}\textit{Speech Script --- Telecom
+        NeXoligence}}
 \fancyhead[R]{\small\color{stagedir}\textit{Souhayl Guenichi}}
 \fancyfoot[C]{\small\color{stagedir}\thepage}
 \renewcommand{\headrulewidth}{0.5pt}
@@ -40,7 +41,8 @@
 % ── Stage Direction Command ──
 \newcommand{\stage}[1]{\par\textit{\color{stagedir}[#1]}\par}
 \newcommand{\beat}{\par\vspace{0.4em}}
-\newcommand{\pause}{\par\textit{\color{stagedir}[pause --- let it sink in]}\par}
+\newcommand{\pause}{\par\textit{\color{stagedir}[pause --- let it sink
+            in]}\par}
 \newcommand{\keyword}[1]{\textbf{\color{aiviolet}#1}}
 \newcommand{\emphasis}[1]{\textbf{\color{huaweired}#1}}
 
@@ -50,25 +52,27 @@
 % TITLE PAGE
 % ═══════════════════════════════════════════════════════
 \begin{titlepage}
-\centering
-\vspace*{3cm}
+    \centering
+    \vspace*{3cm}
 
-{\Huge\bfseries\color{huaweired} SPEECH SCRIPT}\\[0.5cm]
-{\LARGE\color{aiviolet} Supervisor Meeting --- Progress Overview}\\[0.3cm]
-{\Large\color{ossblue} Cloud-Native AI Operations Agent for CEM--CVM Intelligence}\\[2cm]
+    {\Huge\bfseries\color{huaweired} SPEECH SCRIPT}\\[0.5cm]
+    {\LARGE\color{aiviolet} Supervisor Meeting --- Progress Overview}\\[0.3cm]
+    {\Large\color{ossblue} Cloud-Native AI Operations Agent for CEM--CVM
+    Intelligence}\\[2cm]
 
-{\large\color{darkbg} Souhayl Guenichi}\\[0.3cm]
-{\normalsize ESPRIT $\times$ Huawei Tunisia}\\[0.3cm]
-{\normalsize Supervised by: Mrs.\ Mariem Bouzouita (ESPRIT) \& Mr.\ Jackie Chen (Huawei)}\\[2cm]
+    {\large\color{darkbg} Souhayl Guenichi}\\[0.3cm]
+    {\normalsize ESPRIT $\times$ Huawei Tunisia}\\[0.3cm]
+    {\normalsize Supervised by: Mrs.\ Mariem Bouzouita (ESPRIT) \& Mr.\ Jackie Chen
+    (Huawei)}\\[2cm]
 
-\textit{\color{stagedir}Script for the supervisor progress meeting.\\
-This is an overview presentation --- not the final defense.\\
-Focus on the idea, approach, outputs, and next steps.\\
-No code, no ports, no implementation details.\\
-Target: 15--20 minutes total.}
+    \textit{\color{stagedir}Script for the supervisor progress meeting.\\
+        This is an overview presentation --- not the final defense.\\
+        Focus on the idea, approach, outputs, and next steps.\\
+        No code, no ports, no implementation details.\\
+        Target: 15--20 minutes total.}
 
-\vfill
-{\small March 2026}
+    \vfill
+    {\small March 2026}
 \end{titlepage}
 
 \tableofcontents
@@ -85,16 +89,21 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``My name is Souhayl Guenichi, fifth-year engineering student at ESPRIT. I am doing my PFE at \emphasis{Huawei Tunisia}, in the Cloud IT / Sales-Solution team.''
+``My name is Souhayl Guenichi, fifth-year engineering student at ESPRIT. I am
+doing my PFE at \emphasis{Huawei Tunisia}, in the Cloud IT / Sales-Solution
+team.''
 
 \beat
 
-``Today I want to walk you through the project I have been building: a \keyword{Cloud-Native AI Operations Agent for CEM--CVM Intelligence}. In simple terms --- an autonomous AI system for telecom that \emphasis{detects problems, decides what to do, and acts on it}.''
+``Today I want to walk you through the project I have been building: a
+\keyword{Cloud-Native AI Operations Agent for CEM--CVM Intelligence}. In simple
+terms --- an autonomous AI system for telecom that \emphasis{detects problems,
+    decides what to do, and acts on it}.''
 
 \beat
 
-``This is a progress meeting, so I will focus on the big picture --- the idea, the approach, what we have built so far, and what is next.''
-
+``This is a progress meeting, so I will focus on the big picture --- the idea,
+the approach, what we have built so far, and what is next.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 2 — THE PROBLEM (2 minutes)
@@ -108,16 +117,21 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``Telecom operators have two data worlds that \emphasis{never talk to each other}. On one side, the \keyword{network} --- OSS data: throughput, latency, packet loss, signal quality. On the other side, the \keyword{business} --- BSS data: revenue, churn, data usage, ARPU.''
+``Telecom operators have two data worlds that \emphasis{never talk to each
+    other}. On one side, the \keyword{network} --- OSS data: throughput, latency,
+packet loss, signal quality. On the other side, the \keyword{business} --- BSS
+data: revenue, churn, data usage, ARPU.''
 
 \beat
 
-``When the network degrades in a region, the business team sees the revenue impact \emphasis{days later}. Nobody connects the dots. And more importantly --- \emphasis{nobody takes action}. There is no system that bridges this gap and acts autonomously.''
+``When the network degrades in a region, the business team sees the revenue
+impact \emphasis{days later}. Nobody connects the dots. And more importantly
+--- \emphasis{nobody takes action}. There is no system that bridges this gap
+and acts autonomously.''
 
 \pause
 
 ``That is what we set out to build.''
-
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 3 — THE SOLUTION (3 minutes)
@@ -127,7 +141,9 @@ Target: 15--20 minutes total.}
 
 \stage{Show CEM → Agent → CVM diagram. This is the key visual.}
 
-``Our solution is an \keyword{AI Operations Agent} that sits right in the middle --- between Huawei's \keyword{CEM} platform, SmartCare, and the operator's \keyword{CVM} system.''
+``Our solution is an \keyword{AI Operations Agent} that sits right in the
+middle --- between Huawei's \keyword{CEM} platform, SmartCare, and the
+operator's \keyword{CVM} system.''
 
 \beat
 
@@ -135,24 +151,33 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``First, \emphasis{DETECT} --- it uses machine learning to detect anomalies in the network and predict SLA risk.''
+``First, \emphasis{DETECT} --- it uses machine learning to detect anomalies in
+the network and predict SLA risk.''
 
 \beat
 
-``Second, \emphasis{DECIDE} --- it correlates network metrics with business metrics. When the network degrades, what happens to revenue? It quantifies that relationship.''
+``Second, \emphasis{DECIDE} --- it correlates network metrics with business
+metrics. When the network degrades, what happens to revenue? It quantifies that
+relationship.''
 
 \beat
 
-``Third, \emphasis{ACT} --- and this is the key differentiator --- it does not just give you a report. It \keyword{generates autonomous action recommendations}: alerts, churn prevention campaigns, upsell triggers, escalation tickets.''
+``Third, \emphasis{ACT} --- and this is the key differentiator --- it does not
+just give you a report. It \keyword{generates autonomous action
+    recommendations}: alerts, churn prevention campaigns, upsell triggers,
+escalation tickets.''
 
 \pause
 
-``This positions us at \keyword{ADN Level 4} --- Highly Autonomous --- in Huawei's Autonomous Driving Network framework. At L3, the system recommends and humans decide. At L4, the agent \emphasis{decides and acts}. Humans only handle edge cases.''
+``This positions us at \keyword{ADN Level 4} --- Highly Autonomous --- in
+Huawei's Autonomous Driving Network framework. At L3, the system recommends and
+humans decide. At L4, the agent \emphasis{decides and acts}. Humans only handle
+edge cases.''
 
 \beat
 
-``And we work with \emphasis{real data from Tunisie Telecom} --- not synthetic, not simulated. Real network KPIs, real subscriber records, anonymised.''
-
+``And we work with \emphasis{real data from Tunisie Telecom} --- not synthetic,
+not simulated. Real network KPIs, real subscriber records, anonymised.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 4 — THE PIPELINE (2 minutes)
@@ -166,28 +191,36 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``\keyword{Phase 1} --- we ingest real operator data from Tunisie Telecom into our data lake.''
+``\keyword{Phase 1} --- we ingest real operator data from Tunisie Telecom into
+our data lake.''
 
 \beat
 
-``\keyword{Phase 2} --- we engineer meaningful features from the raw network and business data.''
+``\keyword{Phase 2} --- we engineer meaningful features from the raw network
+and business data.''
 
 \beat
 
-``\keyword{Phase 3} --- we run AI models: predict SLA risk, detect network anomalies, detect revenue anomalies, and find correlations between the two domains.''
+``\keyword{Phase 3} --- we run AI models: predict SLA risk, detect network
+anomalies, detect revenue anomalies, and find correlations between the two
+domains.''
 
 \beat
 
-``\keyword{Phase 4} --- and this is what makes us L4 --- the \keyword{Decision and Action Engine}. It evaluates the ML outputs against business rules and \emphasis{generates typed recommendations with priority levels}.''
+``\keyword{Phase 4} --- and this is what makes us L4 --- the \keyword{Decision
+    and Action Engine}. It evaluates the ML outputs against business rules and
+\emphasis{generates typed recommendations with priority levels}.''
 
 \beat
 
-``\keyword{Phase 5} --- everything is persisted: curated data plus actions, ready for CVM consumption.''
+``\keyword{Phase 5} --- everything is persisted: curated data plus actions,
+ready for CVM consumption.''
 
 \beat
 
-``Each phase is color-coded --- teal for ingestion, blue for engineering, violet for AI, red for actions, green for persistence. The whole pipeline runs end-to-end with one command.''
-
+``Each phase is color-coded --- teal for ingestion, blue for engineering,
+violet for AI, red for actions, green for persistence. The whole pipeline runs
+end-to-end with one command.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 5 — AI MODELS (2 minutes)
@@ -201,24 +234,31 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``\keyword{SLA Risk Prediction} --- a Gradient Boosting model that answers: how likely is this region to breach its SLA? It gives a score from 0 to 1 based on 9 network features.''
+``\keyword{SLA Risk Prediction} --- a Gradient Boosting model that answers: how
+likely is this region to breach its SLA? It gives a score from 0 to 1 based on
+9 network features.''
 
 \beat
 
-``\keyword{Network Anomaly Detection} --- an Isolation Forest model that flags cells behaving abnormally.''
+``\keyword{Network Anomaly Detection} --- an Isolation Forest model that flags
+cells behaving abnormally.''
 
 \beat
 
-``\keyword{Revenue Anomaly Detection} --- same algorithm, different domain. It catches unexpected drops or spikes in subscriber revenue.''
+``\keyword{Revenue Anomaly Detection} --- same algorithm, different domain. It
+catches unexpected drops or spikes in subscriber revenue.''
 
 \beat
 
-``\keyword{O+B Correlation Engine} --- this is where the cross-domain magic happens. We compute Pearson and Spearman correlations between network metrics and business metrics. When latency goes up, does revenue go down? Now we can \emphasis{quantify} it.''
+``\keyword{O+B Correlation Engine} --- this is where the cross-domain magic
+happens. We compute Pearson and Spearman correlations between network metrics
+and business metrics. When latency goes up, does revenue go down? Now we can
+\emphasis{quantify} it.''
 
 \beat
 
-``All these outputs feed into the \keyword{Action Engine}, which decides what to do about them.''
-
+``All these outputs feed into the \keyword{Action Engine}, which decides what
+to do about them.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 6 — THE ACTION ENGINE (2 minutes)
@@ -226,9 +266,12 @@ Target: 15--20 minutes total.}
 \newpage
 \section{SLIDE 6 --- THE ACTION ENGINE (2 minutes)}
 
-\stage{Show Action Engine Rules diagram. Speak with emphasis --- this is the L4 differentiator.}
+\stage{Show Action Engine Rules diagram. Speak with emphasis --- this is the L4
+    differentiator.}
 
-``This slide is the heart of the project. The \keyword{Decision and Action Engine} is what makes us an \emphasis{autonomous agent}, not just an analytics dashboard.''
+``This slide is the heart of the project. The \keyword{Decision and Action
+    Engine} is what makes us an \emphasis{autonomous agent}, not just an analytics
+dashboard.''
 
 \beat
 
@@ -236,28 +279,34 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``If SLA risk is above 0.7 --- \emphasis{proactive alert}, critical priority. The network is about to breach, act now.''
+``If SLA risk is above 0.7 --- \emphasis{proactive alert}, critical priority.
+The network is about to breach, act now.''
 
 \beat
 
-``If there is an OSS anomaly correlated with a revenue drop --- \emphasis{churn prevention campaign}. Subscribers in that region are at risk.''
+``If there is an OSS anomaly correlated with a revenue drop --- \emphasis{churn
+    prevention campaign}. Subscribers in that region are at risk.''
 
 \beat
 
-``If the network is healthy but revenue spikes --- \emphasis{upsell opportunity}. These are power users, offer them more.''
+``If the network is healthy but revenue spikes --- \emphasis{upsell
+    opportunity}. These are power users, offer them more.''
 
 \beat
 
-``If there is a significant O+B correlation --- \emphasis{insight report} for the CVM strategy team.''
+``If there is a significant O+B correlation --- \emphasis{insight report} for
+the CVM strategy team.''
 
 \beat
 
-``If multiple anomalies hit the same region --- \emphasis{escalation ticket}, critical. Something serious is happening.''
+``If multiple anomalies hit the same region --- \emphasis{escalation ticket},
+critical. Something serious is happening.''
 
 \pause
 
-``Each action has a lifecycle: generated, pending, approved or dismissed. The CVM system can consume these through our API. The agent decides and acts. Humans handle edge cases only. \emphasis{That is L4.}''
-
+``Each action has a lifecycle: generated, pending, approved or dismissed. The
+CVM system can consume these through our API. The agent decides and acts.
+Humans handle edge cases only. \emphasis{That is L4.}''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 7 — ARCHITECTURE (1.5 minutes)
@@ -267,16 +316,22 @@ Target: 15--20 minutes total.}
 
 \stage{Show Container Architecture diagram + HCS Mapping.}
 
-``A quick look at the architecture. The system runs as \keyword{5 containerised microservices} in Docker Compose:''
+``A quick look at the architecture. The system runs as \keyword{5 containerised
+    microservices} in Docker Compose:''
 
 \beat
 
-``An API Gateway for consuming results. An AI Service for ML inference. The Pipeline Worker that orchestrates the 5 phases. PostgreSQL for our 8-table structured store. And MinIO as a three-layer data lake --- raw, processed, curated.''
+``An API Gateway for consuming results. An AI Service for ML inference. The
+Pipeline Worker that orchestrates the 5 phases. PostgreSQL for our 8-table
+structured store. And MinIO as a three-layer data lake --- raw, processed,
+curated.''
 
 \beat
 
-``The entire stack runs locally with one command, and it is designed for \keyword{cloud portability}. The same Docker images deploy directly to Huawei Cloud Stack --- containers to ECS, MinIO to OBS, PostgreSQL to RDS. Same code, different infrastructure.''
-
+``The entire stack runs locally with one command, and it is designed for
+\keyword{cloud portability}. The same Docker images deploy directly to Huawei
+Cloud Stack --- containers to ECS, MinIO to OBS, PostgreSQL to RDS. Same code,
+different infrastructure.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 8 — DATA (1.5 minutes)
@@ -290,20 +345,25 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``Most PFE projects use synthetic data. We work with \emphasis{real anonymised production data from Tunisie Telecom}. Real network KPIs across regions. Real subscriber profiles with revenue and usage patterns.''
+``Most PFE projects use synthetic data. We work with \emphasis{real anonymised
+    production data from Tunisie Telecom}. Real network KPIs across regions. Real
+subscriber profiles with revenue and usage patterns.''
 
 \beat
 
-``Everything is anonymised --- hashed identifiers, no personal information, \mbox{gouvernorat-level} location only.''
+``Everything is anonymised --- hashed identifiers, no personal information,
+\mbox{gouvernorat-level} location only.''
 
 \beat
 
-``We also have a dual-mode design: real data is the default, with a synthetic fallback for demos and testing. The system works from day one and only gets better with real data.''
+``We also have a dual-mode design: real data is the default, with a synthetic
+fallback for demos and testing. The system works from day one and only gets
+better with real data.''
 
 \beat
 
-``Our database has 8 tables with full traceability --- every anomaly, every risk score, every action is linked back to the pipeline run that produced it.''
-
+``Our database has 8 tables with full traceability --- every anomaly, every
+risk score, every action is linked back to the pipeline run that produced it.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 9 — COMPETITIVE POSITIONING (1.5 minutes)
@@ -317,24 +377,29 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``SELFNET does self-healing 5G --- no real data, no O+B convergence, no actions.''
+``SELFNET does self-healing 5G --- no real data, no O+B convergence, no
+actions.''
 
 \beat
 
-``ETSI ZSM defines zero-touch management --- but it is a specification, not an implementation.''
+``ETSI ZSM defines zero-touch management --- but it is a specification, not an
+implementation.''
 
 \beat
 
-``Nokia AVA does telecom analytics with real data --- but no O+B bridge and no autonomous actions.''
+``Nokia AVA does telecom analytics with real data --- but no O+B bridge and no
+autonomous actions.''
 
 \beat
 
-``Huawei SmartCare does CEM with partial O+B --- but still no autonomous actions.''
+``Huawei SmartCare does CEM with partial O+B --- but still no autonomous
+actions.''
 
 \pause
 
-``Our project is the \emphasis{only one} combining all four: \keyword{real data, O+B convergence, cloud-native architecture, and autonomous actions}. That is our contribution.''
-
+``Our project is the \emphasis{only one} combining all four: \keyword{real
+    data, O+B convergence, cloud-native architecture, and autonomous actions}. That
+is our contribution.''
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 10 — DELIVERABLES (1 minute)
@@ -348,12 +413,17 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``A \keyword{working Docker stack} --- 5 services, runs with one command. Three \keyword{trained ML models} on real Tunisie Telecom data. A \keyword{Decision and Action Engine} generating typed recommendations. A complete \keyword{three-layer data lake}. A \keyword{REST API} for consuming results and managing actions. An \keyword{8-table PostgreSQL schema} with full pipeline lineage. The \keyword{Huawei Cloud Stack architecture} design. And \keyword{technical documentation} including the report and architecture docs.''
+``A \keyword{working Docker stack} --- 5 services, runs with one command. Three
+\keyword{trained ML models} on real Tunisie Telecom data. A \keyword{Decision
+    and Action Engine} generating typed recommendations. A complete
+\keyword{three-layer data lake}. A \keyword{REST API} for consuming results and
+managing actions. An \keyword{8-table PostgreSQL schema} with full pipeline
+lineage. The \keyword{Huawei Cloud Stack architecture} design. And
+\keyword{technical documentation} including the report and architecture docs.''
 
 \beat
 
 ``All of this is functional and running today.''
-
 
 % ═══════════════════════════════════════════════════════
 % SLIDE 11 — NEXT STEPS & CLOSE (1 minute)
@@ -367,19 +437,23 @@ Target: 15--20 minutes total.}
 
 \beat
 
-``\emphasis{Immediately} --- finalise the action engine rules with feedback from the Huawei team.''
+``\emphasis{Immediately} --- finalise the action engine rules with feedback
+from the Huawei team.''
 
 \beat
 
-``\emphasis{Short-term} --- deploy to the actual Huawei Cloud Stack environment.''
+``\emphasis{Short-term} --- deploy to the actual Huawei Cloud Stack
+environment.''
 
 \beat
 
-``\emphasis{Medium-term} --- add real-time streaming and more advanced ML models like LSTM and transformers.''
+``\emphasis{Medium-term} --- add real-time streaming and more advanced ML
+models like LSTM and transformers.''
 
 \beat
 
-``\emphasis{Long-term} --- reinforcement learning for action optimisation, moving toward ADN Level 5.''
+``\emphasis{Long-term} --- reinforcement learning for action optimisation,
+moving toward ADN Level 5.''
 
 \pause
 
@@ -391,7 +465,6 @@ Target: 15--20 minutes total.}
 
 ``Thank you.''
 
-
 % ═══════════════════════════════════════════════════════
 % APPENDIX — QUICK CHEAT SHEET
 % ═══════════════════════════════════════════════════════
@@ -401,30 +474,48 @@ Target: 15--20 minutes total.}
 \subsection{Likely Questions \& Answers}
 
 \textbf{Q: Why these specific ML models?}\\
-A: GBR gives interpretable feature importance for SLA risk. Isolation Forest is ideal for unsupervised anomaly detection without labeled data. Pearson/Spearman quantifies cross-domain correlations. Simple, explainable, effective.
+A: GBR gives interpretable feature importance for SLA risk. Isolation Forest is
+ideal for unsupervised anomaly detection without labeled data. Pearson/Spearman
+quantifies cross-domain correlations. Simple, explainable, effective.
 
 \textbf{Q: What makes this L4 and not L3?}\\
-A: At L3 the system recommends and humans approve everything. At L4, the agent generates actions autonomously --- alerts, campaigns, escalations. Humans only intervene for critical edge cases. The Action Engine is what makes the difference.
+A: At L3 the system recommends and humans approve everything. At L4, the agent
+generates actions autonomously --- alerts, campaigns, escalations. Humans only
+intervene for critical edge cases. The Action Engine is what makes the
+difference.
 
 \textbf{Q: Why not go straight to L5?}\\
-A: L5 means fully autonomous, zero human involvement. Unrealistic for a PFE scope. L4 is honest and defensible --- autonomous for routine cases, human oversight for exceptions.
+A: L5 means fully autonomous, zero human involvement. Unrealistic for a PFE
+scope. L4 is honest and defensible --- autonomous for routine cases, human
+oversight for exceptions.
 
 \textbf{Q: Is this just a dashboard?}\\
-A: No. A dashboard displays data. Our agent \emphasis{takes action}. It generates typed recommendations with confidence and priority. CVM systems consume these via API and act on them. That is the fundamental difference.
+A: No. A dashboard displays data. Our agent \emphasis{takes action}. It
+generates typed recommendations with confidence and priority. CVM systems
+consume these via API and act on them. That is the fundamental difference.
 
 \textbf{Q: How is the data anonymised?}\\
-A: Subscriber IDs are SHA-256 hashed with salt. Cell identifiers pseudonymised. Gouvernorat-level location only. No PII in the processed or curated layers.
+A: Subscriber IDs are SHA-256 hashed with salt. Cell identifiers pseudonymised.
+Gouvernorat-level location only. No PII in the processed or curated layers.
 
 \textbf{Q: Why cloud-native?}\\
-A: Huawei's strategy is cloud. Docker Compose gives us portability --- same images deploy to HCS (ECS, OBS, RDS). We prove it works locally and the path to production is clear.
+A: Huawei's strategy is cloud. Docker Compose gives us portability --- same
+images deploy to HCS (ECS, OBS, RDS). We prove it works locally and the path to
+production is clear.
 
 \textbf{Q: What if you do not get more real data?}\\
-A: Dual-mode design. Synthetic fallback is built in. The system trains and runs on synthetic, and improves when real data arrives. We already have initial real data from TT.
+A: Dual-mode design. Synthetic fallback is built in. The system trains and runs
+on synthetic, and improves when real data arrives. We already have initial real
+data from TT.
 
 \textbf{Q: What is the O+B convergence concretely?}\\
-A: Quantifying the statistical relationship between network metrics (latency, throughput) and business metrics (revenue, churn). Example: when latency increases by 20ms, revenue drops by X\%. No existing tool does this automatically.
+A: Quantifying the statistical relationship between network metrics (latency,
+throughput) and business metrics (revenue, churn). Example: when latency
+increases by 20ms, revenue drops by X\%. No existing tool does this
+automatically.
 
 \textbf{Q: What is the next milestone?}\\
-A: Deploy to Huawei Cloud Stack and validate the action engine rules with the Huawei operations team.
+A: Deploy to Huawei Cloud Stack and validate the action engine rules with the
+Huawei operations team.
 
 \end{document}
