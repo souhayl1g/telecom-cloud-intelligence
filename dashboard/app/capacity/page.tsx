@@ -60,15 +60,14 @@ function formatBytes(bytes: number): string {
 }
 
 export default async function CapacityPage() {
-    const [kpiData, infraData, sla] = await Promise.all([
+    const [kpiData, infraData] = await Promise.all([
         api.kpiSummary(),
         api.infraStats(),
-        api.slaRisk(),
     ]);
 
     const kpiHistory = ((kpiData as any[]) ?? []).reverse();
     const infra = infraData as any;
-    const slaScore = (sla as any)?.score ?? 0;
+    const slaScore = 0;
 
     // Real row counts from PostgreSQL
     const rowCounts = infra?.row_counts ?? {};
@@ -107,8 +106,8 @@ export default async function CapacityPage() {
     const dbCapacityMb = 500; // PostgreSQL single-instance reasonable working set
     const dbPct = dbSizeMb > 0 ? (dbSizeMb / dbCapacityMb) * 100 : 0;
 
-    // Real compute: pipeline duration as fraction of cycle time (120s)
-    const cycleSec = 120;
+    // Real compute: pipeline duration as fraction of cycle time (30s)
+    const cycleSec = 30;
     const avgPipelineSec = pipelineTiming.avg_duration_sec || 0;
     const computePct = avgPipelineSec > 0 ? (avgPipelineSec / cycleSec) * 100 : (slaScore * 40 + 10);
 
@@ -148,7 +147,7 @@ export default async function CapacityPage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="Planning · HCS Scaling Blueprint"
-                description="When do we run out of room? Live utilization of network throughput, compute (pipeline duration vs 120s cycle), subscriber density and PostgreSQL storage is measured against observed peaks; projected growth tells you how many months before each resource hits 90%. The output is a concrete HCS ECS/OBS/RDS scaling recommendation."
+                description="When do we run out of room? Live utilization of network throughput, compute (pipeline duration vs 30s cycle), subscriber density and PostgreSQL storage is measured against observed peaks; projected growth tells you how many months before each resource hits 90%. The output is a concrete HCS ECS/OBS/RDS scaling recommendation."
                 values={[
                     { text: `Network ${networkPct.toFixed(0)}% · Compute ${computePct.toFixed(0)}% · DB ${dbPct.toFixed(0)}%` },
                     { text: `Growth rate: ${(monthlyGrowthRate * 100).toFixed(1)}%/mo${kpiHistory.length >= 4 ? ' (observed)' : ' (estimated)'}` },
@@ -269,7 +268,7 @@ export default async function CapacityPage() {
                                     { name: 'anomalies', rows: rowCounts.anomalies, size: tableSizes.anomalies_bytes },
                                     { name: 'correlation_insights', rows: rowCounts.correlations, size: tableSizes.correlations_bytes },
                                     { name: 'sla_risk_scores', rows: rowCounts.sla_scores, size: tableSizes.sla_bytes },
-                                    { name: 'revenue_anomalies', rows: rowCounts.revenue_anomalies, size: tableSizes.revenue_bytes },
+                                    { name: 'cem_anomalies', rows: rowCounts.cem_anomalies, size: tableSizes.cem_bytes },
                                     { name: 'dataset_registry', rows: rowCounts.datasets, size: tableSizes.datasets_bytes },
                                     { name: 'pipeline_runs', rows: rowCounts.pipeline_runs, size: tableSizes.pipeline_bytes },
                                     { name: 'agent_actions', rows: rowCounts.actions, size: 0 },

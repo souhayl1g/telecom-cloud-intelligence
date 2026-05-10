@@ -72,7 +72,7 @@ pipeline-worker (daemon, 22 steps per cycle, repeats every 2 min)
   ├── compute Pearson + Spearman correlations (5 pairs × 2 methods = 10 results)
   ├── build curated dataset (joined OSS+BSS+AI) → minio s3://curated/...
   └── INSERT  →  postgres   pipeline_runs · dataset_registry · model_registry
-                             sla_risk_scores · anomalies · revenue_anomalies · correlation_insights
+                             sla_risk_scores · anomalies · cem_anomalies · correlation_insights
 
 api-gateway (:8000)
   └── SELECT  →  postgres  (serves results to clients via 7 endpoints)
@@ -171,7 +171,7 @@ PostgreSQL database `telecom_intel` — 7 tables:
 | `model_registry` | 3 | Model artifacts: sla-risk, anomaly, revenue-anomaly (v2.0) |
 | `sla_risk_scores` | 1 | GBR score (0–1), explanation JSONB, model version |
 | `anomalies` | 5–30 | Per-record OSS anomalies: `cell_id`, `severity`, `kpi_name`, `value` |
-| `revenue_anomalies` | 5–20 | Per-subscriber BSS anomalies: `operator`, `line_type`, `plan`, `severity` |
+| `cem_anomalies` | 5–20 | Per-subscriber CEM anomalies: `operator`, `line_type`, `plan`, `severity` |
 | `correlation_insights` | 10 | OSS–BSS Pearson/Spearman correlations (5 pairs × 2 methods) |
 
 Apply schema (first-time setup):

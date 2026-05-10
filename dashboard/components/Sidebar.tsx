@@ -18,38 +18,43 @@ interface NavSection {
 
 const navSections: NavSection[] = [
     {
-        title: 'Network',
+        title: 'ADN Autonomy',
         items: [
-            { href: '/overview',      label: 'Overview',     icon: 'dashboard' },
-            { href: '/anomalies',     label: 'Anomalies',    icon: 'warning' },
-            { href: '/vae-anomalies', label: 'VAE OSS',    icon: 'science' },
-            { href: '/sla-risk',      label: 'SLA Risk',     icon: 'timer' },
-            { href: '/correlations',  label: 'Correlations', icon: 'hub' },
+            { href: '/overview',         label: 'Overview',     icon: 'dashboard' },
+            { href: '/l4-agent',         label: 'L4 ADN',       icon: 'precision_manufacturing', badge: 'L4' },
         ],
     },
     {
-        title: 'Intelligence',
+        title: 'OSS ∩ CEM Convergence',
         items: [
-            { href: '/intelligence',     label: 'AI Hub',    icon: 'smart_toy' },
-            { href: '/predictive',       label: 'Forecast',  icon: 'trending_up' },
-            { href: '/model-evaluation', label: 'Models',    icon: 'model_training' },
-            { href: '/cem-scores',       label: 'CEM',       icon: 'analytics' },
-            { href: '/rat-underservice', label: 'RAT',       icon: 'signal_cellular_alt' },
+            { href: '/correlations',       label: 'Correlations',     icon: 'hub' },
+            { href: '/granger-causality',  label: 'Granger',          icon: 'account_tree' },
         ],
     },
     {
-        title: 'Infrastructure',
+        title: 'Network (OSS)',
         items: [
-            { href: '/topology',      label: 'Topology',  icon: 'device_hub' },
-            { href: '/capacity',      label: 'Capacity',  icon: 'storage' },
-            { href: '/pipeline-runs', label: 'Pipelines', icon: 'account_tree' },
-            { href: '/ops-metrics',   label: 'Health',    icon: 'monitor_heart' },
+            { href: '/vae-anomalies',      label: 'VAE Anomalies',    icon: 'science' },
+            { href: '/topology',           label: 'Topology',         icon: 'device_hub' },
+            { href: '/capacity',           label: 'Capacity',         icon: 'storage' },
         ],
     },
     {
-        title: 'Data',
+        title: 'Subscriber (CEM)',
         items: [
-            { href: '/data-warehouse', label: 'Warehouse', icon: 'database' },
+            { href: '/cem-scores',       label: 'CEM Scores',  icon: 'analytics' },
+            { href: '/rat-underservice', label: 'RAT Gap',     icon: 'signal_cellular_alt' },
+            { href: '/predictive',       label: 'Forecast',    icon: 'trending_up' },
+        ],
+    },
+    {
+        title: 'Models & Ops',
+        items: [
+            { href: '/intelligence',     label: 'AI Hub',      icon: 'smart_toy' },
+            { href: '/model-evaluation', label: 'Models',      icon: 'model_training' },
+            { href: '/pipeline-runs',    label: 'Pipelines',   icon: 'rocket_launch' },
+            { href: '/ops-metrics',      label: 'Health',      icon: 'monitor_heart' },
+            { href: '/data-warehouse',   label: 'Warehouse',   icon: 'database' },
         ],
     },
 ];
@@ -102,10 +107,12 @@ export default function Sidebar() {
             {/* ── Logo / Brand ─────────────────────────── */}
             <div className="sidebar-header">
                 <Link href="/overview" className="sidebar-logo">
-                    <div className="sidebar-logo-icon">
-                        <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#dc2626' }}>
-                            bolt
-                        </span>
+                    <div className="sidebar-logo-icon" style={{ padding: 2 }}>
+                        <img
+                            src="/images/nexo-logo.png"
+                            alt="NeXo"
+                            style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }}
+                        />
                     </div>
                     <AnimatePresence>
                         {!collapsed && (

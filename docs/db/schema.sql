@@ -47,14 +47,7 @@ CREATE TABLE IF NOT EXISTS dataset_registry (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS model_registry (
-  id                  BIGSERIAL PRIMARY KEY,
-  model_name          TEXT NOT NULL,
-  version             TEXT NOT NULL,
-  artifact_object_key TEXT,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(model_name, version)
-);
+-- model_registry table dropped in migration 002 (unused — see ai-service/model_cache).
 
 CREATE TABLE IF NOT EXISTS anomalies (
   id             BIGSERIAL PRIMARY KEY,
@@ -98,7 +91,9 @@ CREATE TABLE IF NOT EXISTS correlation_insights (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS revenue_anomalies (
+-- Renamed from revenue_anomalies (Migration 001). Analytic surface = CEM,
+-- not revenue/billing. Subscriber-level CEM-impacting events.
+CREATE TABLE IF NOT EXISTS cem_anomalies (
   id             BIGSERIAL PRIMARY KEY,
   run_id         TEXT REFERENCES pipeline_runs(run_id) ON DELETE SET NULL,
   ts             TIMESTAMPTZ,
@@ -107,11 +102,11 @@ CREATE TABLE IF NOT EXISTS revenue_anomalies (
   subscriber_id  TEXT,
   line_type      TEXT,              -- 'prepaid' | 'postpaid'
   plan           TEXT,
-  metric_name    TEXT NOT NULL DEFAULT 'composite_bss',
+  metric_name    TEXT NOT NULL DEFAULT 'composite_cem',
   severity       DOUBLE PRECISION,
   value          DOUBLE PRECISION,
   baseline_value DOUBLE PRECISION,
-  model_name     TEXT NOT NULL DEFAULT 'revenue-anomaly',
+  model_name     TEXT NOT NULL DEFAULT 'cem-anomaly',
   model_version  TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -279,3 +274,72 @@ CREATE TABLE IF NOT EXISTS agent_reasoning_logs (
 
 CREATE INDEX IF NOT EXISTS idx_reasoning_thread ON agent_reasoning_logs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_reasoning_agent ON agent_reasoning_logs(agent_name);
+
+-- ───────────────────────────────────────────────────────────────
+-- v3.0 ML Inference Results
+-- ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cem_scores (
+  id            BIGSERIAL PRIMARY KEY,
+  run_id        TEXT REFERENCES pipeline_runs(run_id) ON DELETE SET NULL,
+  subscriber_id TEXT,
+  region        TEXT,
+  cem_score     DOUBLE PRECISION,
+  model_name    TEXT NOT NULL DEFAULT 'cem',
+  model_version TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cem_run ON cem_scores(run_id);
+
+CREATE TABLE IF NOT EXISTS rat_underservice_scores (
+  id               BIGSERIAL PRIMARY KEY,
+  run_id           TEXT REFERENCES pipeline_runs(run_id) ON DELETE SET NULL,
+  subscriber_id    TEXT,
+  region           TEXT,
+  is_underserved   BOOLEAN,
+  underservice_prob DOUBLE PRECISION,
+  model_name       TEXT NOT NULL DEFAULT 'rat-underservice',
+  model_version    TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rat_run ON rat_underservice_scores(run_id);
+
+CREATE TABLE IF NOT EXISTS vae_anomaly_scores (
+  id                  BIGSERIAL PRIMARY KEY,
+  run_id              TEXT REFERENCES pipeline_runs(run_id) ON DELETE SET NULL,
+  ts                  TIMESTAMPTZ,
+  region              TEXT,
+  cell_id             TEXT,
+  is_anomaly          BOOLEAN,
+  anomaly_score       DOUBLE PRECISION,
+  reconstruction_error DOUBLE PRECISION,
+  model_name          TEXT NOT NULL DEFAULT 'vae-anomaly',
+  model_version       TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vae_run ON vae_anomaly_scores(run_id);
+
+-- ───────────────────────────────────────────────────────────────
+-- Granger Causality Results
+-- ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS granger_causality_results (
+  id            BIGSERIAL PRIMARY KEY,
+  area          TEXT NOT NULL,
+  oss_variable  TEXT NOT NULL,
+  cem_variable  TEXT NOT NULL,        -- renamed from bss_variable (Migration 001)
+  direction     TEXT NOT NULL,
+  max_lag       INTEGER NOT NULL,
+  best_lag      INTEGER,
+  best_pvalue   DOUBLE PRECISION,
+  best_fstat    DOUBLE PRECISION,
+  significant   BOOLEAN DEFAULT FALSE,
+  test_summary  JSONB,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (area, oss_variable, cem_variable, direction)
+);
+
+CREATE INDEX IF NOT EXISTS idx_granger_area ON granger_causality_results(area);
+CREATE INDEX IF NOT EXISTS idx_granger_significant ON granger_causality_results(significant);
+

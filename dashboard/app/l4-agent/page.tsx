@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import PageInfoBar from '../../components/PageInfoBar';
 import { useRefresh } from '../../components/RefreshContext';
+import L4ADNArchitecture from '../../components/L4ADNArchitecture';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -28,12 +29,16 @@ interface AgentAction {
 }
 
 interface PlatformContext {
-    sla: any;
-    anomalies: any[];
-    revenueAnomalies: any[];
+    anomalies: any[];          // OSS cell anomalies (oss_cell_kpis.anomaly_flag = TRUE)
+    cemAnomalies: any[];   // CEM subscriber risks (RAT gap or churn flag)
     correlations: any[];
     pipelineRuns: any[];
     actions: any[];
+    vaeSummary: { total: number; anomaly_count: number; anomaly_rate: number; areas_affected: number } | null;
+    cemSummary: { total: number; avg_score: number; poor_count: number; fair_count: number; good_count: number } | null;
+    ratSummary: { total: number; underserved: number; rate: number } | null;
+    granger: { results: any[]; count: number; significant: number };
+    areas: any[];
 }
 
 interface Notification {
@@ -68,75 +73,87 @@ function generateActions(ctx: PlatformContext): AgentAction[] {
     const actions: AgentAction[] = [];
     const now = new Date();
     const bucket = hourBucket();
-    const slaScore = ctx.sla?.score ?? 0;
+    // Use authoritative summary counts when available (full table), fall back to row arrays
+    const vaeCount = ctx.vaeSummary?.anomaly_count ?? ctx.anomalies?.length ?? 0;
+    const cemAvg = ctx.cemSummary?.avg_score ?? 0;
+    const cemPoor = ctx.cemSummary?.poor_count ?? 0;
+    const ratRate = ctx.ratSummary?.rate ?? 0;
+    const ratUnderserved = ctx.ratSummary?.underserved ?? 0;
+    const grangerSig = ctx.granger?.significant ?? 0;
+    const cemCount = cemPoor; // backward compat — represents low-CEM subscriber count
 
-    if (slaScore >= 0.7) {
-        const needsApproval = classifyAction('critical', 'auto_remediation', 0.94);
+    // VAE anomaly-based actions
+    if (vaeCount >= 50) {
+        const needsApproval = classifyAction('critical', 'auto_remediation', 0.92);
         actions.push({
-            id: `sla-crit-${bucket}`, type: 'auto_remediation',
-            title: 'Critical SLA Breach Risk Detected',
-            description: `SLA risk score at ${slaScore.toFixed(3)} exceeds critical threshold (0.7). Initiating automatic load balancing and capacity scaling across affected regions.`,
+            id: `vae-crit-${bucket}`, type: 'auto_remediation',
+            title: 'Critical VAE Anomaly Spike Detected',
+            description: `PyTorch VAE detected ${vaeCount} anomalies across OSS cell KPIs. Initiating auto-triage and cell-load rebalancing.`,
             severity: 'critical', status: needsApproval ? 'pending' : 'auto_approved',
             timestamp: now.toISOString(),
-            source: 'SLA Risk Predictor v2.0', confidence: 0.94,
-            impact: 'Prevents potential SLA violation affecting ~2,400 subscribers',
+            source: 'OSS VAE Anomaly v3.0-gpu', confidence: 0.92,
+            impact: `Affects multiple cell sites with abnormal reconstruction error`,
             requiresApproval: needsApproval,
-            playbookId: 'pb-sla-breach',
+            playbookId: 'pb-anomaly-triage',
         });
-    } else if (slaScore >= 0.4) {
-        const needsApproval = classifyAction('warning', 'recommendation', 0.87);
+    } else if (vaeCount >= 10) {
+        const needsApproval = classifyAction('warning', 'recommendation', 0.85);
         actions.push({
-            id: `sla-warn-${bucket}`, type: 'recommendation',
-            title: 'SLA Risk Trending Upward',
-            description: `Risk score at ${slaScore.toFixed(3)} is in warning zone. Recommend preemptive resource allocation increase by 15%.`,
+            id: `vae-warn-${bucket}`, type: 'recommendation',
+            title: 'VAE Anomaly Count Elevated',
+            description: `${vaeCount} VAE anomalies detected. Recommend preventive KPI audit in affected areas.`,
             severity: 'warning', status: needsApproval ? 'pending' : 'auto_approved',
             timestamp: now.toISOString(),
-            source: 'SLA Risk Predictor v2.0', confidence: 0.87,
-            impact: 'Proactive capacity increase prevents breach escalation',
+            source: 'OSS VAE Anomaly v3.0-gpu', confidence: 0.85,
+            impact: 'Proactive audit prevents subscriber experience degradation',
             requiresApproval: needsApproval,
-            playbookId: 'pb-sla-breach',
-        });
-    } else {
-        actions.push({
-            id: `sla-ok-${bucket}`, type: 'prediction',
-            title: 'SLA Health Nominal',
-            description: `Current risk at ${slaScore.toFixed(3)}. GradientBoosting model predicts stable conditions for the next 4 hours.`,
-            severity: 'info', status: 'auto_approved',
-            timestamp: now.toISOString(),
-            source: 'SLA Risk Predictor v2.0', confidence: 0.96,
-            impact: 'Continuous monitoring maintained at 2-minute intervals',
-            requiresApproval: false,
-        });
-    }
-
-    const critAnom = ctx.anomalies?.filter((a: any) => a.severity > 0.9) ?? [];
-    if (critAnom.length > 0) {
-        const cells = [...new Set(critAnom.map((a: any) => a.cell_id))].slice(0, 3);
-        actions.push({
-            id: `anom-crit-${bucket}`, type: 'auto_remediation',
-            title: `${critAnom.length} Critical OSS Anomalies`,
-            description: `IsolationForest detected ${critAnom.length} critical anomalies in cells: ${cells.join(', ')}. Auto-remediation initiated.`,
-            severity: 'critical', status: 'pending',
-            timestamp: new Date(now.getTime() - 300000).toISOString(),
-            source: 'OSS Anomaly Detector v2.0', confidence: 0.89,
-            impact: `Affects ${cells.length} cell sites, ~${cells.length * 800} active sessions`,
-            requiresApproval: true,
             playbookId: 'pb-anomaly-triage',
         });
     }
 
-    const highRev = ctx.revenueAnomalies?.filter((r: any) => (r.severity ?? r.score ?? 0) > 0.8) ?? [];
-    if (highRev.length > 0) {
+    // CEM score-based actions (using cemAnomalies proxy)
+    if (cemCount >= 20) {
+        const needsApproval = classifyAction('warning', 'recommendation', 0.84);
         actions.push({
-            id: `rev-${bucket}`, type: 'recommendation',
-            title: 'BSS Revenue Anomaly - Potential Fraud',
-            description: `Detected ${highRev.length} high-severity revenue anomalies. Patterns suggest potential billing fraud. Recommend immediate audit.`,
-            severity: 'warning', status: 'pending',
+            id: `cem-low-${bucket}`, type: 'recommendation',
+            title: 'Low CEM Score Areas Detected',
+            description: `${cemCount} subscribers showing poor CEM scores. LightGBM DART flagged areas needing network optimization.`,
+            severity: 'warning', status: needsApproval ? 'pending' : 'auto_approved',
+            timestamp: new Date(now.getTime() - 300000).toISOString(),
+            source: 'CEM Scorer v3.0', confidence: 0.84,
+            impact: `Subscriber experience at risk in ${cemCount} records`,
+            requiresApproval: needsApproval,
+            playbookId: 'pb-cem-degradation',
+        });
+    }
+
+    // RAT underservice-based actions — driven by authoritative ratSummary, not row sample
+    if (ratRate >= 15 || ratUnderserved >= 50) {
+        const sev: 'critical' | 'warning' = ratRate >= 25 ? 'critical' : 'warning';
+        actions.push({
+            id: `rat-${bucket}`, type: 'recommendation',
+            title: 'RAT Underservice Alert',
+            description: `XGBoost GPU flagged ${ratUnderserved.toLocaleString()} subscribers (${ratRate.toFixed(1)}%) on lower RAT than their device supports.`,
+            severity: sev, status: classifyAction(sev, 'recommendation', 0.88) ? 'pending' : 'auto_approved',
             timestamp: new Date(now.getTime() - 900000).toISOString(),
-            source: 'BSS Revenue Anomaly v2.0', confidence: 0.78,
-            impact: `Estimated revenue impact: ${(highRev.length * 1250).toLocaleString()} TND`,
-            requiresApproval: true,
+            source: 'RAT Detector v3.0-gpu', confidence: 0.88,
+            impact: `${ratUnderserved.toLocaleString()} subscribers underserved`,
+            requiresApproval: classifyAction(sev, 'recommendation', 0.88),
             playbookId: 'pb-revenue-protect',
+        });
+    }
+
+    // Granger causality-based prediction action
+    if (grangerSig > 0) {
+        actions.push({
+            id: `granger-${bucket}`, type: 'prediction',
+            title: 'Granger Causal Pairs Detected',
+            description: `${grangerSig} statistically significant OSS→BSS causal pairs found (p<0.05). Use for predictive remediation timing.`,
+            severity: 'info', status: 'auto_approved',
+            timestamp: new Date(now.getTime() - 1200000).toISOString(),
+            source: 'Granger Engine', confidence: 0.95,
+            impact: 'Causal lag enables proactive remediation 1-3 cycles ahead',
+            requiresApproval: false,
         });
     }
 
@@ -157,7 +174,7 @@ function generateActions(ctx: PlatformContext): AgentAction[] {
     actions.push({
         id: `monitor-${bucket}`, type: 'prediction',
         title: 'Continuous Monitoring Active',
-        description: 'L4 Agent is actively monitoring all OSS/BSS telemetry streams. Next analysis cycle in 2 minutes.',
+        description: 'L4 Agent is actively monitoring all OSS/BSS telemetry streams. Next analysis cycle in 30 seconds.',
         severity: 'info', status: 'auto_approved',
         timestamp: new Date(now.getTime() - 60000).toISOString(),
         source: 'L4 Agent Core', confidence: 1.0,
@@ -283,7 +300,7 @@ export default function L4AgentPage() {
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const startTimeRef = useRef<number>(Date.now());
     const { tick: refreshTick } = useRefresh();
-    // Track action IDs we've already shown a toast for — prevents toast spam on every 120s cycle
+    // Track action IDs we've already shown a toast for — prevents toast spam on every 30s cycle
     const toastedActionIdsRef = useRef<Set<string>>(new Set());
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -364,20 +381,24 @@ export default function L4AgentPage() {
             const data = await res.json();
 
             const ctx: PlatformContext = {
-                sla: data.sla,
                 anomalies: data.anomalies ?? [],
                 actions: data.actions ?? [],
-                revenueAnomalies: data.revenueAnomalies ?? [],
+                cemAnomalies: data.cemAnomalies ?? [],
                 correlations: data.correlations ?? [],
                 pipelineRuns: data.pipelineRuns ?? [],
+                vaeSummary: data.vaeSummary ?? null,
+                cemSummary: data.cemSummary ?? null,
+                ratSummary: data.ratSummary ?? null,
+                granger: data.granger ?? { results: [], count: 0, significant: 0 },
+                areas: data.areas ?? [],
             };
             setPlatformCtx(ctx);
 
-            // Build history for sparklines
-            if (data.history && Array.isArray(data.history)) {
-                setSlaHistory(data.history.slice(-20).map((h: any) => h.score ?? 0));
-            }
-            setAnomalyHistory(prev => [...prev, ctx.anomalies.length].slice(-20));
+            // CEM-avg history (replaces legacy SLA history) — sparkline of subscriber experience
+            const cemAvgNow = ctx.cemSummary?.avg_score ?? 0;
+            setSlaHistory(prev => [...prev, cemAvgNow].slice(-20));
+            const vaeNow = ctx.vaeSummary?.anomaly_count ?? ctx.anomalies.length;
+            setAnomalyHistory(prev => [...prev, vaeNow].slice(-20));
 
             // Load persisted actions from backend, then generate new ones
             const persistedActions: AgentAction[] = (ctx.actions ?? []).map((a: any) => ({
@@ -397,12 +418,12 @@ export default function L4AgentPage() {
             }));
 
             const newActions = generateActions(ctx);
-            // Only persist actions that don't already exist in backend
             const existingIds = new Set(persistedActions.map(a => a.id));
             const toCreate = newActions.filter(a => !existingIds.has(a.id));
-            for (const action of toCreate) {
-                try {
-                    await fetch('/api/platform-data', {
+            // Fire-and-forget so render isn't blocked by serial POSTs.
+            void Promise.allSettled(
+                toCreate.map(action =>
+                    fetch('/api/platform-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -418,9 +439,9 @@ export default function L4AgentPage() {
                             impact: action.impact,
                             playbook_id: action.playbookId,
                         }),
-                    });
-                } catch { /* silent — best effort persistence */ }
-            }
+                    }).catch(() => null)
+                )
+            );
 
             // Merge: persisted actions take priority (they have real status)
             const merged = [...persistedActions];
@@ -594,11 +615,17 @@ export default function L4AgentPage() {
                     messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
                     model: selectedModel,
                     context: platformCtx ? {
-                        sla_risk_score: platformCtx.sla?.score,
-                        sla_region: platformCtx.sla?.region,
-                        sla_explanation: platformCtx.sla?.explanation,
-                        oss_anomalies_count: platformCtx.anomalies?.length,
-                        bss_anomalies_count: platformCtx.revenueAnomalies?.length,
+                        cem_avg_score: platformCtx.cemSummary?.avg_score,
+                        cem_poor_count: platformCtx.cemSummary?.poor_count,
+                        cem_total_subscribers: platformCtx.cemSummary?.total,
+                        vae_anomaly_count: platformCtx.vaeSummary?.anomaly_count,
+                        vae_anomaly_rate: platformCtx.vaeSummary?.anomaly_rate,
+                        vae_areas_affected: platformCtx.vaeSummary?.areas_affected,
+                        rat_underserved: platformCtx.ratSummary?.underserved,
+                        rat_underservice_rate: platformCtx.ratSummary?.rate,
+                        granger_significant_pairs: platformCtx.granger?.significant,
+                        oss_anomalies_sampled: platformCtx.anomalies?.length,
+                        cem_risk_sampled: platformCtx.cemAnomalies?.length,
                         correlations_count: platformCtx.correlations?.length,
                         pipeline_runs: platformCtx.pipelineRuns?.length,
                         last_pipeline_status: platformCtx.pipelineRuns?.[0]?.status,
@@ -669,7 +696,12 @@ export default function L4AgentPage() {
     const pendingActions = actions.filter(a => a.status === 'pending');
     const executedActions = actions.filter(a => a.status === 'executed' || a.status === 'rejected' || a.status === 'auto_approved');
     const autoApprovedCount = actions.filter(a => a.status === 'auto_approved').length;
-    const slaScore = platformCtx?.sla?.score ?? 0;
+    const cemAvg = platformCtx?.cemSummary?.avg_score ?? 0;
+    const vaeAnomalyCount = platformCtx?.vaeSummary?.anomaly_count ?? platformCtx?.anomalies?.length ?? 0;
+    const ratRate = platformCtx?.ratSummary?.rate ?? 0;
+    const grangerSig = platformCtx?.granger?.significant ?? 0;
+    // legacy alias kept so the rest of the JSX still compiles
+    const slaScore = cemAvg;
     const uptime = Math.floor((Date.now() - startTimeRef.current) / 1000);
     const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
 
@@ -735,56 +767,151 @@ export default function L4AgentPage() {
                 )}
             </div>
 
-            {/* Page hero — explains WHY the L4 Agent exists and what value it adds */}
+            {/* Page hero — Huawei ADN L4 framing */}
             <PageInfoBar
-                eyebrow="ADN Level 4 · Autonomous Operations"
-                description="Your closed-loop operations brain. It ingests live OSS+BSS telemetry every 2 minutes, runs ML inference, and — within safety guardrails — auto-approves low-risk actions while asking you to approve the critical ones. Built on Huawei ADN Level 4 autonomy for TT's carrier-grade network."
+                eyebrow="NeXo · ADN Level 4 · TT Autonomous Operations"
+                description="The Tunisie Telecom autonomy brain. Three-layer architecture (Business / Service / Resource Ops) executing a 30-second closed loop: Awareness → Analysis → Decision → Execution. Five Spirit agents handle scenario-specific autonomy, three Mate copilots assist humans, the Telecom Foundation Model orchestrates intent — and the OSS ∩ BSS Granger convergence engine grounds every decision in causal evidence, not just correlation."
                 values={[
-                    { text: '3-5× faster mean-time-to-remediate' },
-                    { text: 'Humans only approve critical decisions' },
-                    { text: '100% audited — every action logged to Postgres' },
-                    { text: 'Real playbooks (model retrain, capacity scale, fraud triage)' },
+                    { text: '5 Spirits · CEM, Network, Underservice, Convergence, Action' },
+                    { text: '3 Mates · NOC, Analyst, Field' },
+                    { text: 'Closed-loop cycle every 30s' },
+                    { text: 'Humans approve only critical · all actions auditable' },
                 ]}
             />
 
-            {/* Header */}
-            <div className="l4-header">
-                <div className="l4-header-left">
-                    <h1>
-                        <span className="l4-header-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ffd700' }}>
-                                <rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /><circle cx="12" cy="16" r="1" />
-                            </svg>
-                        </span>
-                        L4 Autonomous Agent
-                    </h1>
-                    <p>ADN Level 4 - Self-healing, predictive, closed-loop autonomous operations</p>
+            {/* ADN architecture hero — 3-layer structure + closed-loop + roster */}
+            <L4ADNArchitecture
+                cemAvg={cemAvg}
+                vaeAnomalies={vaeAnomalyCount}
+                ratRate={ratRate}
+                grangerSig={grangerSig}
+                correlationsCount={platformCtx?.correlations?.length ?? 0}
+                pendingActions={pendingActions.length}
+                autoApprovedCount={autoApprovedCount}
+                cycleLatencyMs={agentSpeed}
+            />
+
+            {/* ── Defense Explainer Card (REMOVE BEFORE PROD: see PRESENTATION_MODE flag) ── */}
+            <details className="card card-accent-top" data-defense-explainer style={{ padding: 0 }}>
+                <summary style={{
+                    cursor: 'pointer', padding: '14px 20px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                    background: 'linear-gradient(135deg, rgba(255,215,0,0.06) 0%, rgba(199,0,11,0.04) 100%)',
+                    borderBottom: '1px solid var(--border)',
+                    listStyle: 'none',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#ffd700' }}>school</span>
+                        <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Defense Explainer · How L4 ADN Works End-to-End
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                Click to expand · removable for production via PRESENTATION_MODE flag
+                            </div>
+                        </div>
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>▼ expand</span>
+                </summary>
+                <div style={{ padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, fontSize: 12.5, lineHeight: 1.6 }}>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 6 }}>What is L4 ADN?</div>
+                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                            <strong>Autonomous Driving Network Level 4</strong> from Huawei&apos;s 2024 industry blueprint with TM Forum.
+                            L4 = the network self-heals, self-optimizes, and self-decides on routine ops; humans only approve critical
+                            interventions. Below L4: L0 manual, L1 assisted, L2 partial, L3 conditional autonomy.
+                        </p>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 6 }}>Three-layer architecture</div>
+                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                            <strong>Resource Ops</strong> = OSS+BSS data, ML models. <strong>Service Ops</strong> = the 5 Spirits
+                            (scenario agents) and 3 Mates (role copilots) that translate raw signals into intent. <strong>Business Ops</strong> =
+                            CEM/customer-experience outcomes the operator cares about. Each layer feeds the one above.
+                        </p>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 6 }}>Closed-loop cycle (every 30s)</div>
+                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                            1. <strong>Awareness</strong>: pull live OSS+BSS telemetry + refresh mat views.
+                            2. <strong>Analysis</strong>: 3 ML models score every record + Granger evaluates causal pairs.
+                            3. <strong>Decision</strong>: ConvergenceSpirit ranks remediations; safe ones auto-approve, risky ones queue.
+                            4. <strong>Execution</strong>: ActionSpirit runs real playbooks against backend services + logs to audit trail.
+                        </p>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--color-purple)', marginBottom: 6 }}>Spirits — what each does</div>
+                        <ul style={{ color: 'var(--text-secondary)', margin: 0, paddingLeft: 18 }}>
+                            <li><strong>ExperienceSpirit</strong> — LightGBM DART scoring CEM (0-1) for 4.36M subscribers; flags poor experience areas.</li>
+                            <li><strong>NetworkSpirit</strong> — PyTorch VAE detecting OSS anomalies on 19.3M cell records; ROC-AUC 0.931.</li>
+                            <li><strong>UnderserviceSpirit</strong> — XGBoost GPU classifying RAT gap (device on lower RAT than capability); ROC-AUC 0.955.</li>
+                            <li><strong>ConvergenceSpirit</strong> — Granger F-test on OSS↔CEM pairs; the only agent that proves <em>causal</em> (not just correlated) relationships.</li>
+                            <li><strong>ActionSpirit</strong> — executes playbooks (model retrain, anomaly triage, capacity scale, SLA breach analysis) against api-gateway + ai-service.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--color-info)', marginBottom: 6 }}>Mates — role copilots</div>
+                        <ul style={{ color: 'var(--text-secondary)', margin: 0, paddingLeft: 18 }}>
+                            <li><strong>NOCMate</strong> (this page&apos;s chat) — natural-language Q&amp;A over live platform state via Qwen2.5:7b or cloud LLMs.</li>
+                            <li><strong>AnalystMate</strong> — Intelligence page; cross-domain root-cause synthesis joining anomalies + correlations + CEM.</li>
+                            <li><strong>FieldMate</strong> — Playbooks tab; explains each playbook&apos;s steps and impact for field engineers.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--color-success)', marginBottom: 6 }}>Why this is L4 (and not L3)</div>
+                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                            L3 = the system suggests, humans decide. L4 = the system decides on routine actions, humans only approve
+                            <em>critical</em> ones (severity=critical or warning remediations). NeXo&apos;s <code>classifyAction()</code> in
+                            <code>page.tsx</code> encodes this guardrail. Auto-approved info/predictions execute without human gate; remediations
+                            with subscriber-facing impact require approval. Every action is logged in <code>agent_actions</code> with full
+                            <code>execution_log</code> JSONB — auditable.
+                        </p>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--color-warning)', marginBottom: 6 }}>Why separate AI Hub from L4?</div>
+                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                            <strong>AI Hub / Models page</strong> = the &quot;lab&quot; view: model evaluation metrics, feature importance, training data lineage. Audience: data scientists / defense reviewers.
+                            <strong> L4 ADN page</strong> = the &quot;ops&quot; view: closed-loop autonomy, agent decisions, real playbook execution. Audience: NOC operators.
+                            They share the same models behind <code>ai-service:8001</code> — the L4 page <em>uses</em> them; the AI Hub <em>explains</em> them.
+                        </p>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, color: 'var(--brand-accent)', marginBottom: 6 }}>How playbooks are real (not mocked)</div>
+                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                            Each playbook in <code>api-gateway/routers/actions.py</code> performs actual backend work:
+                            <code>pb-model-retrain</code> POSTs to <code>ai-service/models/reload</code>;
+                            <code>pb-anomaly-triage</code> queries recent anomalies and ranks by severity;
+                            <code>pb-revenue-protect</code> aggregates CEM subscriber risk by area;
+                            <code>pb-sla-breach</code> reads SLA explanation features; <code>pb-capacity-scale</code> computes headroom from KPI history.
+                            Result is persisted in <code>execution_log</code> and visible in the Audit Timeline tab.
+                        </p>
+                    </div>
+
                 </div>
-                <div className="l4-header-right">
-                    <div className="l4-header-stats">
-                        <div className="l4-mini-stat">
-                            <span className="l4-mini-label">SLA Risk</span>
-                            <span className={`l4-mini-value ${slaScore >= 0.7 ? 'l4-danger' : slaScore >= 0.4 ? 'l4-warning' : 'l4-ok'}`}>
-                                {(slaScore * 100).toFixed(1)}%
-                            </span>
-                        </div>
-                        <div className="l4-mini-stat">
-                            <span className="l4-mini-label">Anomalies</span>
-                            <span className="l4-mini-value">{platformCtx?.anomalies?.length ?? 0}</span>
-                        </div>
-                        <div className="l4-mini-stat">
-                            <span className="l4-mini-label">Actions</span>
-                            <span className="l4-mini-value">{pendingActions.length} pending</span>
-                        </div>
-                        <div className="l4-mini-stat">
-                            <span className="l4-mini-label">Speed</span>
-                            <span className="l4-mini-value l4-ok">{agentSpeed}ms</span>
-                        </div>
-                    </div>
-                    <div className={`l4-agent-status l4-status-active`}>
-                        <div className="l4-status-dot" />
-                        <span>AGENT ACTIVE</span>
-                    </div>
+                <div style={{ padding: '10px 20px', background: 'var(--color-warning-bg)', borderTop: '1px solid var(--color-warning-border)', fontSize: 11, color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--color-warning)' }}>Production note:</strong> wrap this <code>&lt;details&gt;</code> in
+                    <code> {'{!PRESENTATION_MODE && ...}'} </code> or grep <code>data-defense-explainer</code> to remove these cards before
+                    shipping to operators. The architecture component above stays.
+                </div>
+            </details>
+
+            {/* Compact agent status strip (replaces old duplicate header) */}
+            <div className="card card-compact" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="l4-status-dot" />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-success)', letterSpacing: 1 }}>AGENT ACTIVE</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· 30s closed-loop · {agentSpeed}ms cycle</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {pendingActions.length} pending · {autoApprovedCount} auto-approved · {actions.length} total in audit log
                 </div>
             </div>
 
@@ -792,24 +919,24 @@ export default function L4AgentPage() {
             <div className="l4-tabs">
                 <button className={`l4-tab ${activeTab === 'chat' ? 'l4-tab-active' : ''}`} onClick={() => setActiveTab('chat')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                    Agent Chat
+                    NOCMate
                 </button>
                 <button className={`l4-tab ${activeTab === 'actions' ? 'l4-tab-active' : ''}`} onClick={() => setActiveTab('actions')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-                    Actions
+                    Spirits · Decisions
                     {pendingActions.length > 0 && <span className="l4-tab-badge">{pendingActions.length}</span>}
                 </button>
                 <button className={`l4-tab ${activeTab === 'monitor' ? 'l4-tab-active' : ''}`} onClick={() => setActiveTab('monitor')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-                    Monitor
+                    Awareness
                 </button>
                 <button className={`l4-tab ${activeTab === 'playbooks' ? 'l4-tab-active' : ''}`} onClick={() => setActiveTab('playbooks')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
-                    Playbooks
+                    Execution · Playbooks
                 </button>
                 <button className={`l4-tab ${activeTab === 'timeline' ? 'l4-tab-active' : ''}`} onClick={() => setActiveTab('timeline')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    Timeline
+                    Audit Timeline
                 </button>
             </div>
 
@@ -962,20 +1089,32 @@ export default function L4AgentPage() {
                                 <div className="l4-section-header">Live Telemetry</div>
                                 <div className="l4-monitor-grid">
                                     <div className="l4-monitor-card">
-                                        <div className="l4-monitor-label">SLA Risk Trend</div>
-                                        <MiniSparkline data={slaHistory.length > 1 ? slaHistory : [0.1, 0.12, 0.09, 0.15, 0.11, 0.08, slaScore]} color="var(--color-warning)" height={50} />
-                                        <div className="l4-monitor-value" style={{ color: slaScore >= 0.7 ? 'var(--color-danger)' : slaScore >= 0.4 ? 'var(--color-warning)' : 'var(--color-success)' }}>
-                                            {(slaScore * 100).toFixed(1)}%
+                                        <div className="l4-monitor-label">CEM Avg Trend</div>
+                                        <MiniSparkline data={slaHistory.length > 1 ? slaHistory : [cemAvg]} color="var(--color-success)" height={50} />
+                                        <div className="l4-monitor-value" style={{ color: cemAvg < 0.3 ? 'var(--color-danger)' : cemAvg < 0.6 ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                                            {cemAvg ? cemAvg.toFixed(3) : '—'}
                                         </div>
                                     </div>
                                     <div className="l4-monitor-card">
-                                        <div className="l4-monitor-label">Anomaly Count</div>
-                                        <MiniSparkline data={anomalyHistory.length > 1 ? anomalyHistory : [3, 5, 2, 7, 4, 6, platformCtx?.anomalies?.length ?? 0]} color="var(--color-danger)" height={50} />
-                                        <div className="l4-monitor-value">{platformCtx?.anomalies?.length ?? 0}</div>
+                                        <div className="l4-monitor-label">VAE Anomalies</div>
+                                        <MiniSparkline data={anomalyHistory.length > 1 ? anomalyHistory : [vaeAnomalyCount]} color="var(--color-danger)" height={50} />
+                                        <div className="l4-monitor-value">{vaeAnomalyCount.toLocaleString()}</div>
+                                    </div>
+                                    <div className="l4-monitor-card">
+                                        <div className="l4-monitor-label">RAT Underservice</div>
+                                        <MiniSparkline data={[ratRate]} color="var(--color-warning)" height={50} />
+                                        <div className="l4-monitor-value" style={{ color: ratRate > 25 ? 'var(--color-danger)' : ratRate > 15 ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                                            {ratRate.toFixed(1)}%
+                                        </div>
+                                    </div>
+                                    <div className="l4-monitor-card">
+                                        <div className="l4-monitor-label">Granger Sig.</div>
+                                        <MiniSparkline data={[grangerSig]} color="var(--color-info)" height={50} />
+                                        <div className="l4-monitor-value">{grangerSig}</div>
                                     </div>
                                     <div className="l4-monitor-card">
                                         <div className="l4-monitor-label">Correlations</div>
-                                        <MiniSparkline data={[5, 8, 6, 9, 7, 10, platformCtx?.correlations?.length ?? 0]} color="var(--color-info)" height={50} />
+                                        <MiniSparkline data={[platformCtx?.correlations?.length ?? 0]} color="var(--color-info)" height={50} />
                                         <div className="l4-monitor-value">{platformCtx?.correlations?.length ?? 0}</div>
                                     </div>
                                 </div>
@@ -991,7 +1130,7 @@ export default function L4AgentPage() {
                                 <div className="l4-perf-stats">
                                     <div className="l4-perf-row"><span>Uptime</span><span className="l4-perf-val">{uptimeStr}</span></div>
                                     <div className="l4-perf-row"><span>Model</span><span className="l4-perf-val">{AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name || selectedModel}</span></div>
-                                    <div className="l4-perf-row"><span>Cycle Interval</span><span className="l4-perf-val">120s</span></div>
+                                    <div className="l4-perf-row"><span>Cycle Interval</span><span className="l4-perf-val">30s</span></div>
                                     <div className="l4-perf-row"><span>Total Actions</span><span className="l4-perf-val">{actions.length}</span></div>
                                     <div className="l4-perf-row"><span>ADN Level</span><span className="l4-perf-val" style={{ color: '#ffd700' }}>L4 Autonomous</span></div>
                                 </div>
@@ -1179,20 +1318,20 @@ export default function L4AgentPage() {
                                 </div>
                                 {[
                                     {
-                                        id: 'pb-sla-breach',
-                                        name: 'SLA Breach Mitigation',
-                                        desc: 'Auto-scale capacity, reroute traffic to backup cells, notify NOC team. Triggers when SLA risk > 0.7.',
-                                        steps: ['Detect SLA risk threshold breach', 'Identify affected cell sites via topology', 'Initiate traffic load balancing', 'Scale compute resources (HCS ECS)', 'Send NOC alert notification', 'Verify SLA recovery within 5 min'],
-                                        trigger: 'SLA Risk > 0.7',
+                                        id: 'pb-cem-degradation',
+                                        name: 'CEM Degradation Response',
+                                        desc: 'Identify low-CEM areas, correlate with OSS KPIs, trigger network optimization, notify operations team.',
+                                        steps: ['Detect low CEM score areas from LightGBM', 'Correlate with OSS VAE anomalies', 'Identify root cause KPIs', 'Trigger network optimization playbook', 'Send NOC alert notification', 'Verify CEM recovery within 5 min'],
+                                        trigger: 'CEM score < 0.3',
                                         severity: 'critical' as const,
-                                        enabled: slaScore >= 0.7,
+                                        enabled: (platformCtx?.cemAnomalies?.length ?? 0) >= 20,
                                     },
                                     {
                                         id: 'pb-anomaly-triage',
-                                        name: 'Anomaly Auto-Triage',
-                                        desc: 'Classify anomaly type, correlate with BSS data, assign priority, create incident ticket.',
-                                        steps: ['Collect anomaly features from IsolationForest', 'Run root cause classification', 'Cross-reference with BSS revenue impact', 'Assign severity and priority', 'Create incident ticket', 'Assign to appropriate team'],
-                                        trigger: 'New critical anomaly detected',
+                                        name: 'VAE Anomaly Auto-Triage',
+                                        desc: 'Classify VAE anomaly type, correlate with BSS data, assign priority, create incident ticket.',
+                                        steps: ['Collect anomaly features from VAE PyTorch', 'Run root cause classification', 'Cross-reference with BSS CEM impact', 'Assign severity and priority', 'Create incident ticket', 'Assign to appropriate team'],
+                                        trigger: 'New critical VAE anomaly detected',
                                         severity: 'warning' as const,
                                         enabled: (platformCtx?.anomalies?.filter((a: any) => a.severity > 0.9).length ?? 0) > 0,
                                     },
@@ -1207,18 +1346,18 @@ export default function L4AgentPage() {
                                     },
                                     {
                                         id: 'pb-revenue-protect',
-                                        name: 'Revenue Protection',
-                                        desc: 'Detect billing anomalies, flag potential fraud, freeze suspicious accounts.',
-                                        steps: ['Analyze BSS revenue patterns', 'Flag statistical outliers', 'Cross-reference with usage data', 'Generate fraud risk score', 'Freeze high-risk accounts', 'Notify fraud investigation team'],
-                                        trigger: 'Revenue anomaly score > 0.8',
+                                        name: 'RAT Underservice Response',
+                                        desc: 'Detect RAT underservice cases, identify affected subscribers, trigger capacity optimization.',
+                                        steps: ['Analyze RAT gap scores from XGBoost', 'Flag high-underservice areas', 'Cross-reference with device generation', 'Generate capacity optimization plan', 'Prioritize cell upgrades', 'Notify network planning team'],
+                                        trigger: 'RAT underservice rate > 15%',
                                         severity: 'warning' as const,
-                                        enabled: (platformCtx?.revenueAnomalies?.filter((r: any) => (r.severity ?? r.score ?? 0) > 0.8).length ?? 0) > 0,
+                                        enabled: (platformCtx?.cemAnomalies?.filter((r: any) => (r.severity ?? r.score ?? 0) > 0.8).length ?? 0) > 0,
                                     },
                                     {
                                         id: 'pb-model-retrain',
                                         name: 'Model Auto-Retrain',
                                         desc: 'Detect model drift, retrain on latest data, validate performance, hot-swap models.',
-                                        steps: ['Monitor prediction accuracy', 'Detect concept drift (KS test)', 'Collect recent training data', 'Retrain GBR + IsolationForest', 'Validate against holdout set', 'Hot-swap model artifacts'],
+                                        steps: ['Monitor prediction accuracy', 'Detect concept drift (KS test)', 'Collect recent training data', 'Retrain LightGBM + VAE + XGBoost', 'Validate against holdout set', 'Hot-swap model artifacts'],
                                         trigger: 'Model accuracy drop > 5%',
                                         severity: 'info' as const,
                                         enabled: true,
@@ -1337,26 +1476,26 @@ export default function L4AgentPage() {
                                     <div style={{ position: 'absolute', left: 12, top: 0, bottom: 0, width: 2, background: 'var(--border)' }} />
 
                                     {[
-                                        ...(slaScore >= 0.7 ? [{
+                                        ...((platformCtx?.anomalies?.length ?? 0) >= 50 ? [{
                                             time: 'Just now',
-                                            event: `SLA Risk Critical: ${slaScore.toFixed(3)}`,
+                                            event: `VAE Anomaly Spike: ${platformCtx?.anomalies?.length ?? 0} detected`,
                                             type: 'critical' as const,
-                                            detail: 'GradientBoosting model detected critical SLA breach probability',
+                                            detail: 'PyTorch VAE model detected critical anomaly spike across OSS cell KPIs',
                                             action: 'Auto-remediation playbook triggered',
                                         }] : []),
                                         ...((platformCtx?.anomalies?.filter((a: any) => a.severity > 0.9) ?? []).slice(0, 2).map((a: any, i: number) => ({
                                             time: `${2 + i * 3}min ago`,
                                             event: `Critical OSS Anomaly: Cell ${a.cell_id ?? 'unknown'}`,
                                             type: 'warning' as const,
-                                            detail: `IsolationForest score: ${(a.severity ?? 0).toFixed(3)}. Throughput: ${(a.throughput_mbps ?? 0).toFixed(1)} Mbps`,
+                                            detail: `VAE reconstruction error: ${(a.severity ?? 0).toFixed(3)}. Throughput: ${(a.throughput_mbps ?? 0).toFixed(1)} Mbps`,
                                             action: 'Added to triage queue',
                                         }))),
                                         {
                                             time: '5min ago',
                                             event: 'Pipeline Cycle Completed',
                                             type: 'info' as const,
-                                            detail: `${platformCtx?.anomalies?.length ?? 0} OSS + ${platformCtx?.revenueAnomalies?.length ?? 0} BSS records processed`,
-                                            action: '3 models inference complete',
+                                            detail: `${platformCtx?.anomalies?.length ?? 0} OSS + ${platformCtx?.cemAnomalies?.length ?? 0} CEM records processed`,
+                                            action: '3 v3 models inference complete',
                                         },
                                         {
                                             time: '7min ago',
@@ -1365,18 +1504,18 @@ export default function L4AgentPage() {
                                             detail: `${platformCtx?.correlations?.length ?? 0} correlations computed (Pearson + Spearman)`,
                                             action: `${platformCtx?.correlations?.filter((c: any) => Math.abs(c.corr_value) >= 0.7).length ?? 0} strong correlations detected`,
                                         },
-                                        ...((platformCtx?.revenueAnomalies?.filter((r: any) => (r.severity ?? r.score ?? 0) > 0.8) ?? []).slice(0, 1).map(() => ({
+                                        ...((platformCtx?.cemAnomalies?.filter((r: any) => (r.severity ?? r.score ?? 0) > 0.8) ?? []).slice(0, 1).map(() => ({
                                             time: '10min ago',
-                                            event: 'BSS Revenue Anomaly Detected',
+                                            event: 'RAT Underservice Detected',
                                             type: 'warning' as const,
-                                            detail: 'IsolationForest flagged abnormal revenue pattern',
-                                            action: 'Fraud investigation recommended',
+                                            detail: 'XGBoost flagged subscribers on lower RAT than device supports',
+                                            action: 'Capacity optimization recommended',
                                         }))),
                                         {
                                             time: '15min ago',
                                             event: 'Model Health Check',
                                             type: 'info' as const,
-                                            detail: 'All 3 ML models healthy: GBR (SLA), IF-OSS, IF-BSS v2.0',
+                                            detail: 'All 3 v3 ML models healthy: LightGBM v3.0 (CEM), VAE v3.0 (OSS), XGBoost v3.0 (RAT)',
                                             action: 'No drift detected',
                                         },
                                         {
@@ -1384,7 +1523,7 @@ export default function L4AgentPage() {
                                             event: 'Agent Session Started',
                                             type: 'info' as const,
                                             detail: 'L4 Autonomous Agent initialized and connected to telemetry streams',
-                                            action: `Monitoring ${platformCtx?.anomalies?.length ?? 0} OSS + ${platformCtx?.revenueAnomalies?.length ?? 0} BSS signals`,
+                                            action: `Monitoring ${platformCtx?.anomalies?.length ?? 0} OSS + ${platformCtx?.cemAnomalies?.length ?? 0} CEM signals`,
                                         },
                                     ].map((evt, i) => (
                                         <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 0 12px 32px', position: 'relative' }}>
@@ -1427,9 +1566,9 @@ export default function L4AgentPage() {
                                     {/* Nodes */}
                                     {[
                                         { x: 80, y: 100, label: 'Telemetry\nStream', color: 'var(--brand-primary)' },
-                                        { x: 250, y: 40, label: 'SLA Risk\nPredictor', color: 'var(--color-danger)' },
-                                        { x: 250, y: 100, label: 'Anomaly\nDetector', color: 'var(--color-warning)' },
-                                        { x: 250, y: 160, label: 'Correlation\nEngine', color: 'var(--color-info)' },
+                                        { x: 250, y: 40, label: 'CEM\nScorer', color: 'var(--color-success)' },
+                                        { x: 250, y: 100, label: 'VAE\nAnomaly', color: 'var(--color-danger)' },
+                                        { x: 250, y: 160, label: 'RAT\nDetector', color: 'var(--color-warning)' },
                                         { x: 420, y: 60, label: 'Auto\nRemediation', color: 'var(--color-danger)' },
                                         { x: 420, y: 100, label: 'Incident\nTriage', color: 'var(--color-success)' },
                                         { x: 420, y: 140, label: 'Capacity\nScaling', color: 'var(--color-warning)' },
@@ -1444,12 +1583,12 @@ export default function L4AgentPage() {
                                         </g>
                                     ))}
                                     {/* Flow arrows text */}
-                                    <text x="160" y="62" fontSize="7" fill="var(--text-muted)" textAnchor="middle">9 KPI features</text>
-                                    <text x="160" y="95" fontSize="7" fill="var(--text-muted)" textAnchor="middle">5 OSS features</text>
-                                    <text x="160" y="138" fontSize="7" fill="var(--text-muted)" textAnchor="middle">Pearson+Spearman</text>
-                                    <text x="340" y="44" fontSize="7" fill="var(--text-muted)" textAnchor="middle">score &gt; 0.7</text>
-                                    <text x="340" y="95" fontSize="7" fill="var(--text-muted)" textAnchor="middle">severity &gt; 0.9</text>
-                                    <text x="340" y="155" fontSize="7" fill="var(--text-muted)" textAnchor="middle">|r| &ge; 0.7</text>
+                                    <text x="160" y="62" fontSize="7" fill="var(--text-muted)" textAnchor="middle">13 CEM features</text>
+                                    <text x="160" y="95" fontSize="7" fill="var(--text-muted)" textAnchor="middle">9 VAE features</text>
+                                    <text x="160" y="138" fontSize="7" fill="var(--text-muted)" textAnchor="middle">10 RAT features</text>
+                                    <text x="340" y="44" fontSize="7" fill="var(--text-muted)" textAnchor="middle">score &lt; 0.3</text>
+                                    <text x="340" y="95" fontSize="7" fill="var(--text-muted)" textAnchor="middle">error &gt; threshold</text>
+                                    <text x="340" y="155" fontSize="7" fill="var(--text-muted)" textAnchor="middle">gap &gt; 0.5</text>
                                 </svg>
                             </div>
                         </>

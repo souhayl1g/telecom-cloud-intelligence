@@ -1,21 +1,20 @@
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import SlaChart from '../../components/SlaChart';
 import AnomaliesBarChart from '../../components/AnomaliesBarChart';
-import RiskGauge from '../../components/RiskGauge';
 import { StaggerGrid, StaggerItem, FadeIn, SlideInBanner } from '../../components/OverviewAnimations';
 import PageInfoBar from '../../components/PageInfoBar';
 
 export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
-    const [sla, hist, anomalies, revenue, runs, correlations] = await Promise.all([
-        api.slaRisk(),
-        api.slaRiskHistory(),
+    const [anomalies, revenue, runs, correlations, vaeSummary, cemSummary, ratSummary] = await Promise.all([
         api.anomalies(),
-        api.revenueAnomalies(),
+        api.cemAnomalies(),
         api.pipelineRuns(),
         api.correlation(),
+        api.vaeAnomalies(),
+        api.cemScores(),
+        api.ratUnderservice(),
     ]);
 
     const ossCount = anomalies?.length ?? 0;
@@ -30,18 +29,21 @@ export default async function OverviewPage() {
     const ossWarning = anomalies?.filter((a: any) => a.severity > 0.5 && a.severity <= 0.9).length ?? 0;
     const strongCorrs = correlations?.filter((c: any) => Math.abs(c.corr_value) >= 0.7).length ?? 0;
 
-    const slaScore = (sla as any)?.score ?? 0;
-    const agentHealth = slaScore >= 0.7 ? 'critical' : slaScore >= 0.4 ? 'warning' : 'healthy';
-    const pendingActions = (ossCritical > 0 ? 1 : 0) + (slaScore >= 0.4 ? 1 : 0) + ((revenue as any[])?.filter((r: any) => (r.severity ?? 0) > 0.8).length > 0 ? 1 : 0);
+    const vaeCount = (vaeSummary as any)?.anomaly_count ?? 0;
+    const cemAvg = (cemSummary as any)?.avg_score ?? 0;
+    const ratRate = (ratSummary as any)?.rate ?? 0;
+
+    const agentHealth = vaeCount > 50 ? 'critical' : vaeCount > 10 ? 'warning' : 'healthy';
+    const pendingActions = (ossCritical > 0 ? 1 : 0) + (vaeCount > 20 ? 1 : 0) + (ratRate > 15 ? 1 : 0);
 
     return (
         <div className="dash-grid">
             <PageInfoBar
                 eyebrow="Cloud-Native AI Operations · Live"
-                description="Live OSS+BSS intelligence platform for Tunisie Telecom, running on Huawei Cloud Stack. Detects anomalies and SLA risk in real time, correlates network KPIs with customer-experience outcomes, and drives closed-loop autonomous operations via the L4 Agent."
+                description="Live OSS+BSS intelligence platform for Tunisie Telecom, running on Huawei Cloud Stack. Detects VAE anomalies, scores subscriber experience via CEM LightGBM, identifies RAT underservice with XGBoost GPU, correlates network KPIs with customer-experience outcomes, and drives closed-loop autonomous operations via the L4 Agent."
                 values={[
-                    { text: '3 ML models — SLA risk, OSS anomalies, BSS fraud' },
-                    { text: 'OSS ↔ BSS correlation engine (Pearson + Spearman)' },
+                    { text: '3 v3 ML models — CEM LightGBM, VAE PyTorch, RAT XGBoost' },
+                    { text: 'OSS ↔ BSS correlation engine (Pearson + Spearman + Granger causality)' },
                     { text: 'ADN Level-4 autonomous remediation playbooks' },
                 ]}
             />
@@ -49,21 +51,38 @@ export default async function OverviewPage() {
             {/* ── KPI Cards Row ─────────────────────────── */}
             <StaggerGrid className="dash-kpi-row">
                 <StaggerItem>
-                    <Link href="/sla-risk" className="dash-kpi-card">
-                        <div className="dash-kpi-icon dash-kpi-icon-red">
+                    <Link href="/vae-anomalies" className="dash-kpi-card">
+                        <div className="dash-kpi-icon dash-kpi-icon-orange">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                             </svg>
                         </div>
                         <div className="dash-kpi-content">
-                            <span className="dash-kpi-label">SLA Risk Score</span>
+                            <span className="dash-kpi-label">VAE Anomalies</span>
+                            <span className="dash-kpi-value">{vaeCount.toLocaleString()}</span>
+                            <span className="dash-kpi-sub">PyTorch VAE v3.0-gpu</span>
+                        </div>
+                        <div className="dash-kpi-mini-bar">
+                            <div className="dash-kpi-mini-fill" style={{ width: `${Math.min(100, vaeCount / 5)}%` }} />
+                        </div>
+                    </Link>
+                </StaggerItem>
+
+                <StaggerItem>
+                    <Link href="/cem-scores" className="dash-kpi-card">
+                        <div className="dash-kpi-icon dash-kpi-icon-green">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                            </svg>
+                        </div>
+                        <div className="dash-kpi-content">
+                            <span className="dash-kpi-label">Avg CEM Score</span>
                             <span className="dash-kpi-value" style={{
-                                color: slaScore >= 0.7 ? 'var(--color-danger)' : slaScore >= 0.4 ? 'var(--color-warning)' : 'var(--color-success)'
+                                color: cemAvg >= 0.6 ? 'var(--color-success)' : cemAvg >= 0.3 ? 'var(--color-warning)' : 'var(--color-danger)'
                             }}>
-                                {slaScore?.toFixed(3) ?? '\u2014'}
+                                {cemAvg?.toFixed(3) ?? '\u2014'}
                             </span>
-                            <span className="dash-kpi-sub">GradientBoosting v2.0</span>
+                            <span className="dash-kpi-sub">LightGBM DART v3.0</span>
                         </div>
                         <div className="dash-kpi-trend dash-kpi-trend-up">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /></svg>
@@ -72,40 +91,26 @@ export default async function OverviewPage() {
                 </StaggerItem>
 
                 <StaggerItem>
-                    <Link href="/anomalies" className="dash-kpi-card">
-                        <div className="dash-kpi-icon dash-kpi-icon-orange">
+                    <Link href="/rat-underservice" className="dash-kpi-card">
+                        <div className="dash-kpi-icon dash-kpi-icon-blue">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                <path d="M2 20h20" /><path d="M5 20v-5" /><path d="M9 20v-8" /><path d="M13 20V9" /><path d="M17 20V5" /><path d="M21 20V2" />
                             </svg>
                         </div>
                         <div className="dash-kpi-content">
-                            <span className="dash-kpi-label">Total Anomalies</span>
-                            <span className="dash-kpi-value">{totalAnomalies}</span>
-                            <span className="dash-kpi-sub">{ossCount} OSS + {bssCount} BSS</span>
-                        </div>
-                        <div className="dash-kpi-mini-bar">
-                            <div className="dash-kpi-mini-fill" style={{ width: `${Math.min(100, totalAnomalies * 2)}%` }} />
-                        </div>
-                    </Link>
-                </StaggerItem>
-
-                <StaggerItem>
-                    <Link href="/pipeline-runs" className="dash-kpi-card">
-                        <div className="dash-kpi-icon dash-kpi-icon-green">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                        </div>
-                        <div className="dash-kpi-content">
-                            <span className="dash-kpi-label">Pipeline Success</span>
-                            <span className="dash-kpi-value">{successRate}<span className="dash-kpi-unit">%</span></span>
-                            <span className="dash-kpi-sub">{successRuns}/{totalRuns} runs succeeded</span>
+                            <span className="dash-kpi-label">RAT Underservice</span>
+                            <span className="dash-kpi-value" style={{
+                                color: ratRate >= 15 ? 'var(--color-danger)' : ratRate >= 8 ? 'var(--color-warning)' : 'var(--color-success)'
+                            }}>
+                                {ratRate?.toFixed(1) ?? '\u2014'}%
+                            </span>
+                            <span className="dash-kpi-sub">XGBoost GPU v3.0</span>
                         </div>
                         <div className="dash-kpi-ring">
                             <svg viewBox="0 0 36 36" width="40" height="40">
                                 <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" strokeWidth="3" />
-                                <circle cx="18" cy="18" r="15" fill="none" stroke="var(--color-success)" strokeWidth="3"
-                                    strokeDasharray={`${successRate * 0.94} 100`}
+                                <circle cx="18" cy="18" r="15" fill="none" stroke={ratRate >= 15 ? 'var(--color-danger)' : ratRate >= 8 ? 'var(--color-warning)' : 'var(--color-success)'} strokeWidth="3"
+                                    strokeDasharray={`${Math.min(ratRate * 3, 100) * 0.94} 100`}
                                     strokeLinecap="round" transform="rotate(-90 18 18)"
                                     style={{ transition: 'stroke-dasharray 1s ease' }}
                                 />
@@ -131,61 +136,58 @@ export default async function OverviewPage() {
                 </StaggerItem>
             </StaggerGrid>
 
-            {/* ── Main Charts Row (2/3 + 1/3 like reference) ─── */}
+            {/* ── Main Section: Alert Summary + Recent Data ─── */}
             <FadeIn delay={0.15}>
                 <div className="dash-main-row">
-                    {/* Left: SLA Trend (large chart) */}
-                    <div className="dash-chart-main card">
-                        <div className="dash-chart-header">
-                            <div>
-                                <div className="section-title" style={{ marginBottom: 2 }}>
-                                    <span className="dot"></span>
-                                    SLA Risk Trend
-                                </div>
-                                <span className="dash-chart-period">Last {hist?.length ?? 0} pipeline runs</span>
+                    {/* Left: Alert Summary */}
+                    <div className="card dash-alert-card">
+                        <div className="section-title" style={{ marginBottom: 12 }}>
+                            <span className="dot"></span>
+                            Alert Summary
+                        </div>
+                        <div className="dash-alert-grid">
+                            <div className="dash-alert-item dash-alert-critical">
+                                <span className="dash-alert-count">{ossCritical}</span>
+                                <span className="dash-alert-label">Critical</span>
+                                <span className="dash-alert-threshold">&gt;0.9</span>
                             </div>
-                            <div className="dash-chart-actions">
-                                <button className="dash-time-btn dash-time-active">All</button>
-                                <button className="dash-time-btn">24h</button>
-                                <button className="dash-time-btn">7d</button>
+                            <div className="dash-alert-item dash-alert-warning">
+                                <span className="dash-alert-count">{ossWarning}</span>
+                                <span className="dash-alert-label">Warning</span>
+                                <span className="dash-alert-threshold">0.5-0.9</span>
+                            </div>
+                            <div className="dash-alert-item dash-alert-low">
+                                <span className="dash-alert-count">{ossCount - ossCritical - ossWarning}</span>
+                                <span className="dash-alert-label">Low</span>
+                                <span className="dash-alert-threshold">&lt;0.5</span>
                             </div>
                         </div>
-                        <SlaChart data={hist || []} />
                     </div>
 
-                    {/* Right: Risk Gauge + Alert Summary */}
-                    <div className="dash-chart-side">
-                        <div className="card">
-                            <div className="section-title" style={{ marginBottom: 4 }}>
-                                <span className="dot"></span>
-                                Breach Risk
-                            </div>
-                            <RiskGauge
-                                score={(sla as any)?.score ?? 0}
-                                region={(sla as any)?.region}
-                                modelVersion={(sla as any)?.model_version}
-                            />
+                    {/* Right: Pipeline Success */}
+                    <div className="card">
+                        <div className="section-title" style={{ marginBottom: 4 }}>
+                            <span className="dot"></span>
+                            Pipeline Success
                         </div>
-                        <div className="card dash-alert-card">
-                            <div className="section-title" style={{ marginBottom: 12 }}>
-                                <span className="dot"></span>
-                                Alert Summary
-                            </div>
-                            <div className="dash-alert-grid">
-                                <div className="dash-alert-item dash-alert-critical">
-                                    <span className="dash-alert-count">{ossCritical}</span>
-                                    <span className="dash-alert-label">Critical</span>
-                                    <span className="dash-alert-threshold">&gt;0.9</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0' }}>
+                            <svg viewBox="0 0 36 36" width="80" height="80">
+                                <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" strokeWidth="3" />
+                                <circle cx="18" cy="18" r="15" fill="none" stroke="var(--color-success)" strokeWidth="3"
+                                    strokeDasharray={`${successRate * 0.94} 100`}
+                                    strokeLinecap="round" transform="rotate(-90 18 18)"
+                                    style={{ transition: 'stroke-dasharray 1s ease' }}
+                                />
+                            </svg>
+                            <div>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}>
+                                    {successRate}<span style={{ fontSize: 16 }}>%</span>
                                 </div>
-                                <div className="dash-alert-item dash-alert-warning">
-                                    <span className="dash-alert-count">{ossWarning}</span>
-                                    <span className="dash-alert-label">Warning</span>
-                                    <span className="dash-alert-threshold">0.5-0.9</span>
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                    {successRuns}/{totalRuns} runs succeeded
                                 </div>
-                                <div className="dash-alert-item dash-alert-low">
-                                    <span className="dash-alert-count">{ossCount - ossCritical - ossWarning}</span>
-                                    <span className="dash-alert-label">Low</span>
-                                    <span className="dash-alert-threshold">&lt;0.5</span>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                                    ~18-step ETL · 30s cycle · 3 v3 models
                                 </div>
                             </div>
                         </div>
@@ -213,10 +215,10 @@ export default async function OverviewPage() {
                             </div>
                             <div className="dash-agent-sub">
                                 {agentHealth === 'critical'
-                                    ? `CRITICAL: ${ossCritical} critical anomalies, SLA risk at ${slaScore.toFixed(3)} \u2014 ${pendingActions} pending actions`
+                                    ? `CRITICAL: ${vaeCount} VAE anomalies, RAT underservice at ${ratRate.toFixed(1)}% \u2014 ${pendingActions} pending actions`
                                     : agentHealth === 'warning'
-                                    ? `WARNING: SLA risk at ${slaScore.toFixed(3)} \u2014 monitoring ${pendingActions} situation(s)`
-                                    : `All systems nominal \u2014 monitoring ${totalAnomalies} anomalies across domains`
+                                    ? `WARNING: ${vaeCount} VAE anomalies detected \u2014 monitoring ${pendingActions} situation(s)`
+                                    : `All systems nominal \u2014 CEM avg ${cemAvg.toFixed(3)}, RAT ${ratRate.toFixed(1)}%, ${vaeCount} VAE anomalies`
                                 }
                             </div>
                         </div>
@@ -230,7 +232,7 @@ export default async function OverviewPage() {
                 </Link>
             </SlideInBanner>
 
-            {/* ── Bottom Row: Anomaly Distribution + AI Models ─── */}
+            {/* ── Bottom Row: AI Models Status ─── */}
             <FadeIn delay={0.25}>
                 <div className="dash-bottom-row">
                     <div className="card">
@@ -249,28 +251,28 @@ export default async function OverviewPage() {
                         </div>
                         <div className="dash-models-list">
                             <div className="dash-model-item">
-                                <div className="dash-model-dot" style={{ background: 'var(--color-danger)' }} />
+                                <div className="dash-model-dot" style={{ background: '#34d399' }} />
                                 <div className="dash-model-info">
-                                    <span className="dash-model-name">SLA Risk Predictor</span>
-                                    <span className="dash-model-desc">GradientBoostingRegressor &middot; 9 features</span>
+                                    <span className="dash-model-name">CEM Experience Score</span>
+                                    <span className="dash-model-desc">LightGBM DART &middot; 13 features &middot; 2.47M samples</span>
                                 </div>
-                                <span className="badge badge-success">v2.0</span>
+                                <span className="badge badge-success">v3.0</span>
                             </div>
                             <div className="dash-model-item">
-                                <div className="dash-model-dot" style={{ background: 'var(--color-info)' }} />
+                                <div className="dash-model-dot" style={{ background: '#60a5fa' }} />
                                 <div className="dash-model-info">
-                                    <span className="dash-model-name">OSS Anomaly Detector</span>
-                                    <span className="dash-model-desc">IsolationForest &middot; 5 KPI features</span>
+                                    <span className="dash-model-name">OSS VAE Anomaly</span>
+                                    <span className="dash-model-desc">PyTorch VAE &middot; 9 features &middot; 500K samples</span>
                                 </div>
-                                <span className="badge badge-info">v2.0</span>
+                                <span className="badge badge-info">v3.0</span>
                             </div>
                             <div className="dash-model-item">
-                                <div className="dash-model-dot" style={{ background: 'var(--color-purple)' }} />
+                                <div className="dash-model-dot" style={{ background: '#fbbf24' }} />
                                 <div className="dash-model-info">
-                                    <span className="dash-model-name">BSS Revenue Anomaly</span>
-                                    <span className="dash-model-desc">IsolationForest &middot; revenue + usage</span>
+                                    <span className="dash-model-name">RAT Underservice</span>
+                                    <span className="dash-model-desc">XGBoost GPU &middot; 10 features &middot; 2.47M samples</span>
                                 </div>
-                                <span className="badge badge-purple">v2.0</span>
+                                <span className="badge badge-warning">v3.0</span>
                             </div>
                         </div>
                     </div>

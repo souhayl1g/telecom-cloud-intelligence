@@ -30,11 +30,11 @@ def anomalies_latest(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/revenue-anomalies")
-def revenue_anomalies_latest(
+@router.get("/cem-anomalies")
+def cem_anomalies_latest(
     limit: int = Query(default=50, ge=1, le=500), user=Depends(require_auth)
 ):
-    """Return the N most recent detected BSS revenue anomalies."""
+    """Return the N most recent CEM (subscriber-experience) anomalies."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -44,14 +44,14 @@ def revenue_anomalies_latest(
                            line_type, plan,
                            metric_name, severity, value, baseline_value,
                            model_version, created_at
-                    FROM revenue_anomalies
+                    FROM cem_anomalies
                     ORDER BY created_at DESC
                     LIMIT %s;
                 """,
                     (limit,),
                 )
                 rows = cur.fetchall()
-                return {"count": len(rows), "revenue_anomalies": rows}
+                return {"count": len(rows), "cem_anomalies": rows}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -68,12 +68,12 @@ def anomaly_stats(
                     """
                     SELECT pr.run_id, pr.started_at,
                            COUNT(DISTINCT a.id) AS oss_anomaly_count,
-                           COUNT(DISTINCT ra.id) AS bss_anomaly_count,
+                           COUNT(DISTINCT ca.id) AS cem_anomaly_count,
                            COALESCE(AVG(a.severity), 0) AS avg_oss_severity,
-                           COALESCE(AVG(ra.severity), 0) AS avg_bss_severity
+                           COALESCE(AVG(ca.severity), 0) AS avg_cem_severity
                     FROM pipeline_runs pr
                     LEFT JOIN anomalies a ON a.run_id = pr.run_id
-                    LEFT JOIN revenue_anomalies ra ON ra.run_id = pr.run_id
+                    LEFT JOIN cem_anomalies ca ON ca.run_id = pr.run_id
                     WHERE pr.status = 'succeeded'
                     GROUP BY pr.run_id, pr.started_at
                     ORDER BY pr.started_at DESC

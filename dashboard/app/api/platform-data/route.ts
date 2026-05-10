@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { query } from "../../../lib/db";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -49,36 +50,100 @@ async function safePatch(path: string, body: any, token?: string) {
     }
 }
 
-export async function GET(req: NextRequest) {
+async function safeQuery<T = any>(sql: string, params?: any[]): Promise<T[]> {
+    try {
+        return await query<T>(sql, params);
+    } catch (err: any) {
+        console.error("[platform-data] DB query failed:", err?.message || err);
+        return [];
+    }
+}
+
+export async function GET(_req: NextRequest) {
     const cookieStore = cookies();
     const token = cookieStore.get("auth_token")?.value;
 
-    const [sla, history, anomalies, revenue, correlations, runs, anomalyStats, kpiSummary, actions, infraStats, areas] = await Promise.all([
-        safeFetch("/sla-risk", token),
-        safeFetch("/sla-risk/history", token),
-        safeFetch("/anomalies", token),
-        safeFetch("/revenue-anomalies", token),
+    const [
+        correlations,
+        runs,
+        kpiSummary,
+        actions,
+        infraStats,
+        platformStats,
+        granger,
+        areas,
+        anomalies,           // OSS cell anomalies (from oss_cell_kpis, anomaly_flag = TRUE)
+        cemAnomalies,        // CEM-impacting subscriber risk (from subscriber_features, RAT or churn flag)
+        vaeSummary,
+        cemSummary,
+        ratSummary,
+    ] = await Promise.all([
         safeFetch("/correlation", token),
         safeFetch("/pipeline-runs", token),
-        safeFetch("/anomaly-stats", token),
         safeFetch("/kpi-summary", token),
         safeFetch("/actions", token),
         safeFetch("/infra-stats", token),
+        safeFetch("/platform-stats", token),
+        safeFetch("/granger-causality", token),
         safeFetch("/areas", token),
+        safeQuery(`
+            SELECT cell_id, area, throughput_mbps, latency_ms, packet_loss_rate, cell_load_pct,
+                   TRUE AS anomaly_flag,
+                   LEAST(1.0, GREATEST(0.0, COALESCE(cell_load_pct,0)/100.0))::float8 AS severity,
+                   ts
+              FROM mv_oss_recent_anomalies
+             ORDER BY ts DESC
+             LIMIT 200
+        `),
+        safeQuery(`
+            SELECT imsi_hash, cem_score, rat_gap_score, NULL::boolean AS churn_risk_flag,
+                   rat_gap_score AS severity,
+                   NOW() AS created_at
+              FROM mv_rat_top_underserved
+             ORDER BY rat_gap_score DESC
+             LIMIT 200
+        `),
+        safeQuery(`
+            SELECT oss_total::int          AS total,
+                   oss_anomaly_count::int  AS anomaly_count,
+                   oss_anomaly_rate        AS anomaly_rate,
+                   oss_areas_affected      AS areas_affected
+              FROM mv_dashboard_summary
+        `),
+        safeQuery(`
+            SELECT cem_total::int      AS total,
+                   cem_avg_score       AS avg_score,
+                   cem_poor_count::int AS poor_count,
+                   cem_fair_count::int AS fair_count,
+                   cem_good_count::int AS good_count
+              FROM mv_dashboard_summary
+        `),
+        safeQuery(`
+            SELECT rat_total::int       AS total,
+                   rat_underserved::int AS underserved,
+                   rat_rate             AS rate
+              FROM mv_dashboard_summary
+        `),
     ]);
 
     return NextResponse.json({
-        sla,
-        history: history || [],
-        anomalies: anomalies?.anomalies ?? [],
-        revenueAnomalies: revenue?.revenue_anomalies ?? [],
+        anomalies: anomalies ?? [],
+        cemAnomalies: cemAnomalies ?? [],
         correlations: correlations?.correlations ?? [],
         pipelineRuns: runs ?? [],
-        anomalyStats: anomalyStats ?? [],
         kpiSummary: kpiSummary ?? [],
         actions: actions ?? [],
         infraStats: infraStats ?? null,
+        platformStats: platformStats ?? null,
         areas: areas?.areas ?? [],
+        granger: {
+            results: granger?.results ?? [],
+            count: (granger?.results ?? []).length,
+            significant: (granger?.results ?? []).filter((r: any) => r.significant).length,
+        },
+        vaeSummary: vaeSummary?.[0] ?? null,
+        cemSummary: cemSummary?.[0] ?? null,
+        ratSummary: ratSummary?.[0] ?? null,
     });
 }
 

@@ -6,17 +6,17 @@ import PageInfoBar from '../../components/PageInfoBar';
 export const dynamic = 'force-dynamic';
 
 export default async function IntelligencePage() {
-    const [sla, oss, bss, corrs] = await Promise.all([
-        api.slaRisk(),
+    const [oss, bss, corrs, cemSummary] = await Promise.all([
         api.anomalies(),
-        api.revenueAnomalies(),
+        api.cemAnomalies(),
         api.correlation(),
+        api.cemScores(),
     ]);
 
-    const slaData = sla as { score: number; region?: string; model_version?: string; explanation?: { feature_importances?: Record<string, number> } } | null;
     const ossData = oss ?? [];
     const bssData = bss ?? [];
     const corrData = corrs ?? [];
+    const cemAvg = (cemSummary as any)?.avg_score ?? 0;
 
     const totalAnomalies = ossData.length + bssData.length;
     const criticalCount = ossData.filter((a: any) => a.severity > 0.9).length + bssData.filter((a: any) => (a.severity ?? a.score ?? 0) > 0.8).length;
@@ -26,10 +26,10 @@ export default async function IntelligencePage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="Synthesis · Cross-Domain Intelligence"
-                description="Why did this happen? Four signals — SLA risk, OSS anomalies, BSS anomalies, OSS↔BSS correlations — are fused into a single causal narrative. Instead of reading four dashboards, you read one root-cause story with the evidence attached."
+                description="Why did this happen? Three signals — OSS anomalies, CEM anomalies, OSS↔CEM correlations — are fused into a single causal narrative. Instead of reading multiple dashboards, you read one root-cause story with the evidence attached."
                 values={[
                     { text: `${totalAnomalies} anomalies · ${criticalCount} critical` },
-                    { text: `SLA risk: ${((slaData?.score ?? 0) * 100).toFixed(1)}%` },
+                    { text: `CEM avg: ${(cemAvg * 100).toFixed(1)}%` },
                     { text: `${strongCorrs} strong cross-domain correlations feeding the narrative` },
                 ]}
             />
@@ -50,8 +50,8 @@ export default async function IntelligencePage() {
                 </div>
                 <div className="summary-item">
                     <div>
-                        <div className="summary-item-value" style={{ color: 'var(--color-warning)' }}>{((slaData?.score ?? 0) * 100).toFixed(1)}%</div>
-                        <div className="summary-item-label">SLA Risk</div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-warning)' }}>{(cemAvg * 100).toFixed(1)}%</div>
+                        <div className="summary-item-label">CEM Score</div>
                     </div>
                 </div>
                 <div className="summary-item">
@@ -70,7 +70,7 @@ export default async function IntelligencePage() {
                     <span className="section-subtitle">Automated cross-domain intelligence</span>
                 </div>
                 <RootCauseAnalysis
-                    sla={slaData}
+                    sla={{ score: 0 }}
                     ossAnomalies={ossData}
                     bssAnomalies={bssData}
                     correlations={corrData}

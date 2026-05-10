@@ -23,7 +23,7 @@ def bootstrap():
         needed.append("sla")
     if not (MODELS_DIR / "anomaly_model.joblib").exists():
         needed.append("oss")
-    if not (MODELS_DIR / "revenue_anomaly_model.joblib").exists():
+    if not (MODELS_DIR / "cem_anomaly_model.joblib").exists():
         needed.append("bss")
 
     if not needed:
@@ -111,8 +111,8 @@ def bootstrap():
             ]
         )
         pipe.fit(X)
-        joblib.dump(pipe, MODELS_DIR / "revenue_anomaly_model.joblib")
-        print("[bootstrap] revenue_anomaly_model.joblib created")
+        joblib.dump(pipe, MODELS_DIR / "cem_anomaly_model.joblib")
+        print("[bootstrap] cem_anomaly_model.joblib created")
 
     print("[bootstrap] Done.")
 

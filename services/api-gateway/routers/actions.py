@@ -159,28 +159,28 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                 elif playbook_id == "pb-anomaly-triage":
                     cur.execute(
                         """
-                        SELECT severity, cell_id, kpi_name, value, baseline_value
-                        FROM anomalies
-                        WHERE created_at >= NOW() - INTERVAL '30 minutes'
-                        ORDER BY severity DESC LIMIT 50;
+                        SELECT cell_id, area, cell_load_pct, latency_ms, packet_loss_rate
+                        FROM oss_cell_kpis
+                        WHERE anomaly_flag = TRUE AND created_at >= NOW() - INTERVAL '30 minutes'
+                        ORDER BY cell_load_pct DESC LIMIT 50;
                         """
                     )
                     recent = cur.fetchall()
-                    critical = [r for r in recent if (r["severity"] or 0) > 0.9]
-                    warning = [r for r in recent if 0.5 < (r["severity"] or 0) <= 0.9]
-                    low = [r for r in recent if (r["severity"] or 0) <= 0.5]
+                    critical = [r for r in recent if (r["cell_load_pct"] or 0) > 80]
+                    warning = [r for r in recent if 50 < (r["cell_load_pct"] or 0) <= 80]
+                    low = [r for r in recent if (r["cell_load_pct"] or 0) <= 50]
                     cells_affected = list({r["cell_id"] for r in critical if r["cell_id"]})
 
-                    # Cross-reference with correlation data for root cause
+                    # Cross-reference with Granger causality for root cause
                     cur.execute(
                         """
-                        SELECT metric_x, metric_y, corr_value, method
-                        FROM correlation_insights
-                        WHERE ABS(corr_value) >= 0.7
-                        ORDER BY created_at DESC LIMIT 10;
+                        SELECT oss_variable, cem_variable, best_lag, best_pvalue
+                        FROM granger_causality_results
+                        WHERE significant = TRUE
+                        ORDER BY best_pvalue ASC LIMIT 10;
                         """
                     )
-                    strong_corr = cur.fetchall()
+                    strong_granger = cur.fetchall()
 
                     execution_log["steps"] = [
                         {"step": "Collect recent anomalies", "count": len(recent)},
@@ -192,14 +192,14 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         },
                         {"step": "Identify affected cells", "cells": cells_affected},
                         {
-                            "step": "Cross-reference correlations for root cause",
-                            "strong_correlations": [
+                            "step": "Cross-reference Granger causality for root cause",
+                            "strong_pairs": [
                                 {
-                                    "pair": f"{c['metric_x']} ↔ {c['metric_y']}",
-                                    "value": float(c["corr_value"]),
-                                    "method": c["method"],
+                                    "pair": f"{c['oss_variable']} → {c['cem_variable']}",
+                                    "lag": c["best_lag"],
+                                    "pvalue": float(c["best_pvalue"]),
                                 }
-                                for c in strong_corr
+                                for c in strong_granger
                             ],
                         },
                         {"step": "Triage complete", "priority": "P1" if critical else "P2"},
@@ -209,25 +209,24 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                 elif playbook_id == "pb-revenue-protect":
                     cur.execute(
                         """
-                        SELECT subscriber_id, operator, severity, value, baseline_value, plan, line_type
-                        FROM revenue_anomalies
-                        WHERE severity > 0.8 AND created_at >= NOW() - INTERVAL '30 minutes'
-                        ORDER BY severity DESC LIMIT 20;
+                        SELECT imsi_hash, rat_gap_score, cem_score, churn_risk_flag
+                        FROM subscriber_features
+                        WHERE (rat_gap_score > 0.3 OR churn_risk_flag = TRUE)
+                          AND created_at >= NOW() - INTERVAL '30 minutes'
+                        ORDER BY rat_gap_score DESC NULLS LAST LIMIT 20;
                         """
                     )
                     flagged = cur.fetchall()
                     execution_log["steps"] = [
-                        {"step": "Query high-severity revenue anomalies", "count": len(flagged)},
+                        {"step": "Query high-risk subscribers", "count": len(flagged)},
                         {
                             "step": "Flag suspicious subscribers",
                             "subscribers": [
                                 {
-                                    "id": r["subscriber_id"],
-                                    "operator": r["operator"],
-                                    "severity": float(r["severity"]),
-                                    "revenue": float(r["value"]),
-                                    "baseline": float(r["baseline_value"]),
-                                    "plan": r["plan"],
+                                    "id": r["imsi_hash"],
+                                    "rat_gap_score": float(r["rat_gap_score"]) if r["rat_gap_score"] else None,
+                                    "cem_score": float(r["cem_score"]) if r["cem_score"] else None,
+                                    "churn_risk": r["churn_risk_flag"],
                                 }
                                 for r in flagged
                             ],
@@ -235,75 +234,34 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         {
                             "step": "Protection summary",
                             "flagged_count": len(flagged),
-                            "total_revenue_at_risk": round(
-                                sum(float(r["value"]) for r in flagged), 2
-                            ),
+                            "underserved_count": sum(1 for r in flagged if r["rat_gap_score"] and r["rat_gap_score"] > 0.3),
+                            "churn_risk_count": sum(1 for r in flagged if r["churn_risk_flag"]),
                         },
                     ]
 
-                # ── pb-sla-breach ─────────────────────────────────────────
-                elif playbook_id == "pb-sla-breach":
-                    cur.execute(
-                        """
-                        SELECT score, explanation, created_at
-                        FROM sla_risk_scores
-                        ORDER BY created_at DESC LIMIT 1;
-                        """
-                    )
-                    sla = cur.fetchone()
-                    if sla and sla.get("explanation"):
-                        features = sla["explanation"].get("input_features", {})
-                        top_driver = sla["explanation"].get("top_driver", "unknown")
-                        # Identify KPIs exceeding thresholds
-                        thresholds = {
-                            "mean_latency_ms": 40.0,
-                            "mean_packet_loss_pct": 1.0,
-                            "mean_throughput_mbps": 50.0,  # below this is bad
-                        }
-                        breaching = []
-                        for kpi, threshold in thresholds.items():
-                            val = features.get(kpi)
-                            if val is not None:
-                                if kpi == "mean_throughput_mbps":
-                                    if float(val) < threshold:
-                                        breaching.append(
-                                            {"kpi": kpi, "value": float(val), "threshold": threshold, "direction": "below"}
-                                        )
-                                elif float(val) > threshold:
-                                    breaching.append(
-                                        {"kpi": kpi, "value": float(val), "threshold": threshold, "direction": "above"}
-                                    )
-                        execution_log["steps"] = [
-                            {"step": "Read current SLA score", "score": float(sla["score"])},
-                            {"step": "Extract KPI features from model", "features": {k: float(v) for k, v in features.items()}},
-                            {"step": "Identify top risk driver", "driver": top_driver},
-                            {"step": "Check KPI thresholds", "breaching_kpis": breaching},
-                            {"step": "Mitigation logged", "action": f"Focus remediation on {top_driver}"},
-                        ]
-                    else:
-                        execution_log["steps"] = [{"step": "No SLA data available"}]
+
 
                 # ── pb-capacity-scale ─────────────────────────────────────
                 elif playbook_id == "pb-capacity-scale":
                     cur.execute(
                         """
                         SELECT
-                            CAST(explanation->'input_features'->>'mean_throughput_mbps' AS DOUBLE PRECISION) AS throughput,
-                            CAST(explanation->'input_features'->>'mean_active_users' AS DOUBLE PRECISION) AS users,
-                            CAST(explanation->'input_features'->>'mean_latency_ms' AS DOUBLE PRECISION) AS latency,
-                            created_at
-                        FROM sla_risk_scores
-                        WHERE explanation->'input_features' IS NOT NULL
+                            avg_throughput,
+                            avg_latency,
+                            avg_packet_loss,
+                            subscriber_count,
+                            anomaly_count
+                        FROM area_network_health
                         ORDER BY created_at DESC LIMIT 10;
                         """
                     )
                     history = cur.fetchall()
                     if history:
-                        avg_throughput = sum(r["throughput"] for r in history) / len(history)
-                        avg_users = sum(r["users"] for r in history) / len(history)
-                        avg_latency = sum(r["latency"] for r in history) / len(history)
-                        max_throughput = max(r["throughput"] for r in history)
-                        max_users = max(r["users"] for r in history)
+                        avg_throughput = sum(r["avg_throughput"] for r in history if r["avg_throughput"] is not None) / max(len([r for r in history if r["avg_throughput"] is not None]), 1)
+                        avg_latency = sum(r["avg_latency"] for r in history if r["avg_latency"] is not None) / max(len([r for r in history if r["avg_latency"] is not None]), 1)
+                        avg_users = sum(r["subscriber_count"] for r in history if r["subscriber_count"] is not None) / max(len([r for r in history if r["subscriber_count"] is not None]), 1)
+                        max_throughput = max((r["avg_throughput"] for r in history if r["avg_throughput"] is not None), default=0)
+                        max_users = max((r["subscriber_count"] for r in history if r["subscriber_count"] is not None), default=0)
                         execution_log["steps"] = [
                             {"step": "Compute capacity from recent runs", "runs_analyzed": len(history)},
                             {

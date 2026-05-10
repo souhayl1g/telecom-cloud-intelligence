@@ -1,5 +1,5 @@
 """
-OSS↔BSS Granger Causality Engine
+OSS↔CEM Granger Causality Engine
 ---------------------------------
 Tests temporal causal relationships between network KPIs (OSS) and
 subscriber experience metrics (BSS) at the governorate level.
@@ -37,7 +37,7 @@ PVALUE_THRESHOLD = 0.05
 # Max lag to test
 MAX_LAG = 2
 
-# Variable pairs to test: (oss_var, bss_var, direction)
+# Variable pairs to test: (oss_var, cem_var, direction)
 # direction: "oss→bss" means test if OSS causes BSS
 TEST_PAIRS = [
     ("avg_throughput", "avg_cem_score", "oss→bss"),
@@ -58,7 +58,7 @@ def create_results_table():
             id SERIAL PRIMARY KEY,
             area TEXT NOT NULL,
             oss_variable TEXT NOT NULL,
-            bss_variable TEXT NOT NULL,
+            cem_variable TEXT NOT NULL,
             direction TEXT NOT NULL,
             max_lag INTEGER NOT NULL,
             best_lag INTEGER,
@@ -67,7 +67,7 @@ def create_results_table():
             significant BOOLEAN DEFAULT FALSE,
             test_summary JSONB,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            UNIQUE (area, oss_variable, bss_variable, direction)
+            UNIQUE (area, oss_variable, cem_variable, direction)
         )
     """
     with get_conn() as conn:
@@ -150,11 +150,11 @@ def run_all_tests():
         # Sort by month
         group = group.sort_values("month_year")
         
-        for oss_var, bss_var, direction in TEST_PAIRS:
+        for oss_var, cem_var, direction in TEST_PAIRS:
             if direction == "oss→bss":
-                cause_var, effect_var = oss_var, bss_var
+                cause_var, effect_var = oss_var, cem_var
             else:
-                cause_var, effect_var = bss_var, oss_var
+                cause_var, effect_var = cem_var, oss_var
             
             # Check for non-zero variance
             cause_std = group[cause_var].std()
@@ -176,7 +176,7 @@ def run_all_tests():
             result_row = {
                 "area": area,
                 "oss_variable": oss_var,
-                "bss_variable": bss_var,
+                "cem_variable": cem_var,
                 "direction": direction,
                 "max_lag": MAX_LAG,
                 "best_lag": test_result["best_lag"],
@@ -196,10 +196,10 @@ def run_all_tests():
     if results:
         sql = """
             INSERT INTO granger_causality_results (
-                area, oss_variable, bss_variable, direction, max_lag,
+                area, oss_variable, cem_variable, direction, max_lag,
                 best_lag, best_pvalue, best_fstat, significant, test_summary
             ) VALUES %s
-            ON CONFLICT (area, oss_variable, bss_variable, direction) DO UPDATE SET
+            ON CONFLICT (area, oss_variable, cem_variable, direction) DO UPDATE SET
                 max_lag = EXCLUDED.max_lag,
                 best_lag = EXCLUDED.best_lag,
                 best_pvalue = EXCLUDED.best_pvalue,
@@ -209,7 +209,7 @@ def run_all_tests():
                 created_at = NOW()
         """
         values = [(
-            r["area"], r["oss_variable"], r["bss_variable"], r["direction"],
+            r["area"], r["oss_variable"], r["cem_variable"], r["direction"],
             r["max_lag"], r["best_lag"], r["best_pvalue"], r["best_fstat"],
             r["significant"], r["test_summary"]
         ) for r in results]
@@ -228,7 +228,7 @@ def run_all_tests():
 def print_summary():
     """Print a summary of significant Granger causality results."""
     sql = """
-        SELECT area, oss_variable, bss_variable, direction,
+        SELECT area, oss_variable, cem_variable, direction,
                best_lag, best_pvalue, best_fstat
         FROM granger_causality_results
         WHERE significant = TRUE
@@ -245,13 +245,13 @@ def print_summary():
     print(f"Significant Granger Causality Results ({len(df)} total)")
     print(f"{'='*60}")
     for _, row in df.iterrows():
-        print(f"  {row['area']}: {row['direction']} ({row['oss_variable']} ↔ {row['bss_variable']}) "
+        print(f"  {row['area']}: {row['direction']} ({row['oss_variable']} ↔ {row['cem_variable']}) "
               f"— lag={row['best_lag']}, p={row['best_pvalue']:.4f}, r={row['best_fstat']:.2f}")
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("OSS↔BSS Granger Causality Engine")
+    print("OSS↔CEM Granger Causality Engine")
     print("=" * 60)
     run_all_tests()
     print_summary()
