@@ -1,5 +1,8 @@
 # MLOps Memory
 
+> ⚠️ Read [REALIGNMENT_2026-05-10.md](REALIGNMENT_2026-05-10.md) first for the post-expert-feedback realignment + cleanup. The content below is pre-realignment context.
+
+
 > Last updated: 2026-04-29
 
 ## Model Registry

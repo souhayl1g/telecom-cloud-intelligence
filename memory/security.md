@@ -1,5 +1,8 @@
 # Security Memory
 
+> ⚠️ Read [REALIGNMENT_2026-05-10.md](REALIGNMENT_2026-05-10.md) first for the post-expert-feedback realignment + cleanup. The content below is pre-realignment context.
+
+
 > Last updated: 2026-04-29
 
 ## Authentication
@@ -41,7 +44,7 @@ Stage 5 of CI/CD:
 - Docker bridge network isolates services
 - API Gateway is the only public-facing service
 - Internal services (ai-service, postgres, minio) not exposed externally
-- SigNoz observability requires no auth in dev mode
+- Netdata observability requires no auth in dev mode
 
 ## Default Credentials (Dev Only)
 

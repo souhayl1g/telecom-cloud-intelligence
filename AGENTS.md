@@ -1,7 +1,76 @@
 # AGENTS.md — Telecom NeXoligence Platform
 
-> AI agent context for the **Telecom NeXoligence** project.  
-> Last updated: 2026-04-28
+> AI agent context for the **Telecom NeXoligence** project.
+> Last updated: 2026-05-10 — expert-feedback realignment landed (see CLAUDE.md "2026-05-10" section).
+> Methodology: **Hybrid CRISP-DM + MLOps overlay**. HCS removed; cloud-native by design.
+
+## Quick pointers (post-realignment)
+
+| Need | File |
+|---|---|
+| BO + DSO + KPI tree | `docs/business/objectives.md` |
+| Slide outline (versioned) | `docs/presentation/v1_outline.md` |
+| Architecture diagrams (Mermaid) | `diagrams/v2/c4_context.md` · `c4_container.md` · `deployment.md` · `ml_lifecycle.md` |
+| Data quality audit (CRISP-DM Phase 2) | `notebooks/00_data_understanding_eda.py` |
+| Granger feature-selection gate (offline) | `notebooks/10_granger_feature_selection.py` → `granger_feature_gate.json` |
+| Detection lead time API | `GET /granger-causality/lead-time?area=X` (env `LAG_WINDOW_MINUTES`) |
+| Data Augmentation Module rationale | `docs/data-model/data-augmentation.md` |
+| BSS→CEM rename migration | `docs/db/migrations/001_bss_to_cem_rename.sql` |
+
+---
+
+## Defense-Ready State (read first if onboarding)
+
+This project is on a defense schedule. Master document for any "what is this / why was it built / how does it work" question is **[DEFENSE_BRIEF.md](DEFENSE_BRIEF.md)** — pitch, data, feature engineering, model architectures, container map, pipeline 22 steps, Q&A bank, junk audit, super-mode list.
+
+### Live State Snapshot
+- **Pipeline**: daemon mode, 120s cycles ([docker-compose.yml](docker-compose.yml) `RUN_MODE: daemon`).
+- **Performance**: dashboard 60s → <100ms via 12 mat views + Next.js prod build. Mat views auto-refresh at end of each pipeline run via `refresh_dashboard_views()`.
+- **L4 ADN page**: Huawei-style 3-layer architecture component, Spirits + Mates roster, autonomy meter, Defense Explainer card (collapsible, removable for prod via `data-defense-explainer` attribute).
+- **Granger**: backend explainability endpoint `GET /granger-causality/explain` returns full methodology metadata; frontend has 4-step methodology + convergence justification panels.
+- **Observability**: 4 FastAPI services + netdata exposing `/metrics` to Prometheus → Grafana. otel-collector receives OTLP traces → Jaeger.
+- **Containers** (15 total): postgres, minio, api-gateway, ai-service, auth-service, agent-service, pipeline-worker, dashboard, prometheus, grafana, jaeger, otel-collector, netdata, notebooks. Ollama on host port 11434.
+
+### Spirit + Mate Roster (Huawei ADN-aligned naming)
+| Type | Name | What it does | Location |
+|------|------|--------------|----------|
+| Spirit | ExperienceSpirit | LightGBM CEM scoring | ai-service `/infer/cem`; agent-service `agents/cem_agent.py` |
+| Spirit | NetworkSpirit | PyTorch VAE OSS anomaly | ai-service `/infer/vae-anomaly`; agent-service `agents/network_agent.py` |
+| Spirit | UnderserviceSpirit | XGBoost RAT gap | ai-service `/infer/rat-underservice` |
+| Spirit | ConvergenceSpirit | Granger F-test on OSS↔CEM pairs | pipeline-worker `worker/analytics/granger.py`; api-gateway `routers/granger.py` |
+| Spirit | ActionSpirit | Real playbook execution | api-gateway `routers/actions.py`; agent-service `agents/action_agent.py` |
+| Mate | NOCMate | LLM chat with platform context (L4 page) | dashboard l4-agent + agent-service `/agent/query` |
+| Mate | AnalystMate | Cross-domain root-cause synthesis | dashboard `/intelligence` page |
+| Mate | FieldMate | Playbook explainability (L4 Execution tab) | dashboard l4-agent playbooks tab |
+
+### Recent Operational Changes (do not revert)
+- `RUN_MODE: manual` → `daemon` in [docker-compose.yml](docker-compose.yml) (pipeline now cycles continuously)
+- Toast container moved to `bottom: 20px` (was overlapping ADN architecture metrics on top-right)
+- L4 page duplicate `l4-header` removed; replaced by compact agent status strip
+- Sidebar reorganized: ADN Autonomy → OSS∩BSS Convergence → Network (OSS) → Subscriber (BSS) → Models & Ops
+- All 4 FastAPI services have `prometheus-fastapi-instrumentator==7.0.0` wired (ai-service required Dockerfile change because its pip install is inline, not from requirements.txt)
+- Grafana datasource has explicit `uid: prometheus`; admin password reset via `grafana-cli admin reset-admin-password admin`
+- ai-service Dockerfile: added `prometheus-fastapi-instrumentator==7.0.0` to inline pip install (the `requirements.txt` is not used by that container)
+
+### Junk Audit Candidates (do not delete without user approval)
+1. `/topology` page — demo data
+2. `dashboard/app/sla-risk/` — possibly deleted, audit referrers
+3. `pipeline_runner.py` (repo root) — Jupyter-only alt runner
+4. `Dockerfile.notebooks` — duplicates pipeline
+5. Legacy `model_registry` table
+6. Legacy method names `anomalies` / `revenueAnomalies` in `lib/api.ts`
+
+### Super-Mode Upgrade List (proposals)
+1. LSTM Churn (4th model from roadmap)
+2. Postgres LISTEN/NOTIFY for event-driven pipeline
+3. TimescaleDB hypertable on `oss_cell_kpis`
+4. Multi-agent collaboration (Trend 7 of Huawei 2024)
+5. Streamlit explainer for AI Hub
+6. Chaos playbook `pb-induce-fault`
+7. Aggregate `/api/healthz`
+8. Grafana p95/p99 latency panels
+9. Redis pipeline state
+10. `make` targets for pipeline-once / pipeline-daemon
 
 ---
 
@@ -13,7 +82,7 @@
 - Ingests real + simulated OSS network data (18.8M real cell KPIs + 200K simulated) and BSS subscriber data (968K real + 1.5M simulated) across 5-6 months.
 - Injects realistic faults via bootstrap simulation with temporal drift and Gaussian noise.
 - Stores data in a 3-layer MinIO data lake (`raw` → `processed` → `curated`).
-- Runs 6 ML models: v2.0 legacy (SLA GBR, OSS IF, BSS IF) + v3.0 real-data (CEM LightGBM/DART, VAE PyTorch, RAT XGBoost GPU).
+- Runs 3 ML models: v3.0 real-data (CEM LightGBM/DART, VAE PyTorch, RAT XGBoost GPU).
 - Computes OSS–BSS correlations (Pearson + Spearman on 5 metric pairs).
 - Persists all results to PostgreSQL (9 tables).
 - Serves insights through a FastAPI REST gateway and a Next.js dashboard with an ADN L4 autonomous operations agent.
@@ -38,7 +107,7 @@
 | Charts | Recharts | 2.15.3 (pinned) |
 | Storage | PostgreSQL | 16 |
 | Object Store | MinIO | latest (S3-compatible) |
-| Observability | SigNoz + OpenTelemetry | 0.55.0 |
+| Observability | Netdata + Prometheus + Grafana + Jaeger + OpenTelemetry | — |
 | LLM (local) | Ollama | Qwen2.5:7b |
 | Containerization | Docker + Docker Compose | — |
 | CI/CD | GitHub Actions | — |
@@ -59,23 +128,24 @@ The platform is orchestrated via `docker-compose.yml` with 15+ containers.
 | `postgres` | 5432 | Serving store + metadata | `docs/db/schema.sql` |
 | `minio` | 9000 / 9001 | S3-compatible data lake | — |
 | `api-gateway` | 8000 | Public REST API (FastAPI, JWT-protected) | `services/api-gateway/` |
-| `ai-service` | 8001 | ML inference engine (6 models: 3 v2 + 3 v3) | `services/ai-service/` |
+| `ai-service` | 8001 | ML inference engine (3 v3 models) | `services/ai-service/` |
 | `auth-service` | 8002 | Authentication (JWT + OAuth2) | `services/auth-service/` |
 | `pipeline-worker` | — | 22-step ETL orchestrator (daemon, 2-min cycles) | `services/pipeline-worker/` |
 | `agent-service` | 8003 | LLM-powered multi-agent orchestrator | `services/agent-service/` |
 | `dashboard` | 3001 | Next.js frontend (15+ pages) | `dashboard/` |
 | `notebooks` | 8888 | Jupyter for model training + evaluation | `notebooks/` |
 
-### Observability Stack (SigNoz)
+### Observability Stack
 
 | Service | Port | Role |
 |---|---|---|
-| `signoz-frontend` | 3301 | Observability UI (traces, metrics, logs) |
-| `otel-collector` | 4317/4318 | OpenTelemetry OTLP receiver (gRPC/HTTP) |
-| `clickhouse` | — | SigNoz metrics/traces storage (internal) |
-| `zookeeper-1` | — | ClickHouse coordination |
-| `signoz-alertmanager` | — | Alerting |
-| `signoz-query-service` | — | Query API |
+| `netdata` | 19999 | Real-time system & container monitoring (lightweight all-in-one) |
+| `prometheus` | 9090 | Metrics TSDB and scraping |
+| `grafana` | 3000 | Dashboards & visualization |
+| `jaeger` | 16686 | Distributed trace storage & UI |
+| `otel-collector` | 4319/4320 | OpenTelemetry OTLP receiver (gRPC/HTTP) |
+
+**Why this stack?** Replaces the heavier SigNoz + ClickHouse + Zookeeper combo (~4-5 GB RAM) with a lighter, purpose-built set (~2 GB RAM total) that covers the same observability surface: Netdata for instant container/system visibility, Prometheus for metrics storage, Grafana for dashboards, and Jaeger for traces.
 
 ### Data Flow
 
@@ -85,9 +155,6 @@ pipeline-worker (manual mode, 22 steps, controlled cycles)
   ├── generate 200 OSS records + 200 BSS records (from bootstrap reservoirs)
   ├── upload raw JSON → minio  s3://raw/oss/...  s3://raw/bss/...
   ├── process + enrich → minio  s3://processed/oss/...  s3://processed/bss/...
-  ├── POST /infer/sla-risk → ai-service (GBR v2.0, 9 features)
-  ├── POST /infer/anomaly → ai-service (IsolationForest v2.0, OSS)
-  ├── POST /infer/revenue-anomaly → ai-service (IsolationForest v2.0, BSS)
   ├── POST /infer/cem → ai-service (LightGBM v3.0, 13 features)
   ├── POST /infer/vae-anomaly → ai-service (PyTorch VAE v3.0, 9 features)
   ├── POST /infer/rat-underservice → ai-service (XGBoost v3.0, 10 features)
@@ -244,7 +311,7 @@ Script: `services/data-ingest/generate_bss_months.py`
 ├── TT_data/                        # CONFIDENTIAL — real + simulated Tunisie Telecom data
 │   └── BSS/                        # 968K real + 1.5M simulated subscriber CEM profiles
 │
-├── infra/monitoring/               # SigNoz + OTel configs
+├── infra/monitoring/               # Prometheus + Grafana + Netdata + Jaeger + OTel configs
 ├── diagrams/                       # Architecture PNG exports
 ├── memory/                         # Agent memory files
 └── graphify-out/                   # Knowledge graph output
@@ -424,7 +491,7 @@ Schema file: `docs/db/schema.sql` (applied automatically on first postgres start
 | `users` | Authentication & OAuth | Supports local / Google / GitHub OAuth. `provider` + `provider_id` unique. |
 | `pipeline_runs` | Run lifecycle | Parent table. FK from 5 others via `run_id`. |
 | `dataset_registry` | MinIO object metadata | 2 raw + 2 processed + 1 curated per run. |
-| `model_registry` | Model artifact registry | `sla-risk`, `anomaly`, `revenue-anomaly` (v2.0); `cem`, `vae-anomaly`, `rat-underservice` (v3.0). |
+| `model_registry` | Model artifact registry | `cem`, `vae-anomaly`, `rat-underservice` (v3.0). |
 | `sla_risk_scores` | GBR predictions | `score` CHECK (0–1). `explanation` is JSONB. |
 | `anomalies` | OSS per-record anomalies | `severity`, `kpi_name`, `cell_id`, `model_version`. |
 | `revenue_anomalies` | BSS per-subscriber anomalies | `operator`, `line_type`, `plan`, `severity`. |
@@ -436,8 +503,8 @@ Schema file: `docs/db/schema.sql` (applied automatically on first postgres start
 - **PostgreSQL:** `telecom` / `telecom_pw` / `telecom_intel`
 - **MinIO:** `minio` / `minio_pw`
 - **JWT Secret:** `telecom-dev-secret-change-in-prod`
-- **SigNoz:** No login required (dev mode)
-- **ClickHouse:** `admin` / `27ff0399-0d3a-4bd8-919d-17c2181e6fb9` (internal only)
+- **Grafana:** `admin` / `admin`
+- **Netdata:** No login required (dev mode)
 
 ---
 
@@ -468,13 +535,10 @@ All endpoints except `/health` require `Authorization: Bearer <JWT>`.
 | Method | Path | Model | Version |
 |---|---|---|---|
 | GET | `/health` | Returns model version + load status | — |
-| POST | `/infer/sla-risk` | GradientBoostingRegressor | v2.0 (legacy) |
-| POST | `/infer/anomaly` | IsolationForest | v2.0 (legacy, OSS) |
-| POST | `/infer/revenue-anomaly` | IsolationForest | v2.0 (legacy, BSS) |
 | POST | `/infer/cem` | LightGBM (DART) | v3.0 |
 | POST | `/infer/vae-anomaly` | PyTorch VAE | v3.0 |
 | POST | `/infer/rat-underservice` | XGBoost (GPU) | v3.0 |
-| POST | `/models/reload` | Hot-reload all 6 models from disk | — |
+| POST | `/models/reload` | Hot-reload all 3 models from disk | — |
 
 ### auth-service (`:8002`)
 

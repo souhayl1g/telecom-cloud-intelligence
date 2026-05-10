@@ -1,6 +1,72 @@
 # CLAUDE.md — Telecom NeXoligence Platform
 
-> Last updated: 2026-04-28 | Phase 3.5 + 4.5 complete — v3.0 models deployed (CEM LightGBM, VAE Anomaly, RAT XGBoost) trained on 1.5M+ real+simulated data | GPU training (VAE CUDA, XGBoost GPU) | Inference endpoints live | Next: LSTM Churn, Granger Causality, HCS deployment
+> Last updated: 2026-05-10 | **Expert-feedback realignment shipped** (BSS→CEM rename · Granger 2-tier · CRISP-DM Phase 2 EDA · BO/DSO doc · 3 architecture diagrams · Data Augmentation Module reframing) | Defense window: mid-June → mid-July 2026 · implementation freeze: first week of June | Methodology: **Hybrid CRISP-DM + MLOps overlay** · HCS portability removed (cloud-native by design)
+
+---
+
+## 2026-05-10 — Expert-Feedback Realignment
+
+| Workstream | Output | Path |
+|---|---|---|
+| WS1 BSS→CEM rename | `revenue_anomalies` table → `cem_anomalies`, `bss_variable` column → `cem_variable`, `/revenue-anomalies` route → `/cem-anomalies`, sidebar group "OSS ∩ BSS Convergence" → "OSS ∩ CEM Convergence", "Subscriber (BSS)" → "Subscriber (CEM)". Migration script idempotent. Raw `bss_subscribers` load table preserved (data-source layer). | `docs/db/migrations/001_bss_to_cem_rename.sql` |
+| WS2 Granger 2-tier | Offline gate notebook produces `granger_feature_gate.json`; new `GET /granger-causality/lead-time?area=X` endpoint (configurable `LAG_WINDOW_MINUTES`); new `<LeadTimeHistogram />` component on `/granger-causality` page. | `notebooks/10_granger_feature_selection.py`, `services/api-gateway/routers/granger.py`, `dashboard/components/LeadTimeHistogram.tsx` |
+| WS3 EDA + quality audit | 10-section script: inventory · missingness · distributions · outliers · correlations · corruption · imbalance · drift · generator validation · conclusions. Outputs PNGs + JSON summary + memoir-ready Markdown. | `notebooks/00_data_understanding_eda.py` |
+| WS4 BO/DSO + presentation + diagrams | Business charter (BO1-3, DSO1-5, KPI tree) · 13-slide outline mapped to CRISP-DM phases · 3 architecture diagrams in Mermaid (C4 context + container, deployment, ML lifecycle). | `docs/business/objectives.md`, `docs/presentation/v1_outline.md`, `diagrams/v2/*.md` |
+| WS5 Data augmentation reframing | Generator reframed as a Data Augmentation Module subordinate to real data — fills 3 BSS months + 4 OSS months only. | `docs/data-model/data-augmentation.md` |
+
+**Defense pain hook (locked):** *"Network anomalies are invisible to OSS until a customer complaint reaches Care."*  Resolution mechanism: OSS↔CEM convergence proven by Granger F-test → ConvergenceSpirit → ActionSpirit auto-remediation.
+
+**Out-of-scope (locked):** HCS cloud migration, LSTM Churn 4th model, real NOC alarm baseline.
+
+---
+
+## Recent Session Changes (2026-05-04)
+
+| Area | Change | File / Location |
+|------|--------|-----------------|
+| **Performance** | 12 materialized views; dashboard 60s → <100ms (1500-3750× speedup) | [docs/db/dashboard_summary.sql](docs/db/dashboard_summary.sql) |
+| **API routes** | cem-scores / vae-anomalies / rat-underservice / platform-data patched to read mat views | [dashboard/app/api/](dashboard/app/api/) |
+| **SSR lib** | `vaeAnomalies()`, `cemScores()`, `ratUnderservice()`, `anomalyStats()` now use mat views | [dashboard/lib/api.ts](dashboard/lib/api.ts) |
+| **Production build** | Dashboard switched from `npm run dev` to `next build` + `next start` | [dashboard/Dockerfile](dashboard/Dockerfile) |
+| **Pipeline integration** | Mat views auto-refresh after each succeeded run via `refresh_dashboard_views()` | [services/pipeline-worker/worker/pipeline.py](services/pipeline-worker/worker/pipeline.py) |
+| **Pipeline mode** | `RUN_MODE: manual` → `daemon` with `CYCLE_SECONDS: 120` | [docker-compose.yml](docker-compose.yml) |
+| **otel-collector** | `logging` → `debug` exporter (deprecated in v0.119) | [infra/monitoring/otel-collector-config.yaml](infra/monitoring/otel-collector-config.yaml) |
+| **Grafana** | Datasource explicit `uid: prometheus`; admin password reset via `grafana-cli admin reset-admin-password` | [infra/monitoring/grafana/provisioning/datasources/datasource.yml](infra/monitoring/grafana/provisioning/datasources/datasource.yml) |
+| **Prometheus metrics** | All 4 FastAPI services expose `/metrics` via `prometheus-fastapi-instrumentator==7.0.0` (api-gateway, ai-service, auth-service, agent-service) | services/*/main.py |
+| **api-gateway** | `/infra-stats` uses `pg_class.reltuples` for approximate counts (5s → ms); `/platform-stats` reads `mv_dashboard_summary` | [services/api-gateway/routers/stats.py](services/api-gateway/routers/stats.py) |
+| **L4 page** | Reframed Huawei ADN-style: 3-layer architecture, 4-step closed loop, 5 Spirits + 3 Mates roster, autonomy level meter (L1-L4), ADN-aligned tab labels (NOCMate, Spirits·Decisions, Awareness, Execution·Playbooks, Audit Timeline) | [dashboard/app/l4-agent/page.tsx](dashboard/app/l4-agent/page.tsx) |
+| **L4 architecture component** | New `<L4ADNArchitecture />` with collapsible content + autonomy score | [dashboard/components/L4ADNArchitecture.tsx](dashboard/components/L4ADNArchitecture.tsx) |
+| **L4 explainer card** | Defense-mode `<details data-defense-explainer>` panel — 8 explainer panels, removable for prod | [dashboard/app/l4-agent/page.tsx](dashboard/app/l4-agent/page.tsx) |
+| **L4 layout fixes** | Removed duplicate `l4-header`, replaced with compact agent status strip; toast moved bottom-right (was overlapping architecture metrics) | dashboard CSS + l4-agent page |
+| **L4 fetchData** | Action POST loop made fire-and-forget via `Promise.allSettled` (was blocking page load 30s+) | l4-agent page.tsx fetchData |
+| **Sidebar** | Reorganized along OSS↔CEM narrative: ADN Autonomy → OSS∩BSS Convergence → Network (OSS) → Subscriber (BSS) → Models & Ops. L4 ADN promoted to top with `L4` badge. | [dashboard/components/Sidebar.tsx](dashboard/components/Sidebar.tsx) |
+| **Sidebar/header overlap** | `.top-header-left` gets `min-width: 0` + `overflow: hidden`; title uses `text-overflow: ellipsis`; `<1100px` viewport hides search/badge/date | [dashboard/app/globals.css](dashboard/app/globals.css) |
+| **Granger frontend** | Two new explainer panels — methodology (4-step) + OSS∩BSS convergence justification with how-to-read callout | [dashboard/app/granger-causality/page.tsx](dashboard/app/granger-causality/page.tsx) |
+| **Granger backend** | New `GET /granger-causality/explain` returns method + hypothesis + parameters + convergence_role + limitations metadata | [services/api-gateway/routers/granger.py](services/api-gateway/routers/granger.py) |
+| **Defense brief** | Comprehensive single-source-of-truth document for Thursday restitution: pitch, data, feature engineering, model architectures, container map, pipeline 22 steps, Q&A, junk audit, super-mode upgrade list | [DEFENSE_BRIEF.md](DEFENSE_BRIEF.md) |
+
+### Removable for Production
+The L4 page Defense Explainer card is wrapped in `<details data-defense-explainer>` — grep for that attribute or wrap in a `PRESENTATION_MODE` env flag to remove before shipping to operators. The architecture component above stays.
+
+### Junk Audit Candidates (require user approval before deletion)
+1. `/topology` page — uses demo network structure, not real topology data
+2. `dashboard/app/sla-risk/` — appears deleted in working tree; route audit needed
+3. `pipeline_runner.py` at repo root — alternate runner, only used by Jupyter container; risk of drift with real pipeline-worker
+4. `Dockerfile.notebooks` — duplicates pipeline logic
+5. Legacy `model_registry` table — populated, not queried; either revive (model-versioning surface) or drop
+6. `lib/api.ts` legacy method names `anomalies` / `revenueAnomalies` — kept for back-compat; pages now use vae-anomalies + rat-underservice
+
+### Super-Mode Upgrades (proposals)
+1. **LSTM Churn** — complete the 4th model from roadmap
+2. **Postgres LISTEN/NOTIFY pipeline** — event-driven, replace 120s timer
+3. **TimescaleDB hypertable** on `oss_cell_kpis` — 5-10× faster time-range queries
+4. **Multi-agent collaboration** (Trend 7 of Huawei 2024) — agent-to-agent message passing
+5. **Streamlit explainer mode** for AI Hub — interactive SHAP, what-if analysis
+6. **Chaos playbook** `pb-induce-fault` — deliberate anomaly injection for live demo
+7. **Aggregate `/api/healthz`** — single JSON status of all containers
+8. **Grafana p95/p99 latency panels** — wire request_duration histogram (currently only counter)
+9. **Redis pub/sub for pipeline state** — cut 20-30% pipeline latency
+10. **Make targets** for `pipeline-once` / `pipeline-daemon` — bulletproof demo commands
 
 ---
 
@@ -10,7 +76,7 @@
 **Owner:** Souhayl Guenichi — ESPRIT engineering student, 6-month internship at Huawei Tunisia (Cloud IT / Sales-Solution)
 **Goal:** Graduate with excellence, deliver an industrial-grade AI Operations Agent trained on real Tunisie Telecom data, demonstrate Huawei Cloud Stack maturity within the ADN paradigm.
 
-**What it does:** Bridges Huawei CEM (SmartCare) and CVM by ingesting OSS network KPIs + BSS subscriber experience data, running ML/DL models (CEM experience scoring via LightGBM/DART, experience anomaly detection via PyTorch VAE, RAT underservice classification via XGBoost, churn trajectory prediction via LSTM planned), computing OSS↔BSS correlations with Granger causality, and serving actionable intelligence via REST API + Next.js dashboard with ADN L4 autonomous operations.
+**What it does:** Bridges Huawei CEM (SmartCare) and CVM by ingesting OSS network KPIs + BSS subscriber experience data, running ML/DL models (CEM experience scoring via LightGBM/DART, experience anomaly detection via PyTorch VAE, RAT underservice classification via XGBoost, churn trajectory prediction via LSTM planned), computing OSS↔CEM correlations with Granger causality, and serving actionable intelligence via REST API + Next.js dashboard with ADN L4 autonomous operations.
 
 **Strategic position:** Intelligence layer in Huawei's ADN (Autonomous Driving Network) architecture for O+B (OSS+BSS) convergence. CEM-oriented subscriber profiling (not billing) — aligned with SmartCare architecture.
 
@@ -29,9 +95,11 @@
 | dashboard         | 3001  | Next.js 14, React 18, TypeScript |
 | postgres          | 5432  | PostgreSQL 16              |
 | minio             | 9000  | S3-compatible object store |
-| signoz-frontend   | 3301  | All-in-one observability UI (traces, metrics, logs) |
-| otel-collector    | 4317/4318 | OpenTelemetry OTLP receiver (gRPC/HTTP) |
-| clickhouse        | —     | ClickHouse 24.1 (SigNoz storage, internal only) |
+| netdata           | 19999 | Real-time system & container monitoring (lightweight all-in-one) |
+| prometheus        | 9090  | Metrics TSDB and scraping |
+| grafana           | 3000  | Dashboards & visualization |
+| jaeger            | 16686 | Distributed trace storage & UI |
+| otel-collector    | 4319/4320 | OpenTelemetry OTLP receiver (gRPC/HTTP) |
 | ollama            | 11434 | Local LLM (Qwen2.5:7b)    |
 
 ---
@@ -60,8 +128,8 @@ ollama run qwen2.5:7b
 - **PostgreSQL:** telecom / telecom_pw / telecom_intel
 - **MinIO:** minio / minio_pw
 - **JWT Secret:** telecom-dev-secret-change-in-prod
-- **SigNoz:** No login required (dev mode) — open http://localhost:3301
-- **ClickHouse:** admin / 27ff0399-0d3a-4bd8-919d-17c2181e6fb9 (internal only)
+- **Grafana:** admin / admin — open http://localhost:3000
+- **Netdata:** No login required (dev mode) — open http://localhost:19999
 
 ---
 
@@ -409,7 +477,7 @@ notebooks/              # Jupyter notebooks for model training + evaluation
 docs/                   # Architecture, data model, deployment guides
 TT_data/                # CONFIDENTIAL — real Tunisie Telecom data (gitignored)
   BSS/                  #   500K subscriber CEM profiles (26 features, March 2026)
-infra/monitoring/       # SigNoz + OTel Collector configs (replaces Prometheus + Grafana)
+infra/monitoring/       # Netdata + Prometheus + Grafana + Jaeger + OTel Collector configs
 diagrams/               # Architecture diagram exports
 docker-compose.yml      # 10-service orchestration
 .github/workflows/      # CI/CD pipeline

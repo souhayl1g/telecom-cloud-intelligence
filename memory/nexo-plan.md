@@ -1,5 +1,8 @@
 # NeXoligence — Complete Project Encyclopedia
 
+> ⚠️ Read [REALIGNMENT_2026-05-10.md](REALIGNMENT_2026-05-10.md) first for the post-expert-feedback realignment + cleanup. The content below is pre-realignment context.
+
+
 > **Last updated:** 2026-04-29
 > **Author:** Souhayl Guenichi
 > **Project:** Telecom NeXoligence — Cloud-Native AI Operations Platform
@@ -48,7 +51,7 @@
 2. **Injects** realistic faults (cell degradation, throughput collapse, latency spikes)
 3. **Stores** data in a 3-layer MinIO data lake (`raw` → `processed` → `curated`)
 4. **Runs** 6 ML models: SLA risk (GBR), OSS anomaly (IsolationForest), BSS revenue anomaly (IsolationForest), CEM score (LightGBM), OSS anomaly v3 (VAE), RAT underservice (XGBoost)
-5. **Computes** OSS↔BSS correlations (Pearson + Spearman on 5 metric pairs)
+5. **Computes** OSS↔CEM correlations (Pearson + Spearman on 5 metric pairs)
 6. **Tests** temporal causality (Granger causality on 9 months of area aggregates)
 7. **Persists** all results to PostgreSQL (15 tables)
 8. **Serves** insights through a FastAPI REST gateway and a Next.js dashboard with an ADN L4 autonomous operations agent
@@ -96,7 +99,7 @@
 | Frontend | TypeScript | 5.4.5 | Type safety |
 | Storage | PostgreSQL | 16 | Serving store |
 | Object Store | MinIO | latest | S3-compatible data lake |
-| Observability | SigNoz + OpenTelemetry | 0.55.0 | Traces, metrics, logs |
+| Observability | Netdata + Prometheus + Grafana + Jaeger + OpenTelemetry | 0.55.0 | Traces, metrics, logs |
 | LLM (local) | Ollama | Qwen2.5:7b | L4 agent reasoning |
 | Containerization | Docker + Compose | — | 15+ containers |
 
@@ -225,7 +228,7 @@ call_drop_rate, timestamp, site_name, source
 
 **File:** `services/data-ingest/build_cell_governorate_map.py`
 
-**Problem:** OSS cell towers use technical names (`3G_Ariana_el_Medina`, `SFX3058`) while BSS subscribers use governorate names (`Ariana`, `Sfax`). Need to align them for OSS↔BSS convergence.
+**Problem:** OSS cell towers use technical names (`3G_Ariana_el_Medina`, `SFX3058`) while BSS subscribers use governorate names (`Ariana`, `Sfax`). Need to align them for OSS↔CEM convergence.
 
 **Method (7-tier fallback):**
 1. **SITE_NAME_MAP**: BSC/RNC site code → governorate (`BSCZAG51` → Zaghouen)
@@ -549,7 +552,7 @@ network_experience_index
 | `/anomalies` | SSR | Anomaly explorer | API Gateway |
 | `/vae-anomalies` | Client | PyTorch VAE results | `/api/vae-anomalies` (direct DB) |
 | `/sla-risk` | SSR | SLA risk predictor | API Gateway |
-| `/correlations` | SSR | OSS↔BSS convergence | API Gateway |
+| `/correlations` | SSR | OSS↔CEM convergence | API Gateway |
 | `/intelligence` | SSR | AI Hub / Root cause | API Gateway |
 | `/predictive` | SSR | Forecasting | API Gateway |
 | `/cem-scores` | Client | CEM experience | `/api/cem-scores` (direct DB) |
@@ -588,7 +591,7 @@ network_experience_index
 | GET | `/anomalies` | JWT | OSS anomalies |
 | GET | `/revenue-anomalies` | JWT | BSS revenue anomalies |
 | GET | `/anomaly-stats` | JWT | Per-run anomaly counts |
-| GET | `/correlation` | JWT | OSS↔BSS correlations |
+| GET | `/correlation` | JWT | OSS↔CEM correlations |
 | GET | `/pipeline-runs` | JWT | Pipeline history |
 | GET | `/kpi-summary` | JWT | Real KPI aggregates |
 | GET | `/platform-stats` | JWT | Aggregated stats |
@@ -651,7 +654,7 @@ network_experience_index
 | 5 | `sla_risk_scores` | GBR predictions | score [0-1], explanation JSONB |
 | 6 | `anomalies` | OSS anomalies | cell_id, kpi_name, severity, model_version |
 | 7 | `revenue_anomalies` | BSS anomalies | subscriber_id, line_type, plan, severity |
-| 8 | `correlation_insights` | OSS↔BSS correlations | metric_x, metric_y, method, corr_value, p_value |
+| 8 | `correlation_insights` | OSS↔CEM correlations | metric_x, metric_y, method, corr_value, p_value |
 | 9 | `agent_actions` | L4 audit trail | action_id, type, status, execution_log JSONB |
 | 10 | `bss_subscribers` | Subscriber data | imsi_hash, area, dou_total, traffic_2g-5g, highest_rat, churned |
 | 11 | `oss_cell_kpis` | Cell KPIs | cell_id, throughput, latency, packet_loss, anomaly_flag, source |
@@ -682,7 +685,7 @@ network_experience_index
 11. Call `/infer/sla-risk` → AI service
 12. Call `/infer/anomaly` → AI service
 13. Call `/infer/revenue-anomaly` → AI service
-14. Compute OSS↔BSS correlations
+14. Compute OSS↔CEM correlations
 15. Build curated dataset
 16. Register curated dataset
 17. Persist SLA risk score

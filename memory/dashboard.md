@@ -1,5 +1,8 @@
 # Dashboard Memory
 
+> ⚠️ Read [REALIGNMENT_2026-05-10.md](REALIGNMENT_2026-05-10.md) first for the post-expert-feedback realignment + cleanup. The content below is pre-realignment context.
+
+
 > Last updated: 2026-04-29
 
 ## Architecture
@@ -18,7 +21,7 @@
 | `/anomalies` | SSR | API Gateway | OSS + BSS anomaly explorer with heatmap |
 | `/vae-anomalies` | Client | `/api/vae-anomalies` | PyTorch VAE anomaly detection results |
 | `/sla-risk` | SSR | API Gateway | SLA risk predictor with gauge and trend |
-| `/correlations` | SSR | API Gateway | OSS↔BSS convergence heatmap |
+| `/correlations` | SSR | API Gateway | OSS↔CEM convergence heatmap |
 | `/intelligence` | SSR | API Gateway | AI Hub — cross-domain root cause analysis |
 | `/predictive` | SSR | API Gateway | Forecasting — linear regression projections |
 | `/cem-scores` | Client | `/api/cem-scores` | CEM experience score distribution |

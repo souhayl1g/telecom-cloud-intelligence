@@ -1,5 +1,8 @@
 # Defense & Academic Memory
 
+> ⚠️ Read [REALIGNMENT_2026-05-10.md](REALIGNMENT_2026-05-10.md) first for the post-expert-feedback realignment + cleanup. The content below is pre-realignment context.
+
+
 > Last updated: 2026-04-29
 
 ## Project Context
@@ -12,9 +15,9 @@
 
 ## Key Contributions
 
-### 1. OSS↔BSS Convergence
+### 1. OSS↔CEM Convergence
 - Built cell-to-governorate mapping for 3,487 cell towers → 24 governorates (~80% coverage)
-- Computed area-level aggregates with proper OSS↔BSS alignment
+- Computed area-level aggregates with proper OSS↔CEM alignment
 - Found 13 significant Granger causal relationships across 9 months
 
 ### 2. ML Model Suite

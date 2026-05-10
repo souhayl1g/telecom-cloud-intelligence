@@ -1,5 +1,8 @@
 # Cloud & Infrastructure Memory
 
+> ⚠️ Read [REALIGNMENT_2026-05-10.md](REALIGNMENT_2026-05-10.md) first for the post-expert-feedback realignment + cleanup. The content below is pre-realignment context.
+
+
 > Last updated: 2026-04-29
 
 ## Docker Services
@@ -23,9 +26,9 @@ All services orchestrated via docker-compose.yml with 15+ containers.
 
 | Service | Port | Status |
 |---------|------|--------|
-| signoz-frontend | 3301 | Running |
+| Netdata | 19999 | Running |
 | otel-collector | 4317/4318 | Running |
-| clickhouse | — | Internal |
+| Prometheus | — | Internal |
 
 ### Docker Build Fix (2026-04-29)
 
