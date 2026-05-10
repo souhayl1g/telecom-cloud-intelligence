@@ -130,7 +130,7 @@ CRISP-DM is a research-oriented, waterfall-style methodology designed for one-of
 
 - **Operational**: every step feeds the next deployment stage
 - **Versioned**: data, features, models, and code are all versioned (MinIO dated folders, `model_registry` table, `.joblib` artifacts)
-- **Observable**: metrics and lineage captured at each step (SigNoz + OpenTelemetry)
+- **Observable**: metrics and lineage captured at each step (Netdata + Prometheus + Grafana + Jaeger + OpenTelemetry)
 - **Continuous**: retraining happens automatically as new data arrives
 
 ### The 7 Phases

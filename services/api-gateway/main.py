@@ -7,7 +7,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from routers import health, sla, anomalies, correlations, pipelines, actions, agents, subscribers, stats
+from routers import health, sla, anomalies, correlations, pipelines, actions, agents, subscribers, stats, granger
 
 
 def _setup_tracing() -> None:
@@ -28,6 +28,12 @@ _setup_tracing()
 app = FastAPI(title="Telecom NeXoligence — API Gateway", version="2.0")
 FastAPIInstrumentor.instrument_app(app)
 
+# Prometheus /metrics endpoint — scraped per prometheus.yml.
+# Without this, Grafana panels show "No data".
+from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
 app.include_router(health.router)
 app.include_router(sla.router)
 app.include_router(anomalies.router)
@@ -37,3 +43,4 @@ app.include_router(actions.router)
 app.include_router(agents.router)
 app.include_router(subscribers.router)
 app.include_router(stats.router)
+app.include_router(granger.router)

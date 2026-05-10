@@ -158,44 +158,7 @@ const REAL_METRICS = {
         lastTrained: "2026-04-28T20:55:00Z",
         note: "Trained on 2.47M subscribers across 5 months. 500 trees, depth 8, GPU-accelerated XGBoost. Catches 89% of underserved subscribers.",
     },
-    // Legacy v2.0 models retained for reference
-    sla_risk: {
-        name: "SLA Risk Predictor",
-        algorithm: "GradientBoostingRegressor",
-        version: "v2.0",
-        features: 9,
-        featureNames: [
-            "mean_throughput_mbps", "std_throughput_mbps", "mean_latency_ms",
-            "std_latency_ms", "max_latency_ms", "mean_packet_loss_pct",
-            "max_packet_loss_pct", "mean_active_users", "mean_signal_rsrp_dbm",
-        ],
-        task: "regression",
-        trainingData: { samples: 3000, trainSplit: 2400, testSplit: 600 },
-        hyperparameters: { n_estimators: 200, max_depth: 4, learning_rate: 0.05, subsample: 0.8 },
-        metrics: {
-            train: { mae: 0.016303, r2: 0.985867 },
-            test: { mae: 0.018495, rmse: 0.027222, r2: 0.979108, mse: 0.000741 },
-            crossValidation: { mae: 0.019614, mae_std: 0.000912, r2: 0.977127, r2_std: 0.002773, folds: 5 },
-        },
-        lastTrained: "2026-04-01T10:30:00Z",
-        note: "Legacy v2.0 model trained on synthetic data. Superseded by v3.0 CEM LightGBM.",
-    },
-    bss_anomaly: {
-        name: "BSS Revenue Anomaly",
-        algorithm: "IsolationForest",
-        version: "v2.0",
-        features: 5,
-        featureNames: ["revenue_tnd", "data_used_gb", "voice_min", "sms_count", "churn_risk"],
-        task: "anomaly_detection",
-        trainingData: { samples: 3000, anomalyRate: 0.05, anomalies: 150, normal: 2850 },
-        hyperparameters: { n_estimators: 150, contamination: 0.05 },
-        metrics: {
-            confusionMatrix: { tn: 2850, fp: 0, fn: 0, tp: 150 },
-            precision: 1.0, recall: 1.0, f1: 1.0, rocAuc: 1.0, averagePrecision: 1.0, accuracy: 1.0,
-        },
-        lastTrained: "2026-04-01T10:30:00Z",
-        note: "Legacy v2.0 model trained on synthetic data. v3.0 RAT model covers subscriber experience.",
-    },
+
 };
 
 export async function GET() {

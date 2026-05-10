@@ -1,5 +1,5 @@
 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- NeXo Platform Logo — Advanced Hexagonal Network Mark -->
+  <!-- NeXo Platform Logo — Cyan/Blue Network Mark -->
   <!-- Outer hexagonal frame -->
   <path d="M20 2L36 11.5V28.5L20 38L4 28.5V11.5L20 2Z" fill="none" stroke="url(#nx-grad)" stroke-width="1.8" opacity="0.9"/>
   <!-- Inner hexagon -->
@@ -16,9 +16,9 @@
   <!-- Glow filter -->
   <defs>
     <linearGradient id="nx-grad" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#00D4FF"/>
-      <stop offset="0.5" stop-color="#7B61FF"/>
-      <stop offset="1" stop-color="#FF006E"/>
+      <stop stop-color="#00E5FF"/>
+      <stop offset="0.5" stop-color="#00D4FF"/>
+      <stop offset="1" stop-color="#0066FF"/>
     </linearGradient>
   </defs>
 </svg>

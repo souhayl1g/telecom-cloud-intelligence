@@ -130,7 +130,7 @@ The project is positioned within Huawei's **ADN 5G/N3** vision — the network t
 | GET | /anomalies | Latest N OSS anomaly records with cell_id, severity |
 | GET | /pipeline-runs | Last N pipeline execution records |
 | GET | /revenue-anomalies | Latest N BSS revenue anomalies with operator, line_type, plan |
-| GET | /correlation | Latest N OSS↔BSS Pearson/Spearman correlations |
+| GET | /correlation | Latest N OSS↔CEM Pearson/Spearman correlations |
 
 ### AI Service Endpoints (4 total)
 
@@ -196,7 +196,7 @@ The project is positioned within Huawei's **ADN 5G/N3** vision — the network t
 12. Call AI service /infer/sla-risk
 13. Call AI service /infer/anomaly (OSS IsolationForest)
 14. Call AI service /infer/revenue-anomaly (BSS IsolationForest)
-15. Compute OSS↔BSS correlations (5 pairs × 2 methods = 10 results)
+15. Compute OSS↔CEM correlations (5 pairs × 2 methods = 10 results)
 16. Build curated dataset (joined OSS+BSS+AI) → upload to curated bucket
 17. Register curated dataset
 18. Persist SLA risk score

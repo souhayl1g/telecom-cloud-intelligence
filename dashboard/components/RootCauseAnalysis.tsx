@@ -5,7 +5,7 @@
    - SLA risk score + feature importances
    - OSS anomalies (cell-level, with severity + baseline deviation)
    - BSS anomalies (subscriber-level, with revenue impact)
-   - OSS↔BSS correlations (Pearson/Spearman, with significance)
+   - OSS↔CEM correlations (Pearson/Spearman, with significance)
    ──────────────────────────────────────────────────────────────────────── */
 
 interface RCAProps {

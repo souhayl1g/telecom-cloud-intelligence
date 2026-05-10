@@ -497,7 +497,7 @@ def compute_bss_features(records: list[dict]) -> dict:
 - [x] **Step 4: Create `services/pipeline-worker/worker/analytics/correlations.py`**
 
 ```python
-"""OSS↔BSS correlation engine — Pearson + Spearman + Distance Correlation."""
+"""OSS↔CEM correlation engine — Pearson + Spearman + Distance Correlation."""
 import numpy as np
 from scipy import stats
 

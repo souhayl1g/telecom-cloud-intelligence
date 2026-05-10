@@ -186,7 +186,7 @@ telecom-cloud-intelligence/
 - Changes here must be reflected in api-gateway queries
 
 **`infra/monitoring/`:**
-- SigNoz + OpenTelemetry Collector configuration
+- Netdata + Prometheus + Grafana + Jaeger + OpenTelemetry Collector configuration
 - SigNoz replaces the legacy Grafana/Prometheus stack (Grafana configs kept for reference only)
 
 ## Key File Locations

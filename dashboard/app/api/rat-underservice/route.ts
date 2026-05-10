@@ -5,57 +5,34 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const overall = await query<{ total: number; underserved: number; rate: number }>(`
-            SELECT 
-                COUNT(*)::int as total,
-                COUNT(*) FILTER (WHERE rat_gap_score > 0.3)::int as underserved,
-                ROUND(COUNT(*) FILTER (WHERE rat_gap_score > 0.3) * 100.0 / COUNT(*), 2) as rate
-            FROM subscriber_features
-            WHERE rat_gap_score IS NOT NULL
-        `);
-
-        const byGeneration = await query<{ generation: string; total: number; underserved: number; rate: number }>(`
-            SELECT 
-                bs.generation,
-                COUNT(*)::int as total,
-                COUNT(*) FILTER (WHERE sf.rat_gap_score > 0.3)::int as underserved,
-                ROUND(COUNT(*) FILTER (WHERE sf.rat_gap_score > 0.3) * 100.0 / COUNT(*), 2) as rate
-            FROM subscriber_features sf
-            JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
-            WHERE sf.rat_gap_score IS NOT NULL AND bs.generation IS NOT NULL
-            GROUP BY bs.generation
-            ORDER BY rate DESC
-        `);
-
-        const byArea = await query<{ area: string; total: number; underserved: number; rate: number }>(`
-            SELECT 
-                bs.area,
-                COUNT(*)::int as total,
-                COUNT(*) FILTER (WHERE sf.rat_gap_score > 0.3)::int as underserved,
-                ROUND(COUNT(*) FILTER (WHERE sf.rat_gap_score > 0.3) * 100.0 / COUNT(*), 2) as rate
-            FROM subscriber_features sf
-            JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
-            WHERE sf.rat_gap_score IS NOT NULL AND bs.area IS NOT NULL
-            GROUP BY bs.area
-            ORDER BY rate DESC
-        `);
-
-        const topUnderserved = await query<{ imsi_hash: string; rat_gap_score: number; area: string; generation: string; highest_rat: string }>(`
-            SELECT 
-                sf.imsi_hash,
-                sf.rat_gap_score,
-                bs.area,
-                bs.generation,
-                bs.highest_rat
-            FROM subscriber_features sf
-            JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
-            WHERE sf.rat_gap_score IS NOT NULL
-            ORDER BY sf.rat_gap_score DESC
-            LIMIT 50
-        `);
+        const [overallRow, byGeneration, byArea, topUnderserved] = await Promise.all([
+            query<{ total: number; underserved: number; rate: number }>(
+                `SELECT rat_total::int       AS total,
+                        rat_underserved::int AS underserved,
+                        rat_rate             AS rate
+                 FROM mv_dashboard_summary`
+            ),
+            query<{ generation: string; total: number; underserved: number; rate: number }>(
+                `SELECT generation, total, underserved, rate
+                 FROM mv_rat_by_generation
+                 ORDER BY rate DESC`
+            ),
+            query<{ area: string; total: number; underserved: number; rate: number }>(
+                `SELECT area, total, underserved, rate
+                 FROM mv_rat_by_area
+                 ORDER BY rate DESC
+                 LIMIT 30`
+            ),
+            query<{ imsi_hash: string; rat_gap_score: number; area: string; generation: string; highest_rat: string }>(
+                `SELECT imsi_hash, rat_gap_score, area, generation, highest_rat
+                 FROM mv_rat_top_underserved
+                 ORDER BY rat_gap_score DESC
+                 LIMIT 50`
+            ),
+        ]);
 
         return NextResponse.json({
-            overall: overall[0],
+            overall: overallRow[0] ?? { total: 0, underserved: 0, rate: 0 },
             byGeneration,
             byArea,
             topUnderserved,

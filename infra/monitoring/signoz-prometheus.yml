@@ -1,6 +1,0 @@
-# SigNoz query-service uses this for internal alert rule evaluation
-global:
-  scrape_interval: 30s
-  evaluation_interval: 30s
-rule_files: []
-scrape_configs: []

@@ -59,7 +59,7 @@ export default function AICopilotIcon() {
                         Intelligence Hub
                     </button>
                     <div className="l4-pill-menu-footer">
-                        ADN L4 · Qwen2.5 7B · 120s cycle
+                        ADN L4 · Qwen2.5 7B · 30s cycle
                     </div>
                 </div>
             )}

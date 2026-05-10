@@ -24,6 +24,14 @@ from agents.action_agent import ActionAgent
 
 app = FastAPI(title="NeXo Agent Service", version="3.0")
 
+# Prometheus /metrics endpoint — scraped per prometheus.yml.
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+except ImportError:
+    pass
+
 orchestrator = Orchestrator()
 
 

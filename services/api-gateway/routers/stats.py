@@ -8,56 +8,57 @@ router = APIRouter()
 
 @router.get("/platform-stats")
 def platform_stats(user=Depends(require_auth)):
-    """Return aggregated platform statistics for capacity planning and topology."""
+    """Return aggregated platform statistics for capacity planning and topology.
+
+    Reads pre-aggregated mv_dashboard_summary so this stays O(1) even at 19M+ rows.
+    """
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Pipeline run counts
-                cur.execute("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status='succeeded') AS succeeded FROM pipeline_runs;")
+                cur.execute("""
+                    SELECT COUNT(*) AS total,
+                           COUNT(*) FILTER (WHERE status='succeeded') AS succeeded
+                    FROM pipeline_runs;
+                """)
                 run_stats = cur.fetchone()
 
-                # Anomaly counts by severity
                 cur.execute("""
                     SELECT
-                        COUNT(*) AS total,
-                        COUNT(*) FILTER (WHERE severity > 0.9) AS critical,
-                        COUNT(*) FILTER (WHERE severity > 0.5 AND severity <= 0.9) AS warning,
-                        COUNT(*) FILTER (WHERE severity <= 0.5) AS low,
-                        AVG(severity) AS avg_severity
-                    FROM anomalies
-                    WHERE created_at >= NOW() - INTERVAL '1 hour';
+                        COUNT(*) AS total_pairs,
+                        COUNT(*) FILTER (WHERE significant = TRUE) AS significant_pairs,
+                        ROUND(AVG(best_pvalue)::numeric, 4) AS mean_pvalue
+                    FROM granger_causality_results;
                 """)
-                anomaly_stats = cur.fetchone()
+                granger_stats = cur.fetchone()
 
-                # Revenue anomaly stats
+                # Pull VAE/RAT/CEM aggregates from materialized view (constant-time read).
                 cur.execute("""
-                    SELECT COUNT(*) AS total, AVG(severity) AS avg_severity
-                    FROM revenue_anomalies
-                    WHERE created_at >= NOW() - INTERVAL '1 hour';
+                    SELECT oss_total AS total,
+                           oss_anomaly_count AS anomalies,
+                           oss_areas_affected AS unique_areas,
+                           rat_total AS subscriber_total,
+                           rat_underserved AS underserved
+                    FROM mv_dashboard_summary;
                 """)
-                revenue_stats = cur.fetchone()
+                summary = cur.fetchone() or {}
 
-                # Average KPIs from recent anomalies (proxy for current network state)
-                cur.execute("""
-                    SELECT
-                        AVG(CAST(value AS FLOAT)) AS avg_kpi_value,
-                        COUNT(DISTINCT cell_id) AS unique_cells,
-                        COUNT(DISTINCT region) AS unique_regions
-                    FROM anomalies
-                    WHERE created_at >= NOW() - INTERVAL '1 hour';
-                """)
-                kpi_stats = cur.fetchone()
-
-                # SLA risk trend (last 20)
-                cur.execute("SELECT score, created_at FROM sla_risk_scores ORDER BY created_at DESC LIMIT 20;")
-                sla_trend = cur.fetchall()
+                vae_stats = {
+                    "total": summary.get("total"),
+                    "anomalies": summary.get("anomalies"),
+                    "unique_cells": None,  # not in summary; expose via /vae-anomalies if needed
+                    "unique_areas": summary.get("unique_areas"),
+                }
+                subscriber_stats = {
+                    "total": summary.get("subscriber_total"),
+                    "underserved": summary.get("underserved"),
+                    "churn_risk": None,
+                }
 
                 return {
                     "pipeline": run_stats,
-                    "anomalies": anomaly_stats,
-                    "revenue_anomalies": revenue_stats,
-                    "network": kpi_stats,
-                    "sla_trend": sla_trend,
+                    "granger": granger_stats,
+                    "vae_anomalies": vae_stats,
+                    "subscriber_risks": subscriber_stats,
                 }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -69,17 +70,20 @@ def infra_stats(user=Depends(require_auth)):
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Row counts per table
+                # Row counts: exact for small tables, approximate (pg_class.reltuples)
+                # for the giant ones. reltuples is updated by ANALYZE / autovacuum and
+                # avoids 5+ second sequential scans on 19M-row tables.
                 cur.execute("""
                     SELECT
                         (SELECT count(*) FROM pipeline_runs) AS pipeline_runs,
-                        (SELECT count(*) FROM anomalies) AS anomalies,
-                        (SELECT count(*) FROM revenue_anomalies) AS revenue_anomalies,
-                        (SELECT count(*) FROM sla_risk_scores) AS sla_scores,
                         (SELECT count(*) FROM correlation_insights) AS correlations,
                         (SELECT count(*) FROM dataset_registry) AS datasets,
                         (SELECT count(*) FROM agent_actions) AS actions,
-                        (SELECT count(*) FROM users) AS users;
+                        (SELECT count(*) FROM users) AS users,
+                        (SELECT count(*) FROM granger_causality_results) AS granger_results,
+                        (SELECT reltuples::bigint FROM pg_class WHERE relname='subscriber_features') AS subscriber_features,
+                        (SELECT reltuples::bigint FROM pg_class WHERE relname='oss_cell_kpis') AS oss_cell_kpis,
+                        (SELECT count(*) FROM area_network_health) AS area_network_health;
                 """)
                 row_counts = cur.fetchone()
 
@@ -94,12 +98,13 @@ def infra_stats(user=Depends(require_auth)):
                 # Real table sizes
                 cur.execute("""
                     SELECT
-                        pg_total_relation_size('anomalies') AS anomalies_bytes,
                         pg_total_relation_size('correlation_insights') AS correlations_bytes,
-                        pg_total_relation_size('sla_risk_scores') AS sla_bytes,
-                        pg_total_relation_size('revenue_anomalies') AS revenue_bytes,
                         pg_total_relation_size('dataset_registry') AS datasets_bytes,
-                        pg_total_relation_size('pipeline_runs') AS pipeline_bytes;
+                        pg_total_relation_size('pipeline_runs') AS pipeline_bytes,
+                        pg_total_relation_size('granger_causality_results') AS granger_bytes,
+                        pg_total_relation_size('subscriber_features') AS subscriber_features_bytes,
+                        pg_total_relation_size('oss_cell_kpis') AS oss_cell_kpis_bytes,
+                        pg_total_relation_size('area_network_health') AS area_network_health_bytes;
                 """)
                 table_sizes = cur.fetchone()
 

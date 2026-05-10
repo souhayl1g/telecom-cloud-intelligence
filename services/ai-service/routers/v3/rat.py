@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 import numpy as np
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from config import MODEL_VERSION, RAT_FEATURES
@@ -62,7 +62,10 @@ def infer_rat_underservice(req: RatRequest):
         dtype=np.float32,
     )
 
-    probs = rat_model.predict_proba(X)[:, 1]
+    try:
+        probs = rat_model.predict_proba(X)[:, 1]
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"RAT prediction failed: {e}")
     labels = (probs >= 0.5).astype(int)
 
     predictions = [

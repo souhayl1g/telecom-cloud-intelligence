@@ -11,9 +11,9 @@
   <circle cx="6" cy="13" r="1.5" fill="url(#nx-grad-l)" opacity="0.6"/>
   <defs>
     <linearGradient id="nx-grad-l" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0077B6"/>
-      <stop offset="0.5" stop-color="#5B3FD9"/>
-      <stop offset="1" stop-color="#C9184A"/>
+      <stop stop-color="#00A9CE"/>
+      <stop offset="0.5" stop-color="#00D4FF"/>
+      <stop offset="1" stop-color="#0066FF"/>
     </linearGradient>
   </defs>
 </svg>

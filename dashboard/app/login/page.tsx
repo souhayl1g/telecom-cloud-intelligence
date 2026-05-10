@@ -56,7 +56,7 @@ function LoginContent() {
                     top: 0, left: 0, right: 0,
                     height: 3,
                     borderRadius: '24px 24px 0 0',
-                    background: 'linear-gradient(90deg, #dc2626, #f97316)',
+                    background: 'linear-gradient(90deg, #00D4FF, #0066FF)',
                 }} />
 
                 {/* Brand */}
@@ -64,14 +64,17 @@ function LoginContent() {
                     <div className="login-brand-icon">
                         <div style={{
                             width: 56, height: 56, borderRadius: 16,
-                            background: 'rgba(199,0,11,0.12)',
-                            border: '1px solid rgba(199,0,11,0.30)',
+                            background: 'rgba(0,212,255,0.12)',
+                            border: '1px solid rgba(0,212,255,0.30)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 0 24px rgba(199,0,11,0.20)',
+                            boxShadow: '0 0 24px rgba(0,212,255,0.20)',
+                            overflow: 'hidden',
                         }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#ef4444' }}>
-                                bolt
-                            </span>
+                            <img
+                                src="/images/nexo-logo.png"
+                                alt="NeXo"
+                                style={{ width: 44, height: 44, objectFit: 'contain' }}
+                            />
                         </div>
                     </div>
                     <h1 className="login-title">NeXo</h1>

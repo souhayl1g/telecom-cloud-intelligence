@@ -1,0 +1,56 @@
+# Confidential — must never enter image
+TT_data/
+
+# Heavy ai-service wheels (notebooks build doesn't need them; ai-service has its own .dockerignore)
+services/ai-service/wheels/
+
+# Notebook artifacts — mounted via named volumes, not needed in image
+notebooks/data/
+notebooks/models/
+notebooks/logs/
+notebooks/.ipynb_checkpoints/
+notebooks/**/.ipynb_checkpoints/
+
+# Frontend build artifacts and deps
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+node_modules/
+
+# VCS / tooling / IDE
+.git/
+.github/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Planning / docs / large repo metadata not used at runtime
+.planning/
+.claude/
+graphify-out/
+diagrams/
+docs/
+report/
+preview/
+imported/
+img/
+final-defense-report/
+memory/
+output.png
+
+# Python build cruft
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+
+# Local env
+.env
+.env.local
+.env.*.local

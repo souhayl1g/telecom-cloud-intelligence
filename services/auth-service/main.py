@@ -46,6 +46,11 @@ _setup_tracing()
 app = FastAPI(title="Telecom NeXoligence — Auth Service", version="1.0")
 FastAPIInstrumentor.instrument_app(app)
 
+# Prometheus /metrics endpoint — scraped per prometheus.yml.
+from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
 # ---------------------------------------------------------------------------
 # Configuration (env vars)
 # ---------------------------------------------------------------------------

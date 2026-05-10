@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 
 interface Correlation {
     metric_x: string;
@@ -100,8 +100,8 @@ export default function CorrelationHeatmap({ data }: { data: Correlation[] }) {
 
                     {/* Data rows */}
                     {xMetrics.map((x) => (
-                        <>
-                            <div key={`l-${x}`} className="corr-heatmap-axis" title={x} style={{ textAlign: 'right' }}>
+                        <Fragment key={`row-${x}`}>
+                            <div className="corr-heatmap-axis" title={x} style={{ textAlign: 'right' }}>
                                 {short(x)}
                             </div>
                             {yMetrics.map((y) => {
@@ -124,7 +124,7 @@ export default function CorrelationHeatmap({ data }: { data: Correlation[] }) {
                                     </div>
                                 );
                             })}
-                        </>
+                        </Fragment>
                     ))}
                 </div>
 

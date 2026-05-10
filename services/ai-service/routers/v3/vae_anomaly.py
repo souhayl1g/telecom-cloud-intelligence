@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import torch
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from config import MODEL_VERSION, VAE_FEATURES
@@ -64,11 +64,18 @@ def infer_vae_anomaly(req: VaeRequest):
         dtype=np.float32,
     )
 
-    X_scaled = scaler.transform(X)
-    X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
-
-    with torch.no_grad():
-        recon_errors = vae_model.reconstruction_error(X_tensor).cpu().numpy()
+    if X.shape[1] != len(VAE_FEATURES):
+        raise HTTPException(
+            status_code=422,
+            detail=f"VAE input shape mismatch: expected {len(VAE_FEATURES)} features, got {X.shape[1]}",
+        )
+    try:
+        X_scaled = scaler.transform(X)
+        X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
+        with torch.no_grad():
+            recon_errors = vae_model.reconstruction_error(X_tensor).cpu().numpy()
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"VAE inference failed: {e}")
 
     anomaly_mask = recon_errors > threshold
     anomaly_count = int(anomaly_mask.sum())

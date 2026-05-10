@@ -11,7 +11,7 @@ export default function LiveIndicator() {
         const refresher = setInterval(() => {
             router.refresh();
             setSecondsSinceUpdate(0);
-        }, 120 * 1000);
+        }, 30 * 1000);
         return () => { clearInterval(timer); clearInterval(refresher); };
     }, [router]);
 

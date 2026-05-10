@@ -14,7 +14,7 @@ Je développe une plateforme **Cloud-Native AI Operations Agent** qui constitue 
 
 - Ingère les KPIs réseau (OSS) et les données abonnés/revenus (BSS)
 - Applique 3 modèles de Machine Learning : prédiction de risque SLA, détection d'anomalies réseau, détection d'anomalies de revenus
-- Calcule les corrélations croisées OSS↔BSS
+- Calcule les corrélations croisées OSS↔CEM
 - Produit des scores de risque, alertes et insights actionnables pour le CVM
 
 La plateforme est **actuellement opérationnelle** avec des données synthétiques (Docker, 5 services, pipeline de 22 étapes, 3 modèles ML, 7 endpoints REST). Pour passer à la validation industrielle, j'ai besoin de **données réelles anonymisées** de Tunisie Telecom.
@@ -90,7 +90,7 @@ Avec les données réelles de Tunisie Telecom, la plateforme délivrera :
 - **Scores de risque SLA** par region (0.0–1.0) avec explication des KPIs contributeurs
 - **Alertes d'anomalies réseau** par cellule avec scores de sévérité
 - **Alertes d'anomalies de revenus** par abonné (fraude, SIM dormantes, pics de churn)
-- **Corrélations OSS↔BSS** (latence↔revenu, packet_loss↔data_usage, etc.)
+- **Corrélations OSS↔CEM** (latence↔revenu, packet_loss↔data_usage, etc.)
 - **3 modèles AI validés** sur données réelles d'opérateur tunisien (v3.0)
 
 Toute la plateforme est prête à ingérer les données dès réception. Le pipeline supporte un mode dual (données réelles + synthétiques comme fallback).

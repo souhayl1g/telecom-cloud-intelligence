@@ -203,29 +203,24 @@ export default function ModelEvaluationPage() {
 
             const modelList: ModelMetrics[] = [
                 {
-                    name: raw.sla_risk.name,
-                    algorithm: raw.sla_risk.algorithm,
-                    version: raw.sla_risk.version,
-                    features: raw.sla_risk.features,
-                    featureNames: raw.sla_risk.featureNames,
-                    task: raw.sla_risk.task,
-                    color: '#a78bfa',
-                    testMae: raw.sla_risk.metrics.test.mae,
-                    testRmse: raw.sla_risk.metrics.test.rmse,
-                    testR2: raw.sla_risk.metrics.test.r2,
-                    testMse: raw.sla_risk.metrics.test.mse,
-                    trainR2: raw.sla_risk.metrics.train.r2,
-                    cvR2: raw.sla_risk.metrics.crossValidation.r2,
-                    cvR2Std: raw.sla_risk.metrics.crossValidation.r2_std,
-                    cvMae: raw.sla_risk.metrics.crossValidation.mae,
-                    featureImportances: raw.sla_risk.featureImportances,
-                    hyperparameters: raw.sla_risk.hyperparameters,
-                    trainingData: raw.sla_risk.trainingData,
-                    lastTrained: raw.sla_risk.lastTrained,
+                    name: raw.cem_score.name,
+                    algorithm: raw.cem_score.algorithm,
+                    version: raw.cem_score.version,
+                    features: raw.cem_score.features,
+                    featureNames: raw.cem_score.featureNames,
+                    task: raw.cem_score.task,
+                    color: '#34d399',
+                    testMae: raw.cem_score.metrics.test.mae,
+                    testRmse: raw.cem_score.metrics.test.rmse,
+                    testR2: raw.cem_score.metrics.test.r2,
+                    featureImportances: raw.cem_score.featureImportances,
+                    hyperparameters: raw.cem_score.hyperparameters,
+                    trainingData: raw.cem_score.trainingData,
+                    lastTrained: raw.cem_score.lastTrained,
                     status: 'healthy',
                 },
                 {
-                    name: raw.oss_anomaly.name,
+                    name: raw.oss_anomaly.name + ' (VAE)',
                     algorithm: raw.oss_anomaly.algorithm,
                     version: raw.oss_anomaly.version,
                     features: raw.oss_anomaly.features,
@@ -236,32 +231,29 @@ export default function ModelEvaluationPage() {
                     recall: raw.oss_anomaly.metrics.recall,
                     f1: raw.oss_anomaly.metrics.f1,
                     rocAuc: raw.oss_anomaly.metrics.rocAuc,
-                    avgPrecision: raw.oss_anomaly.metrics.averagePrecision,
                     accuracy: raw.oss_anomaly.metrics.accuracy,
-                    cm: raw.oss_anomaly.metrics.confusionMatrix,
                     hyperparameters: raw.oss_anomaly.hyperparameters,
                     trainingData: raw.oss_anomaly.trainingData,
                     lastTrained: raw.oss_anomaly.lastTrained,
                     status: 'healthy',
                 },
                 {
-                    name: raw.bss_anomaly.name,
-                    algorithm: raw.bss_anomaly.algorithm,
-                    version: raw.bss_anomaly.version,
-                    features: raw.bss_anomaly.features,
-                    featureNames: raw.bss_anomaly.featureNames,
-                    task: raw.bss_anomaly.task,
-                    color: '#f472b6',
-                    precision: raw.bss_anomaly.metrics.precision,
-                    recall: raw.bss_anomaly.metrics.recall,
-                    f1: raw.bss_anomaly.metrics.f1,
-                    rocAuc: raw.bss_anomaly.metrics.rocAuc,
-                    avgPrecision: raw.bss_anomaly.metrics.averagePrecision,
-                    accuracy: raw.bss_anomaly.metrics.accuracy,
-                    cm: raw.bss_anomaly.metrics.confusionMatrix,
-                    hyperparameters: raw.bss_anomaly.hyperparameters,
-                    trainingData: raw.bss_anomaly.trainingData,
-                    lastTrained: raw.bss_anomaly.lastTrained,
+                    name: raw.rat_underservice.name,
+                    algorithm: raw.rat_underservice.algorithm,
+                    version: raw.rat_underservice.version,
+                    features: raw.rat_underservice.features,
+                    featureNames: raw.rat_underservice.featureNames,
+                    task: raw.rat_underservice.task,
+                    color: '#fbbf24',
+                    precision: raw.rat_underservice.metrics.precision,
+                    recall: raw.rat_underservice.metrics.recall,
+                    f1: raw.rat_underservice.metrics.f1,
+                    rocAuc: raw.rat_underservice.metrics.rocAuc,
+                    accuracy: raw.rat_underservice.metrics.accuracy,
+                    featureImportances: raw.rat_underservice.featureImportances,
+                    hyperparameters: raw.rat_underservice.hyperparameters,
+                    trainingData: raw.rat_underservice.trainingData,
+                    lastTrained: raw.rat_underservice.lastTrained,
                     status: 'healthy',
                 },
             ];
@@ -312,7 +304,7 @@ export default function ModelEvaluationPage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="ML Governance · Live from Notebooks"
-                description="Can we trust the numbers? Every model — LightGBM CEM Experience Score, PyTorch VAE OSS Anomaly, XGBoost RAT Underservice — is audited here against its real test set on 500K-2M real Tunisie Telecom records: R², MAE, RMSE, Precision/Recall/F1, ROC-AUC, confusion matrix and feature importances. Metrics are extracted directly from the v3.0 training notebooks, not mocked."
+                description="Can we trust the numbers? Every v3 model — LightGBM CEM Experience Score, PyTorch VAE OSS Anomaly, XGBoost RAT Underservice — is audited here against its real test set on 500K-2M real Tunisie Telecom records: R², MAE, RMSE, Precision/Recall/F1, ROC-AUC, confusion matrix and feature importances. Metrics are extracted directly from the v3.0 training notebooks, not mocked."
                 values={[
                     { text: `${models.length} production models · Qwen2.5 7B for L4 agent chat` },
                     { text: `Best R²: ${Math.max(...models.map(mm => mm.testR2 ?? 0)).toFixed(3)} · Best F1: ${Math.max(...models.map(mm => mm.f1 ?? 0)).toFixed(3)}` },
@@ -323,7 +315,7 @@ export default function ModelEvaluationPage() {
             {/* Source indicator */}
             <div style={{ padding: '10px 16px', background: 'var(--color-info-bg)', border: '1px solid var(--color-info-border)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--color-info)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                All metrics below are real values computed from trained models in <strong style={{ margin: '0 4px' }}>notebooks/02_sla_risk_model.ipynb</strong> and <strong style={{ margin: '0 4px' }}>notebooks/03_anomaly_detection_models.ipynb</strong>
+                All metrics below are real values computed from trained models in <strong style={{ margin: '0 4px' }}>notebooks/06_cem_v3_training.ipynb, notebooks/07_oss_vae_anomaly.ipynb, notebooks/08_rat_underservice.ipynb, notebooks/09_master_v3_training.py</strong>
             </div>
 
             {/* Model Selector Cards */}

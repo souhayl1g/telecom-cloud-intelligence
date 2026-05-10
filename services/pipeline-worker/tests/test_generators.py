@@ -38,20 +38,24 @@ def test_generate_bss_record_count():
 
 def test_generate_bss_required_fields():
     rows = generate_bss(n=5, seed=1)
-    required = {"ts", "subscriber_id", "line_type", "revenue_tnd",
-                "data_used_gb", "churn_risk", "serving_cell"}
+    required = {"ts", "subscriber_id", "area", "generation", "highest_rat",
+                "dou_total", "duration", "s1_mme_sr", "iu_attach_sr",
+                "gb_attach_sr", "usertype", "usim_bottleneck",
+                "data_intensity", "network_experience_index", "rat_gap_score"}
     for row in rows:
         assert required.issubset(row.keys())
 
 
-def test_generate_bss_churn_range():
+def test_generate_bss_dou_positive():
     rows = generate_bss(n=200, seed=99)
     for row in rows:
-        assert 0 <= row["churn_risk"] <= 1
+        assert row["dou_total"] >= 0
+        assert row["duration"] >= 0
 
 
-def test_generate_bss_prepaid_ratio():
-    rows = generate_bss(n=1000, seed=42)
-    prepaid = sum(1 for r in rows if r["line_type"] == "prepaid")
-    ratio = prepaid / len(rows)
-    assert 0.70 <= ratio <= 0.90  # ~80% prepaid per Tunisian market model
+def test_generate_bss_sr_range():
+    rows = generate_bss(n=100, seed=42)
+    for row in rows:
+        assert 0 <= row["s1_mme_sr"] <= 1
+        assert 0 <= row["iu_attach_sr"] <= 1
+        assert 0 <= row["gb_attach_sr"] <= 1

@@ -7,62 +7,63 @@ def build_processed_bss(records: list[dict]) -> list[dict]:
     processed = []
     for r in records:
         rec = dict(r)
-        rev = r["revenue_tnd"]
-        rec["arpu_category"] = "low" if rev < 10 else "mid" if rev < 40 else "high"
-        rec["data_intensity"] = round(r["data_used_gb"] / max(rev, 0.01), 4)
-        rec["churn_bucket"] = (
-            "safe" if r["churn_risk"] < 0.3
-            else "watch" if r["churn_risk"] < 0.6
-            else "risk"
+        gen = str(r.get("generation", "")).upper()
+        rec["generation_4g"] = 1.0 if "4G" in gen or "LTE" in gen else 0.0
+        rec["generation_5g"] = 1.0 if "5G" in gen else 0.0
+        rat_gap = r.get("rat_gap_score", 0)
+        rec["rat_bucket"] = (
+            "underserved" if rat_gap > 0.5
+            else "matched" if rat_gap < 0.2
+            else "watch"
         )
         processed.append(rec)
     return processed
 
 
 def build_curated_dataset(
-    oss_records, bss_records, anomaly_result,
-    rev_anomaly_result, sla_score, correlations,
+    oss_records, bss_records, vae_result,
+    cem_result, rat_result, correlations,
 ) -> dict:
-    """Build final curated dataset joining OSS + BSS + AI outputs."""
-    cell_oss: dict = {}
+    """Build final curated dataset joining OSS + BSS + v3 AI outputs."""
+    area_oss: dict = {}
     for r in oss_records:
-        cid = r["cell_id"]
-        if cid not in cell_oss:
-            cell_oss[cid] = {"tput": [], "lat": [], "loss": [], "rsrp": []}
-        cell_oss[cid]["tput"].append(r["throughput_mbps"])
-        cell_oss[cid]["lat"].append(r["latency_ms"])
-        cell_oss[cid]["loss"].append(r["packet_loss_pct"])
-        cell_oss[cid]["rsrp"].append(r["signal_rsrp_dbm"])
+        area = r.get("area", r.get("region", "unknown"))
+        if area not in area_oss:
+            area_oss[area] = {"tput": [], "lat": [], "loss": []}
+        area_oss[area]["tput"].append(r["throughput_mbps"])
+        area_oss[area]["lat"].append(r["latency_ms"])
+        area_oss[area]["loss"].append(r["packet_loss_pct"])
 
-    cell_bss: dict = {}
+    area_bss: dict = {}
     for r in bss_records:
-        cid = r["serving_cell"]
-        if cid not in cell_bss:
-            cell_bss[cid] = {"rev": [], "data": [], "churn": []}
-        cell_bss[cid]["rev"].append(r["revenue_tnd"])
-        cell_bss[cid]["data"].append(r["data_used_gb"])
-        cell_bss[cid]["churn"].append(r["churn_risk"])
+        area = r.get("area", "unknown")
+        if area not in area_bss:
+            area_bss[area] = {"dou": [], "nei": [], "duration": []}
+        area_bss[area]["dou"].append(r["dou_total"])
+        area_bss[area]["nei"].append(r.get("network_experience_index", 0.5))
+        area_bss[area]["duration"].append(r["duration"])
 
-    cells_summary = []
-    for cid in sorted(set(list(cell_oss.keys()) + list(cell_bss.keys()))):
-        oss = cell_oss.get(cid, {})
-        bss = cell_bss.get(cid, {})
-        cells_summary.append({
-            "cell_id": cid,
+    areas_summary = []
+    for area in sorted(set(list(area_oss.keys()) + list(area_bss.keys()))):
+        oss = area_oss.get(area, {})
+        bss = area_bss.get(area, {})
+        areas_summary.append({
+            "area": area,
             "mean_throughput": round(float(np.mean(oss.get("tput", [0]))), 2),
             "mean_latency": round(float(np.mean(oss.get("lat", [0]))), 2),
             "mean_packet_loss": round(float(np.mean(oss.get("loss", [0]))), 4),
-            "mean_revenue_tnd": round(float(np.mean(bss.get("rev", [0]))), 2),
-            "mean_data_gb": round(float(np.mean(bss.get("data", [0]))), 2),
-            "mean_churn_risk": round(float(np.mean(bss.get("churn", [0]))), 4),
+            "mean_dou_total": round(float(np.mean(bss.get("dou", [0]))), 2),
+            "mean_network_experience_index": round(float(np.mean(bss.get("nei", [0]))), 4),
         })
 
     return {
-        "sla_risk_score": sla_score,
-        "oss_anomaly_count": anomaly_result.get("anomalous_count", 0),
-        "bss_anomaly_count": rev_anomaly_result.get("anomalous_count", 0),
+        "vae_anomaly_count": vae_result.get("anomalous_count", 0),
+        "vae_anomaly_rate": vae_result.get("anomaly_rate", 0),
+        "cem_predictions": len(cem_result.get("predictions", [])),
+        "rat_underserved_count": rat_result.get("underserved_count", 0),
+        "rat_underserved_rate": rat_result.get("underserved_rate", 0),
         "correlations": correlations,
-        "cells_summary": cells_summary,
+        "areas_summary": areas_summary,
         "total_oss_records": len(oss_records),
         "total_bss_records": len(bss_records),
     }

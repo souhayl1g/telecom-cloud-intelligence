@@ -1,5 +1,4 @@
 """v3.0 AI service HTTP client with retry logic."""
-from datetime import datetime
 
 import requests
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -47,10 +46,10 @@ def infer_vae_anomaly(run_id: str, region: str, records: list[dict]) -> dict:
             {
                 "throughput_mbps": float(r.get("throughput_mbps") or 80.0),
                 "latency_ms": float(r.get("latency_ms") or 25.0),
-                "packet_loss_rate": float(r.get("packet_loss_rate") or 0.5),
+                "packet_loss_rate": float(r.get("packet_loss_rate") or r.get("packet_loss_pct") or 0.5),
                 "jitter_ms": float(r.get("jitter_ms") or 5.0),
                 "cell_load_pct": float(r.get("cell_load_pct") or 50.0),
-                "rsrp_dbm": float(r.get("rsrp_dbm") or -85.0),
+                "rsrp_dbm": float(r.get("rsrp_dbm") or r.get("signal_rsrp_dbm") or -85.0),
                 "active_users": int(r.get("active_users") or 200),
                 "integrity": float(r.get("integrity") or 0.95),
                 "call_drop_rate": float(r.get("call_drop_rate") or 0.01),

@@ -21,9 +21,10 @@ const SERVICES: Omit<ServiceCheck, "status" | "latencyMs" | "statusCode" | "erro
     { id: "minio",         name: "MinIO Storage",   category: "data",   url: "http://minio:9000/minio/health/live", publicUrl: "http://localhost:9001", port: 9000 },
     { id: "postgres",      name: "PostgreSQL",      category: "data",   url: "http://api-gateway:8000/health",   port: 5432 },
     { id: "pipeline",      name: "Pipeline Worker", category: "worker", url: "http://api-gateway:8000/pipeline-runs?limit=1", port: 0 },
-    { id: "signoz",        name: "SigNoz",          category: "obs",    url: "http://signoz-frontend:3301",       publicUrl: "http://localhost:3301", port: 3301 },
-    { id: "otel",          name: "OTel Collector",  category: "obs",    url: "http://otel-collector:13133",       publicUrl: "http://localhost:4318", port: 4317 },
-    { id: "clickhouse",    name: "ClickHouse",      category: "obs",    url: "http://clickhouse:8123/ping",       port: 9000 },
+    { id: "netdata",       name: "Netdata",         category: "obs",    url: "http://netdata:19999/api/v1/info",  publicUrl: "http://localhost:19999", port: 19999 },
+    { id: "prometheus",    name: "Prometheus",      category: "obs",    url: "http://prometheus:9090/-/healthy",  publicUrl: "http://localhost:9090", port: 9090 },
+    { id: "grafana",       name: "Grafana",         category: "obs",    url: "http://grafana:3000/api/health",    publicUrl: "http://localhost:3000", port: 3000 },
+    { id: "jaeger",        name: "Jaeger",          category: "obs",    url: "http://jaeger:16686",               publicUrl: "http://localhost:16686", port: 16686 },
 ];
 
 async function ping(url: string, timeoutMs = 3000): Promise<{ ok: boolean; latencyMs: number; status: number | null; error?: string }> {

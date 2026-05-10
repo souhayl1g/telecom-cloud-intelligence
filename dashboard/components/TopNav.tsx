@@ -14,17 +14,6 @@ const Icons = {
             <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
     ),
-    slaRisk: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-    ),
-    anomalies: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-    ),
     correlations: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -94,11 +83,10 @@ interface NavItem {
 
 const navItems: NavItem[] = [
     { href: '/overview', label: 'Overview', icon: Icons.overview },
-    { href: '/anomalies', label: 'Anomalies', icon: Icons.anomalies },
-    { href: '/sla-risk', label: 'SLA Risk', icon: Icons.slaRisk },
     { href: '/correlations', label: 'Correlations', icon: Icons.correlations },
+    { href: '/granger-causality', label: 'Granger', icon: Icons.pipelines },
     { href: '/intelligence', label: 'Intelligence', icon: Icons.intelligence },
-    { href: '/predictive', label: 'Forecast', icon: Icons.slaRisk },
+    { href: '/predictive', label: 'Forecast', icon: Icons.health },
     { href: '/topology', label: 'Topology', icon: Icons.correlations },
     { href: '/capacity', label: 'Capacity', icon: Icons.health },
     { href: '/data-warehouse', label: 'DWH', icon: Icons.dwh },
@@ -166,10 +154,20 @@ export default function TopNav() {
             </nav>
 
             <div className="topnav-actions">
-                <a href="http://localhost:3301" target="_blank" rel="noreferrer" className="pill-btn" title="SigNoz Observability — Traces, Metrics, Logs">
+                <a href="http://localhost:19999" target="_blank" rel="noreferrer" className="pill-btn" title="Netdata — Real-time system & container monitoring">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                    </svg> SigNoz
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg> Netdata
+                </a>
+                <a href="http://localhost:3000" target="_blank" rel="noreferrer" className="pill-btn" title="Grafana — Dashboards & visualization">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
+                    </svg> Grafana
+                </a>
+                <a href="http://localhost:16686" target="_blank" rel="noreferrer" className="pill-btn" title="Jaeger — Distributed trace explorer">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg> Jaeger
                 </a>
                 <a href="http://localhost:9001" target="_blank" rel="noreferrer" className="pill-btn" title="MinIO Object Storage Console">
                     {Icons.minio} MinIO

@@ -16,10 +16,10 @@ const RefreshContext = createContext<RefreshContextValue>({
     refreshNow: () => {},
     paused: false,
     setPaused: () => {},
-    intervalMs: 120000,
+    intervalMs: 30000,
 });
 
-export function RefreshProvider({ children, intervalMs = 120000 }: { children: React.ReactNode; intervalMs?: number }) {
+export function RefreshProvider({ children, intervalMs = 30000 }: { children: React.ReactNode; intervalMs?: number }) {
     const [tick, setTick] = useState(0);
     const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
     const [paused, setPaused] = useState(false);

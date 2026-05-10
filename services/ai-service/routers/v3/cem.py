@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 import numpy as np
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from config import MODEL_VERSION, CEM_FEATURES
@@ -65,7 +65,10 @@ def infer_cem(req: CemRequest):
         dtype=np.float32,
     )
 
-    preds = cem_model.predict(X)
+    try:
+        preds = cem_model.predict(X)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"CEM prediction failed: {e}")
 
     predictions = [
         {

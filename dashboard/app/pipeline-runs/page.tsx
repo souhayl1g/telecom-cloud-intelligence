@@ -21,8 +21,8 @@ export default async function PipelineRunsPage() {
     return (
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
-                eyebrow="Pipeline · 2-min Cadence"
-                description="Is the platform actually running? Every 2 minutes the worker executes the 22-step ETL: ingest OSS + BSS → stage to MinIO (raw/processed/curated) → run 3 ML models → compute OSS↔BSS correlations → persist to PostgreSQL. This page is the audit trail for each cycle."
+                eyebrow="Pipeline · 30s Cadence"
+                description="Is the platform actually running? Every 30 seconds the worker executes the ~18-step ETL: ingest OSS + BSS → stage to MinIO (raw/processed/curated) → run 3 v3 ML models (CEM LightGBM, VAE PyTorch, RAT XGBoost) → compute OSS↔CEM correlations + Granger causality → persist to PostgreSQL. This page is the audit trail for each cycle."
                 values={[
                     { text: `${total} runs · ${successRate}% success rate` },
                     { text: `${succeeded} succeeded · ${failed} failed` },
@@ -74,7 +74,7 @@ export default async function PipelineRunsPage() {
             {/* Pipeline visual */}
             <div className="card" style={{ padding: '18px 24px' }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                    Pipeline Stages (22 Steps)
+                    Pipeline Stages (~18 Steps)
                 </div>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                     {[
@@ -86,12 +86,13 @@ export default async function PipelineRunsPage() {
                         { label: 'Process OSS', color: 'var(--color-purple)' },
                         { label: 'Process BSS', color: 'var(--color-purple)' },
                         { label: 'KPI Agg', color: 'var(--color-warning)' },
-                        { label: 'SLA Risk', color: 'var(--color-danger)' },
-                        { label: 'OSS Anomaly', color: 'var(--color-danger)' },
-                        { label: 'BSS Anomaly', color: 'var(--color-danger)' },
-                        { label: 'Correlate', color: 'var(--color-success)' },
-                        { label: 'Curate', color: 'var(--color-success)' },
-                        { label: 'Persist', color: 'var(--color-success)' },
+                        { label: 'CEM v3', color: 'var(--color-success)' },
+                        { label: 'VAE v3', color: 'var(--color-success)' },
+                        { label: 'RAT v3', color: 'var(--color-success)' },
+                        { label: 'Correlate', color: 'var(--color-info)' },
+                        { label: 'Granger', color: 'var(--color-info)' },
+                        { label: 'Curate', color: 'var(--color-cyan)' },
+                        { label: 'Persist', color: 'var(--color-cyan)' },
                     ].map((stage, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <div style={{
@@ -106,7 +107,7 @@ export default async function PipelineRunsPage() {
                             }}>
                                 {stage.label}
                             </div>
-                            {i < 13 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{'\u2192'}</span>}
+                            {i < 14 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{'\u2192'}</span>}
                         </div>
                     ))}
                 </div>

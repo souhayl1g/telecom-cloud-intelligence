@@ -14,7 +14,7 @@ Manage Docker builds, CI/CD, and Huawei Cloud Stack (HCS) deployment.
 - HCS service mapping (MinIO→OBS, PostgreSQL→RDS, Docker→ECS)
 - SWR image registry push/pull
 - ECS task definitions and service discovery
-- Observability stack (SigNoz, OpenTelemetry)
+- Observability stack (Netdata, Prometheus, Grafana, Jaeger, OpenTelemetry)
 - Environment configuration management
 
 ## Constraints

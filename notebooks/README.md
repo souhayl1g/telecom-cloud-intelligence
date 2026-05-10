@@ -81,7 +81,7 @@ These notebooks and scripts form the **ML training, evaluation, and data enginee
 
 | # | File | Type | Purpose | Data |
 |---|------|------|---------|------|
-| **10** | `10_oss_bss_granger_causality.py` | `.py` | **OSS↔BSS Granger causality** — tests temporal causal relationships | `area_network_health` Jan-Sep 2026 |
+| **10** | `10_oss_bss_granger_causality.py` | `.py` | **OSS↔CEM Granger causality** — tests temporal causal relationships | `area_network_health` Jan-Sep 2026 |
 
 **What it does:**
 - Tests 2 directions × 2 metric pairs across 24 governorates

@@ -9,7 +9,7 @@
 
 ## 1. Project Summary
 
-This platform is the **AI intelligence layer** between Huawei SmartCare (CEM) and Customer Value Management (CVM). It ingests OSS network KPIs and BSS subscriber/revenue data, applies 3 ML models (SLA risk prediction, OSS anomaly detection, BSS revenue anomaly detection) and statistical correlation analysis, then outputs actionable intelligence: SLA breach risk scores, anomaly alerts, and cross-domain OSS↔BSS correlation insights.
+This platform is the **AI intelligence layer** between Huawei SmartCare (CEM) and Customer Value Management (CVM). It ingests OSS network KPIs and BSS subscriber/revenue data, applies 3 ML models (SLA risk prediction, OSS anomaly detection, BSS revenue anomaly detection) and statistical correlation analysis, then outputs actionable intelligence: SLA breach risk scores, anomaly alerts, and cross-domain OSS↔CEM correlation insights.
 
 ```
 [CEM / SmartCare] ──→ [AI Operations Agent] ──→ [CVM]
@@ -26,7 +26,7 @@ The platform is currently operational with synthetic data. To move to production
 |--------|-------------|---------|
 | **OSS KPIs** | RAN / NOM / Huawei SmartCare | SLA risk prediction, network anomaly detection |
 | **BSS Subscriber & Revenue** | SmartCare BSS / CRM / Billing | Revenue anomaly detection, churn correlation |
-| **OSS↔BSS Correlation** | Both sources joined | Cross-domain impact analysis |
+| **OSS↔CEM Correlation** | Both sources joined | Cross-domain impact analysis |
 
 ---
 
@@ -74,7 +74,7 @@ The platform is currently operational with synthetic data. To move to production
 |----------|--------------|--------|
 | **SLA Risk Scorer** (GradientBoostingRegressor) | mean/std/max latency, mean/max packet_loss, mean/std throughput, mean active_users, mean RSRP | Risk score 0.0–1.0 with feature importances |
 | **OSS Anomaly Detector** (IsolationForest) | All 5 KPI metrics per record | Anomaly flag + severity score per record |
-| **OSS↔BSS Correlation** | throughput, latency, packet_loss, active_users, RSRP | Pearson + Spearman correlation with BSS metrics |
+| **OSS↔CEM Correlation** | throughput, latency, packet_loss, active_users, RSRP | Pearson + Spearman correlation with BSS metrics |
 
 ---
 
@@ -94,7 +94,7 @@ The platform is currently operational with synthetic data. To move to production
 | 8 | `sms_count` | integer | — | SMS sent count | **Required** |
 | 9 | `churn_risk` | float | 0–1 | Churn probability indicator | **Required** |
 | 10 | `region` / `gouvernorat` | string | — | Subscriber's serving region | **Required** |
-| 11 | `serving_cell` | string | — | Serving cell ID (for OSS↔BSS join) | **Required** |
+| 11 | `serving_cell` | string | — | Serving cell ID (for OSS↔CEM join) | **Required** |
 | 12 | `timestamp` / `period` | datetime | — | Period of the record | **Required** |
 
 ### 4.2 Nice-to-Have BSS Fields
@@ -125,7 +125,7 @@ The platform is currently operational with synthetic data. To move to production
 | AI Model | Features Used | Output |
 |----------|--------------|--------|
 | **Revenue Anomaly Detector** (IsolationForest) | revenue_tnd, data_used_gb, voice_min, sms_count, churn_risk, appu_tnd, dou_gb | Anomaly flag + severity (fraud, dormant SIM, churn spike) |
-| **OSS↔BSS Correlation** | revenue_tnd, data_used_gb, voice_min, sms_count, churn_risk | Cross-domain correlation with OSS KPIs |
+| **OSS↔CEM Correlation** | revenue_tnd, data_used_gb, voice_min, sms_count, churn_risk | Cross-domain correlation with OSS KPIs |
 
 ---
 
@@ -188,7 +188,7 @@ With real data from Tunisie Telecom, the platform will deliver:
 | **SLA Risk Scores** | Per-region risk prediction (0.0–1.0) with top contributing KPIs |
 | **Network Anomaly Alerts** | Per-cell anomaly detection with severity scores |
 | **Revenue Anomaly Alerts** | Per-subscriber fraud/dormancy/churn-spike detection |
-| **OSS↔BSS Correlations** | 10 cross-domain correlations per run (e.g., latency↔revenue, packet_loss↔data_usage) |
+| **OSS↔CEM Correlations** | 10 cross-domain correlations per run (e.g., latency↔revenue, packet_loss↔data_usage) |
 | **Validated AI Models** | 3 models retrained on real Tunisian operator data (v3.0) |
 | **Industrial Proof** | "Trained on anonymised production data from TT via Huawei" — PFE defense differentiator |
 

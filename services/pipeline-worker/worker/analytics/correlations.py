@@ -1,4 +1,4 @@
-"""OSS↔BSS correlation engine — Pearson + Spearman + Distance Correlation."""
+"""OSS↔CEM correlation engine — Pearson + Spearman + Distance Correlation."""
 import numpy as np
 from scipy import stats
 
@@ -11,42 +11,42 @@ except ImportError:
 
 
 def compute_correlations(oss_records: list[dict], bss_records: list[dict]) -> list[dict]:
-    """Compute Pearson, Spearman, and Distance Correlation between OSS and BSS per cell."""
-    cell_oss: dict = {}
+    """Compute Pearson, Spearman, and Distance Correlation between OSS and BSS per area."""
+    area_oss: dict = {}
     for r in oss_records:
-        cid = r["cell_id"]
-        if cid not in cell_oss:
-            cell_oss[cid] = {"lat": [], "tput": [], "loss": []}
-        cell_oss[cid]["lat"].append(r["latency_ms"])
-        cell_oss[cid]["tput"].append(r["throughput_mbps"])
-        cell_oss[cid]["loss"].append(r["packet_loss_pct"])
+        area = r.get("area", r.get("cell_id", "unknown"))
+        if area not in area_oss:
+            area_oss[area] = {"lat": [], "tput": [], "loss": []}
+        area_oss[area]["lat"].append(r["latency_ms"])
+        area_oss[area]["tput"].append(r["throughput_mbps"])
+        area_oss[area]["loss"].append(r.get("packet_loss_pct", r.get("packet_loss_rate", 0)))
 
-    cell_bss: dict = {}
+    area_bss: dict = {}
     for r in bss_records:
-        cid = r["serving_cell"]
-        if cid not in cell_bss:
-            cell_bss[cid] = {"rev": [], "data": [], "churn": []}
-        cell_bss[cid]["rev"].append(r["revenue_tnd"])
-        cell_bss[cid]["data"].append(r["data_used_gb"])
-        cell_bss[cid]["churn"].append(r["churn_risk"])
+        area = r.get("area", "unknown")
+        if area not in area_bss:
+            area_bss[area] = {"dou": [], "nei": [], "s1": []}
+        area_bss[area]["dou"].append(r["dou_total"])
+        area_bss[area]["nei"].append(r.get("network_experience_index", 0.5))
+        area_bss[area]["s1"].append(r["s1_mme_sr"])
 
-    common = sorted(set(cell_oss.keys()) & set(cell_bss.keys()))
+    common = sorted(set(area_oss.keys()) & set(area_bss.keys()))
     if len(common) < 3:
         return []
 
-    oss_lat = np.array([np.mean(cell_oss[c]["lat"]) for c in common])
-    oss_tput = np.array([np.mean(cell_oss[c]["tput"]) for c in common])
-    oss_loss = np.array([np.mean(cell_oss[c]["loss"]) for c in common])
-    bss_rev = np.array([np.mean(cell_bss[c]["rev"]) for c in common])
-    bss_data = np.array([np.mean(cell_bss[c]["data"]) for c in common])
-    bss_churn = np.array([np.mean(cell_bss[c]["churn"]) for c in common])
+    oss_lat = np.array([np.mean(area_oss[c]["lat"]) for c in common])
+    oss_tput = np.array([np.mean(area_oss[c]["tput"]) for c in common])
+    oss_loss = np.array([np.mean(area_oss[c]["loss"]) for c in common])
+    bss_dou = np.array([np.mean(area_bss[c]["dou"]) for c in common])
+    bss_nei = np.array([np.mean(area_bss[c]["nei"]) for c in common])
+    bss_s1 = np.array([np.mean(area_bss[c]["s1"]) for c in common])
 
     pairs = [
-        ("mean_latency_ms", "mean_revenue_tnd", oss_lat, bss_rev),
-        ("mean_throughput_mbps", "mean_data_used_gb", oss_tput, bss_data),
-        ("mean_packet_loss_pct", "mean_churn_risk", oss_loss, bss_churn),
-        ("mean_latency_ms", "mean_churn_risk", oss_lat, bss_churn),
-        ("mean_throughput_mbps", "mean_revenue_tnd", oss_tput, bss_rev),
+        ("mean_latency_ms", "mean_network_experience_index", oss_lat, bss_nei),
+        ("mean_throughput_mbps", "mean_dou_total", oss_tput, bss_dou),
+        ("mean_packet_loss_pct", "mean_s1_mme_sr", oss_loss, bss_s1),
+        ("mean_latency_ms", "mean_s1_mme_sr", oss_lat, bss_s1),
+        ("mean_throughput_mbps", "mean_network_experience_index", oss_tput, bss_nei),
     ]
 
     results = []
@@ -69,7 +69,7 @@ def compute_correlations(oss_records: list[dict], bss_records: list[dict]) -> li
                 "metric_y": metric_y,
                 "method": "dcor",
                 "corr_value": round(float(dc), 6),
-                "p_value": None,  # dcor is unsigned, no p-value from basic estimator
+                "p_value": None,
             })
 
     return results

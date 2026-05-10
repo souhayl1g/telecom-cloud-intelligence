@@ -8,44 +8,37 @@ receivers:
 
 processors:
   batch:
-    send_batch_size: 10000
-    send_batch_max_size: 11000
-    timeout: 10s
-  resourcedetection:
-    detectors: [env, system]
-    timeout: 2s
+    timeout: 1s
+    send_batch_size: 1024
 
-extensions:
-  health_check:
-    endpoint: 0.0.0.0:13133
+  resource:
+    attributes:
+      - key: service.namespace
+        value: nexo
+        action: upsert
 
 exporters:
-  clickhousetraces:
-    datasource: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@clickhouse:9000/signoz_traces
-  clickhousemetricswrite:
-    endpoint: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@clickhouse:9000
-    resource_to_telemetry_conversion:
-      enabled: true
-  clickhouselogsexporter:
-    dsn: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@clickhouse:9000/signoz_logs
-    timeout: 10s
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure: true
+
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  debug:
+    verbosity: basic
 
 service:
-  telemetry:
-    logs:
-      level: warn
-  extensions:
-    - health_check
   pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [clickhousetraces]
     metrics:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [clickhousemetricswrite]
-    logs:
+      processors: [batch, resource]
+      exporters: [prometheusremotewrite, debug]
+
+    traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [clickhouselogsexporter]
+      processors: [batch, resource]
+      exporters: [otlp/jaeger, debug]

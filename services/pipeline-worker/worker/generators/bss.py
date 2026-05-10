@@ -10,38 +10,14 @@ def generate_bss(
     cells: list[str] | None = None,
     fault_info: dict | None = None,
 ) -> list[dict]:
-    """Synthetic BSS records with correlated degradation patterns.
+    """Synthetic BSS records with correlated degradation patterns (v3.0 schema).
 
-    Tunisian market model (verified 2025 forfait data):
-      - 80% prepaid subscribers (recharge/forfait-based revenue)
-      - 20% postpaid subscribers (fixed monthly plan)
-      - Revenue in TND based on verified operator pricing
-      - Prepaid ARPU: ~8-15 TND/month; Postpaid ARPU: ~45-70 TND/month
-
-    When a subscriber's serving cell is in a fault state, BSS metrics degrade:
-    lower data usage, higher churn risk, fewer voice minutes — creating a
-    measurable OSS↔BSS correlation.
+    Generates subscribers with fields compatible with CEM LightGBM and
+    RAT XGBoost v3.0 inference endpoints.
     """
     rng = np.random.default_rng(seed)
-    operators = ["Ooredoo Tunisie", "Tunisie Telecom", "Orange Tunisie"]
     if cells is None:
         cells = [f"CELL-{i:03d}" for i in range(1, 11)]
-
-    # Prepaid forfait tiers — verified 2025 pricing (all 3 operators converge)
-    prepaid_plans = [
-        ("data_1go", 3.0, 7.0),  # ~4-5 DT: light users, 1-1.5 Go bundles
-        ("data_4go", 8.0, 14.0),  # ~10 DT: mid-tier 4 Go
-        ("data_6go", 12.0, 18.0),  # ~15 DT: 6 Go
-        ("data_25go", 25.0, 35.0),  # ~30 DT: standard 5G/4G bundle
-        ("data_45go", 42.0, 55.0),  # ~50 DT: heavy user
-        ("data_100go", 65.0, 80.0),  # ~72 DT: very heavy user
-    ]
-    # Postpaid plan tiers — verified ranges across operators
-    postpaid_plans = [
-        ("post_40", 35.0, 45.0),  # entry postpaid ~40 DT/month
-        ("post_60", 52.0, 68.0),  # mid postpaid ~60 DT/month
-        ("post_90", 80.0, 100.0),  # premium postpaid ~90 DT/month
-    ]
 
     fault_cells = set(fault_info["fault_cells"]) if fault_info else set()
     fault_start_idx = fault_info["fault_start_idx"] if fault_info else 0
@@ -53,46 +29,50 @@ def generate_bss(
         ts = now - timedelta(minutes=n - i)
         serving_cell = cells[i % len(cells)]
 
-        # 80% prepaid / 20% postpaid (matches INTT 2023 market stats)
-        is_prepaid = rng.random() < 0.80
-        if is_prepaid:
-            plan_name, lo, hi = prepaid_plans[int(rng.integers(0, len(prepaid_plans)))]
-            line_type = "prepaid"
-        else:
-            plan_name, lo, hi = postpaid_plans[
-                int(rng.integers(0, len(postpaid_plans)))
-            ]
-            line_type = "postpaid"
+        # Device generation / RAT
+        generation = rng.choice(["4G", "5G", "3G", "2G"])
+        highest_rat = generation
+        usertype = rng.choice(["Data User", "Voice User", "Mixed"])
 
-        base_revenue = float(rng.uniform(lo, hi))
-        base_data = float(rng.uniform(0.5, 45.0))
-        base_voice = int(rng.integers(10, 550))
-        base_sms = int(rng.integers(5, 180))
-        base_churn = float(rng.uniform(0.0, 0.35))
+        # Base subscriber metrics
+        dou_total = int(rng.uniform(0.5, 45.0) * 1e9)  # bytes
+        duration = float(rng.uniform(60, 18000))  # voice seconds
+        s1_mme_sr = float(rng.uniform(0.85, 0.99))
+        iu_attach_sr = float(rng.uniform(0.80, 0.98))
+        gb_attach_sr = float(rng.uniform(0.75, 0.97))
+
+        data_intensity = dou_total / max(duration, 1)
+        network_experience_index = s1_mme_sr * 0.5 + iu_attach_sr * 0.3 + gb_attach_sr * 0.2
+        usim_bottleneck = 1.0 if ("4G" in generation or "5G" in generation) and highest_rat in ["2G", "3G"] else 0.0
 
         # ── correlated BSS degradation ───────────────────────────────────────────
         cell_faulted = (
             serving_cell in fault_cells and fault_start_idx <= i <= fault_end_idx
         )
         if cell_faulted:
-            base_data *= float(rng.uniform(0.3, 0.6))  # data usage drops
-            base_voice = int(base_voice * rng.uniform(0.4, 0.7))
-            base_churn += float(rng.uniform(0.3, 0.55))  # churn risk spikes
+            dou_total = int(dou_total * rng.uniform(0.3, 0.6))
+            duration *= float(rng.uniform(0.4, 0.7))
+            s1_mme_sr = max(0.5, s1_mme_sr - float(rng.uniform(0.1, 0.3)))
+            iu_attach_sr = max(0.5, iu_attach_sr - float(rng.uniform(0.1, 0.3)))
+            gb_attach_sr = max(0.5, gb_attach_sr - float(rng.uniform(0.1, 0.3)))
+            network_experience_index = s1_mme_sr * 0.5 + iu_attach_sr * 0.3 + gb_attach_sr * 0.2
 
-        rows.append(
-            {
-                "ts": ts.isoformat(),
-                "region": region,
-                "operator": operators[i % len(operators)],
-                "subscriber_id": f"TN-{rng.integers(100000, 999999)}",
-                "line_type": line_type,
-                "plan": plan_name,
-                "serving_cell": serving_cell,
-                "revenue_tnd": float(round(base_revenue, 3)),
-                "data_used_gb": float(round(max(0.01, base_data), 3)),
-                "voice_min": max(0, base_voice),
-                "sms_count": base_sms,
-                "churn_risk": float(round(min(1.0, base_churn), 4)),
-            }
-        )
+        rows.append({
+            "ts": ts.isoformat(),
+            "region": region,
+            "subscriber_id": f"TN-{rng.integers(100000, 999999)}",
+            "area": serving_cell,
+            "generation": generation,
+            "highest_rat": highest_rat,
+            "dou_total": int(dou_total),
+            "duration": float(round(duration, 2)),
+            "s1_mme_sr": float(round(s1_mme_sr, 4)),
+            "iu_attach_sr": float(round(iu_attach_sr, 4)),
+            "gb_attach_sr": float(round(gb_attach_sr, 4)),
+            "usertype": usertype,
+            "usim_bottleneck": float(usim_bottleneck),
+            "data_intensity": float(round(data_intensity, 4)),
+            "network_experience_index": float(round(network_experience_index, 4)),
+            "rat_gap_score": float(round(rng.uniform(0, 0.8), 4)),
+        })
     return rows

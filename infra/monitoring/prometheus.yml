@@ -3,18 +3,36 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Netdata metrics (system + container monitoring)
+  - job_name: "netdata"
+    static_configs:
+      - targets: ["netdata:19999"]
+    metrics_path: "/api/v1/allmetrics"
+    params:
+      format: [prometheus]
+
+  # FastAPI services metrics
   - job_name: "api-gateway"
-    metrics_path: /metrics
     static_configs:
       - targets: ["api-gateway:8000"]
-        labels:
-          service: "api-gateway"
-          layer: "gateway"
+    metrics_path: "/metrics"
 
   - job_name: "ai-service"
-    metrics_path: /metrics
     static_configs:
       - targets: ["ai-service:8001"]
-        labels:
-          service: "ai-service"
-          layer: "inference"
+    metrics_path: "/metrics"
+
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:8002"]
+    metrics_path: "/metrics"
+
+  - job_name: "agent-service"
+    static_configs:
+      - targets: ["agent-service:8003"]
+    metrics_path: "/metrics"

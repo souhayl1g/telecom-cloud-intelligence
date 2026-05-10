@@ -119,8 +119,8 @@ export default function OpsMetricsPage() {
                 ))}
             </div>
 
-            {/* SigNoz embedded observability */}
-            <SigNozEmbed signozStatus={data?.services.find(s => s.id === "signoz")?.status ?? "unknown"} />
+            {/* Monitoring stack */}
+            <MonitoringStackEmbed />
 
             {/* Architecture strip */}
             <div className="card" style={{ padding: "20px 24px" }}>
@@ -133,22 +133,34 @@ export default function OpsMetricsPage() {
                     <TopoArrow />
                     <TopoNode label="API Gateway" sub=":8000 · FastAPI" color="var(--color-info)" />
                     <TopoArrow />
-                    <TopoNode label="AI Service" sub=":8001 · scikit-learn" color="var(--color-purple)" />
+                    <TopoNode label="AI Service" sub=":8001 · ML inference" color="var(--color-purple)" />
+                    <TopoArrow />
+                    <TopoNode label="Agent Service" sub=":8003 · LLM agents" color="var(--color-cyan)" />
                     <TopoArrow />
                     <TopoNode label="PostgreSQL" sub=":5432" color="var(--color-warning)" />
                 </div>
                 <div className="health-topology" style={{ marginTop: 12 }}>
                     <TopoNode label="Auth" sub=":8002 · JWT + OAuth" color="var(--brand-accent)" />
                     <TopoArrow />
-                    <TopoNode label="Pipeline" sub="daemon · 2-min cycle" color="var(--color-success)" />
+                    <TopoNode label="Pipeline" sub="daemon · 30s cycle" color="var(--color-success)" />
                     <TopoArrow />
                     <TopoNode label="MinIO" sub=":9000 · S3 data lake" color="var(--color-warning)" />
+                    <TopoArrow />
+                    <TopoNode label="Netdata" sub=":19999 · real-time metrics" color="var(--color-success)" />
+                    <TopoArrow />
+                    <TopoNode label="OTel" sub=":4319/4320" color="var(--color-info)" />
+                    <TopoArrow />
+                    <TopoNode label="Prometheus" sub=":9090 · TSDB" color="var(--color-purple)" />
                 </div>
             </div>
 
             {/* Quick links */}
             <div className="health-links">
                 <QuickLink href="http://localhost:9001" title="MinIO Console" sub="Buckets · objects · policies" accent="var(--color-warning)" />
+                <QuickLink href="http://localhost:19999" title="Netdata" sub="Real-time system & container monitoring" accent="var(--color-success)" />
+                <QuickLink href="http://localhost:9090" title="Prometheus" sub="Metrics explorer & TSDB" accent="var(--color-purple)" />
+                <QuickLink href="http://localhost:3000" title="Grafana" sub="Dashboards & visualization" accent="var(--color-info)" />
+                <QuickLink href="http://localhost:16686" title="Jaeger" sub="Distributed trace explorer" accent="var(--color-cyan)" />
                 <QuickLink href="http://localhost:8000/docs" title="API Swagger" sub="Interactive REST API explorer" accent="var(--color-info)" />
                 <QuickLink href="http://localhost:8001/docs" title="AI Service Docs" sub="ML inference endpoints" accent="var(--color-purple)" />
                 <QuickLink href="http://localhost:8002/docs" title="Auth Docs" sub="Signup · login · OAuth flows" accent="var(--brand-accent)" />
@@ -247,71 +259,67 @@ function TopoArrow() {
     return <div className="topo-arrow">→</div>;
 }
 
-function SigNozEmbed({ signozStatus }: { signozStatus: "up" | "down" | "unknown" }) {
-    const isUp = signozStatus === "up";
+function MonitoringStackEmbed() {
+    const services = [
+        { name: "Netdata", port: 19999, url: "http://localhost:19999" },
+        { name: "Prometheus", port: 9090, url: "http://localhost:9090" },
+        { name: "Grafana", port: 3000, url: "http://localhost:3000" },
+        { name: "Jaeger", port: 16686, url: "http://localhost:16686" },
+    ];
     return (
         <div className="card card-accent-top signoz-panel">
             <div className="signoz-panel-header">
                 <div>
                     <div className="section-title">
-                        <span className="dot" style={{ background: isUp ? "var(--color-success)" : "var(--color-warning)" }}></span>
-                        SigNoz Observability
+                        <span className="dot" style={{ background: "var(--color-success)" }}></span>
+                        Monitoring Stack
                         <span className="signoz-panel-badge" style={{
-                            background: isUp ? "var(--color-success-bg)" : "var(--color-warning-bg)",
-                            color: isUp ? "var(--color-success)" : "var(--color-warning)",
-                            borderColor: isUp ? "var(--color-success-border)" : "var(--color-warning-border)",
+                            background: "var(--color-success-bg)",
+                            color: "var(--color-success)",
+                            borderColor: "var(--color-success-border)",
                         }}>
-                            {isUp ? "LIVE" : "STARTING"}
+                            ACTIVE
                         </span>
                     </div>
                     <div className="signoz-panel-sub">
-                        Traces · Metrics · Logs — collected via OpenTelemetry, stored in ClickHouse
+                        Netdata · Prometheus · Grafana · Jaeger — integrated via OpenTelemetry
                     </div>
                 </div>
                 <div className="signoz-panel-actions">
-                    <a href="http://localhost:3301/services" target="_blank" rel="noreferrer" className="btn btn-ghost">Services →</a>
-                    <a href="http://localhost:3301/traces-explorer" target="_blank" rel="noreferrer" className="btn btn-ghost">Traces →</a>
-                    <a href="http://localhost:3301" target="_blank" rel="noreferrer" className="btn btn-primary">Open SigNoz ↗</a>
+                    {services.map((s) => (
+                        <a key={s.name} href={s.url} target="_blank" rel="noreferrer" className="btn btn-ghost">
+                            {s.name} →
+                        </a>
+                    ))}
                 </div>
             </div>
 
-            {isUp ? (
-                <div className="signoz-embed-wrap">
-                    <iframe
-                        className="signoz-embed"
-                        src="http://localhost:3301"
-                        title="SigNoz Observability Dashboard"
-                        loading="lazy"
-                    />
+            <div className="signoz-embed-wrap" style={{ padding: "24px 28px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                    {services.map((s) => (
+                        <a
+                            key={s.name}
+                            href={s.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="quick-link"
+                            style={{ ["--accent" as any]: "var(--color-success)" }}
+                        >
+                            <div className="quick-link-title">{s.name}</div>
+                            <div className="quick-link-sub">:{s.port}</div>
+                            <div className="quick-link-arrow">↗</div>
+                        </a>
+                    ))}
                 </div>
-            ) : (
-                <div className="signoz-fallback">
-                    <div className="signoz-fallback-icon">⏳</div>
-                    <div className="signoz-fallback-title">SigNoz is starting up…</div>
-                    <div className="signoz-fallback-sub">
-                        First boot can take 30–60 seconds while ClickHouse initializes schemas.
-                        Run <code>docker compose logs -f signoz-frontend</code> to follow progress.
-                    </div>
-                </div>
-            )}
+            </div>
 
             <div className="signoz-stats-row">
-                <div className="signoz-stat">
-                    <div className="signoz-stat-label">OTLP gRPC</div>
-                    <div className="signoz-stat-value">:4317</div>
-                </div>
-                <div className="signoz-stat">
-                    <div className="signoz-stat-label">OTLP HTTP</div>
-                    <div className="signoz-stat-value">:4318</div>
-                </div>
-                <div className="signoz-stat">
-                    <div className="signoz-stat-label">UI</div>
-                    <div className="signoz-stat-value">:3301</div>
-                </div>
-                <div className="signoz-stat">
-                    <div className="signoz-stat-label">Storage</div>
-                    <div className="signoz-stat-value">ClickHouse</div>
-                </div>
+                {services.map((s) => (
+                    <div key={s.name} className="signoz-stat">
+                        <div className="signoz-stat-label">{s.name}</div>
+                        <div className="signoz-stat-value">:{s.port}</div>
+                    </div>
+                ))}
             </div>
         </div>
     );

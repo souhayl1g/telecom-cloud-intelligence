@@ -3,12 +3,12 @@ import numpy as np
 
 
 def compute_oss_features(records: list[dict]) -> dict:
-    """Aggregate per-record OSS measurements into 9 features for SLA risk model."""
+    """Aggregate per-record OSS measurements into features."""
     tput = np.array([r["throughput_mbps"] for r in records], dtype=float)
     lat = np.array([r["latency_ms"] for r in records], dtype=float)
-    loss = np.array([r["packet_loss_pct"] for r in records], dtype=float)
+    loss = np.array([r.get("packet_loss_pct", r.get("packet_loss_rate", 0)) for r in records], dtype=float)
     usr = np.array([r["active_users"] for r in records], dtype=float)
-    rsrp = np.array([r["signal_rsrp_dbm"] for r in records], dtype=float)
+    rsrp = np.array([r.get("signal_rsrp_dbm", r.get("rsrp_dbm", -85)) for r in records], dtype=float)
     return {
         "mean_throughput_mbps": round(float(tput.mean()), 4),
         "std_throughput_mbps": round(float(tput.std()), 4),
@@ -23,17 +23,18 @@ def compute_oss_features(records: list[dict]) -> dict:
 
 
 def compute_bss_features(records: list[dict]) -> dict:
-    """Aggregate BSS metrics for revenue anomaly context."""
-    rev = np.array([r["revenue_tnd"] for r in records], dtype=float)
-    data = np.array([r["data_used_gb"] for r in records], dtype=float)
-    voice = np.array([r["voice_min"] for r in records], dtype=float)
-    sms = np.array([r["sms_count"] for r in records], dtype=float)
-    churn = np.array([r["churn_risk"] for r in records], dtype=float)
+    """Aggregate BSS metrics for v3 inference context."""
+    dou = np.array([r["dou_total"] for r in records], dtype=float)
+    dur = np.array([r["duration"] for r in records], dtype=float)
+    s1 = np.array([r["s1_mme_sr"] for r in records], dtype=float)
+    iu = np.array([r["iu_attach_sr"] for r in records], dtype=float)
+    gb = np.array([r["gb_attach_sr"] for r in records], dtype=float)
+    nei = np.array([r.get("network_experience_index", 0.5) for r in records], dtype=float)
     return {
-        "mean_revenue_tnd": round(float(rev.mean()), 4),
-        "std_revenue_tnd": round(float(rev.std()), 4),
-        "mean_data_used_gb": round(float(data.mean()), 4),
-        "mean_voice_min": round(float(voice.mean()), 4),
-        "mean_sms_count": round(float(sms.mean()), 4),
-        "mean_churn_risk": round(float(churn.mean()), 4),
+        "mean_dou_total": round(float(dou.mean()), 4),
+        "mean_duration": round(float(dur.mean()), 4),
+        "mean_s1_mme_sr": round(float(s1.mean()), 4),
+        "mean_iu_attach_sr": round(float(iu.mean()), 4),
+        "mean_gb_attach_sr": round(float(gb.mean()), 4),
+        "mean_network_experience_index": round(float(nei.mean()), 4),
     }

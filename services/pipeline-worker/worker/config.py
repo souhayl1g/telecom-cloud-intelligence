@@ -7,7 +7,7 @@ S3_ENDPOINT: str = os.getenv("S3_ENDPOINT", "http://minio:9000")
 S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minio")
 S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minio_pw")
 RUN_MODE: str = os.getenv("RUN_MODE", "oneshot")
-CYCLE_SECONDS: int = int(os.getenv("CYCLE_SECONDS", "120"))
+CYCLE_SECONDS: int = int(os.getenv("CYCLE_SECONDS", "30"))
 
 BUCKETS = ["raw", "processed", "curated"]
 SYNTHETIC_N_RECORDS = 200

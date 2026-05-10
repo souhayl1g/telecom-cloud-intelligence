@@ -35,7 +35,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     return (
         <ThemeProvider>
-            <RefreshProvider intervalMs={120000}>
+            <RefreshProvider intervalMs={30000}>
                 <div className="layout-app">
                     <Sidebar />
                     <div className="layout-main">

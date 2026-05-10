@@ -145,8 +145,10 @@ start-NeXo: ## Start entire stack with auto-pipeline enabled + dashboard
 	@echo "  $(GREEN)AI Service:$(NC)        http://localhost:8001"
 	@echo "  $(GREEN)Auth Service:$(NC)      http://localhost:8002"
 	@echo "  $(GREEN)MinIO Console:$(NC)     http://localhost:9001"
+	@echo "  $(GREEN)Netdata:$(NC)           http://localhost:19999"
 	@echo "  $(GREEN)Prometheus:$(NC)        http://localhost:9090"
 	@echo "  $(GREEN)Grafana:$(NC)           http://localhost:3000"
+	@echo "  $(GREEN)Jaeger Traces:$(NC)     http://localhost:16686"
 	@echo "  $(GREEN)Ollama LLM:$(NC)        http://localhost:11434"
 	@echo ""
 	@echo "$(BOLD)Pipeline:$(NC) Runs every 120s (daemon mode)"
@@ -232,7 +234,13 @@ svc-health: ## Check health of all services
 	@echo -n "AI Service: " && curl -sf http://localhost:8001/health > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
 	@echo -n "API Gateway: " && curl -sf http://localhost:8000/health > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
 	@echo -n "Auth Service: " && curl -sf http://localhost:8002/health > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
+	@echo -n "Agent Service: " && curl -sf http://localhost:8003/health > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
+	@echo -n "Dashboard: " && curl -sf http://localhost:3001/login > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
 	@echo -n "Notebooks: " && curl -sf http://localhost:8888/api > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
+	@echo -n "Netdata: " && curl -sf http://localhost:19999/api/v1/info > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
+	@echo -n "Prometheus: " && curl -sf http://localhost:9090/-/healthy > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
+	@echo -n "Grafana: " && curl -sf http://localhost:3000/api/health > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
+	@echo -n "Jaeger: " && curl -sf http://localhost:16686 > /dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
 	@echo ""
 
 # ── Jupyter ─────────────────────────────────────────────────────────────────
@@ -342,8 +350,10 @@ show-info: ## Show service URLs and credentials
 	@echo "  $(GREEN)Auth Service:$(NC)       http://localhost:8002/docs"
 	@echo "  $(GREEN)MinIO Console:$(NC)      http://localhost:9001"
 	@echo "  $(GREEN)MinIO API:$(NC)          http://localhost:9000"
+	@echo "  $(GREEN)Netdata:$(NC)            http://localhost:19999"
 	@echo "  $(GREEN)Prometheus:$(NC)         http://localhost:9090"
 	@echo "  $(GREEN)Grafana:$(NC)            http://localhost:3000"
+	@echo "  $(GREEN)Jaeger Traces:$(NC)      http://localhost:16686"
 	@echo ""
 	@echo "$(BOLD)Default Credentials:$(NC)"
 	@echo "  $(YELLOW)PostgreSQL:$(NC)  telecom / telecom_pw"
@@ -373,3 +383,15 @@ minio-console: ## Open MinIO console
 .PHONY: grafana-dashboards
 grafana-dashboards: ## Open Grafana dashboards
 	@xdg-open http://localhost:3000/d/overview 2>/dev/null || echo "Open http://localhost:3000 manually"
+
+.PHONY: netdata-dashboard
+netdata-dashboard: ## Open Netdata real-time monitoring
+	@xdg-open http://localhost:19999 2>/dev/null || echo "Open http://localhost:19999 manually"
+
+.PHONY: jaeger-traces
+jaeger-traces: ## Open Jaeger trace explorer
+	@xdg-open http://localhost:16686 2>/dev/null || echo "Open http://localhost:16686 manually"
+
+.PHONY: prometheus-metrics
+prometheus-metrics: ## Open Prometheus metrics explorer
+	@xdg-open http://localhost:9090 2>/dev/null || echo "Open http://localhost:9090 manually"

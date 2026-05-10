@@ -3,6 +3,10 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy pre-downloaded torch wheel to avoid network timeout
 COPY wheels/torch-2.5.1+cpu-cp311-cp311-linux_x86_64.whl /tmp/
 RUN pip install /tmp/torch-2.5.1+cpu-cp311-cp311-linux_x86_64.whl \
@@ -12,7 +16,8 @@ RUN pip install /tmp/torch-2.5.1+cpu-cp311-cp311-linux_x86_64.whl \
     opentelemetry-api==1.25.0 opentelemetry-sdk==1.25.0 \
     opentelemetry-exporter-otlp-proto-grpc==1.25.0 \
     opentelemetry-instrumentation-fastapi==0.46b0 \
-    opentelemetry-instrumentation-logging==0.46b0
+    opentelemetry-instrumentation-logging==0.46b0 \
+    prometheus-fastapi-instrumentator==7.0.0
 
 # Install xgboost without GPU deps (nvidia-nccl is huge + unnecessary for CPU inference)
 RUN pip install --no-deps xgboost==2.1.4

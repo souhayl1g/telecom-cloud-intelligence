@@ -5,9 +5,6 @@ import joblib
 import torch
 
 from config import (
-    SLA_MODEL_PATH,
-    ANOMALY_MODEL_PATH,
-    REVENUE_ANOMALY_MODEL_PATH,
     CEM_MODEL_PATH,
     RAT_MODEL_PATH,
     VAE_MODEL_PATH,
@@ -16,9 +13,6 @@ from config import (
 from vae_arch import ExperienceVAE, ExperienceVAELegacy, ExperienceVAEv3
 
 _cache = {
-    "sla": None,
-    "anomaly": None,
-    "revenue": None,
     "cem": None,
     "rat": None,
     "vae": None,
@@ -49,14 +43,11 @@ def load_models(force: bool = False):
     global _cache
 
     now = time.time()
-    should_reload = force or _cache["sla"] is None
+    should_reload = force or _cache["cem"] is None
 
     # Check if models need reload based on file mtime
     if not should_reload and now - _cache["loaded_at"] > _cache_ttl:
         paths = [
-            SLA_MODEL_PATH,
-            ANOMALY_MODEL_PATH,
-            REVENUE_ANOMALY_MODEL_PATH,
             CEM_MODEL_PATH,
             RAT_MODEL_PATH,
             VAE_MODEL_PATH,
@@ -67,21 +58,6 @@ def load_models(force: bool = False):
 
     if not should_reload:
         return _cache
-
-    # --- v2.0 models ---
-    for name, path in [
-        ("sla", SLA_MODEL_PATH),
-        ("anomaly", ANOMALY_MODEL_PATH),
-        ("revenue", REVENUE_ANOMALY_MODEL_PATH),
-    ]:
-        try:
-            if path.exists():
-                _cache[name] = joblib.load(path)
-                print(f"  [ml] loaded {name} model from {path}")
-            else:
-                print(f"  [ml] warning: {name} model not found at {path}")
-        except Exception as e:
-            print(f"  [ml] warning: failed to reload {name} model: {e}")
 
     # --- v3.0 CEM (LightGBM) ---
     try:
@@ -130,9 +106,12 @@ def load_models(force: bool = False):
                 except RuntimeError:
                     continue
             else:
-                print(f"  [ml] warning: VAE v3 state_dict does not match any known architecture")
+                raise RuntimeError(
+                    f"VAE checkpoint at {VAE_MODEL_PATH} does not match any known architecture "
+                    f"(tried ExperienceVAEv3, ExperienceVAELegacy, ExperienceVAE)"
+                )
         else:
-            print(f"  [ml] warning: VAE v3 model or scaler not found")
+            print("  [ml] warning: VAE v3 model or scaler not found")
     except Exception as e:
         print(f"  [ml] warning: failed to reload VAE v3 model: {e}")
 

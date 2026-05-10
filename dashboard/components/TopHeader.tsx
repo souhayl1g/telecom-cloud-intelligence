@@ -8,10 +8,9 @@ import LiveIndicator from './LiveIndicator';
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
     '/overview':         { title: 'Overview',       subtitle: 'Platform intelligence overview' },
-    '/anomalies':        { title: 'Anomalies',       subtitle: 'OSS & BSS anomaly detection' },
     '/vae-anomalies':    { title: 'VAE OSS',         subtitle: 'Experience anomaly detection' },
-    '/sla-risk':         { title: 'SLA Risk',        subtitle: 'Breach probability & risk scores' },
     '/correlations':     { title: 'Correlations',    subtitle: 'OSS-BSS correlation explorer' },
+    '/granger-causality': { title: 'Granger Causality', subtitle: 'Temporal causality analysis' },
     '/intelligence':     { title: 'AI Intelligence', subtitle: 'Intelligence hub & insights' },
     '/predictive':       { title: 'Forecast',        subtitle: 'Predictive analytics & trends' },
     '/topology':         { title: 'Topology',        subtitle: 'Network topology view' },
