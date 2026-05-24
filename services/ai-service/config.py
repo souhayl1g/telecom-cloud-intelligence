@@ -5,10 +5,11 @@ MODELS_DIR = Path(os.getenv("MODELS_DIR", "/app/models"))
 MODEL_VERSION = "v3.0"
 CACHE_TTL_SECONDS = 30
 
-# v3.0 real-data models (GPU-trained on 1.5M+ combined real TT data)
-CEM_MODEL_PATH = MODELS_DIR / "cem_v3_lightgbm_gpu.joblib"
-RAT_MODEL_PATH = MODELS_DIR / "rat_v3_xgb_gpu.joblib"
-VAE_MODEL_PATH = MODELS_DIR / "oss_vae_v3_gpu.pt"
+# v3.0 real-data models (canonical filenames, match notebook training output).
+# Legacy *_gpu variants removed 2026-05-24 — single source of truth per model.
+CEM_MODEL_PATH = MODELS_DIR / "cem_v3_lightgbm.joblib"
+RAT_MODEL_PATH = MODELS_DIR / "rat_underservice_v3_xgb.joblib"
+VAE_MODEL_PATH = MODELS_DIR / "oss_vae_v3.pt"
 VAE_SCALER_PATH = MODELS_DIR / "vae_v3_scaler.joblib"
 
 # v3.0 CEM features (from actual area_network_health schema)
