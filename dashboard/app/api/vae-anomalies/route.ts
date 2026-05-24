@@ -1,11 +1,34 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { query } from '../../../lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+const base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
+async function safeFetch(path: string, token?: string) {
     try {
-        const [summaryRow, byArea, byCell, recentAnomalies, reconBins] = await Promise.all([
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const r = await fetch(`${base}${path}`, { cache: 'no-store', headers });
+        if (!r.ok) return null;
+        return await r.json();
+    } catch { return null; }
+}
+
+export async function GET() {
+    const token = cookies().get('auth_token')?.value;
+
+    try {
+        const [
+            summaryRow,
+            byArea,
+            byCell,
+            recentAnomalies,
+            reconBins,
+            byAreaMonthly,        // NEW: time-series for map animation
+            grangerResp,          // NEW: causal pairs for detail panel
+        ] = await Promise.all([
             query<{ total: number; anomaly_count: number; anomaly_rate: number; avg_cell_load_anomalous: number }>(
                 `SELECT oss_total::int        AS total,
                         oss_anomaly_count::int AS anomaly_count,
@@ -17,7 +40,7 @@ export async function GET() {
                 `SELECT area, total, anomaly_count, rate
                  FROM mv_oss_by_area
                  ORDER BY anomaly_count DESC
-                 LIMIT 30`
+                 LIMIT 1500`
             ),
             query<{ cell_id: string; area: string; total: number; anomaly_count: number; rate: number }>(
                 `SELECT cell_id, area, total, anomaly_count, rate
@@ -35,6 +58,23 @@ export async function GET() {
             query<{ bin: number; anomaly_flag: boolean; cnt: number }>(
                 `SELECT bin, anomaly_flag, cnt FROM mv_vae_recon_error ORDER BY bin`
             ),
+            // NEW — per-month-per-area aggregation for map animation frames.
+            // Uses raw oss_cell_kpis (no MV needed; cheap with idx_oss_cell_month).
+            query<{ month_year: string; area: string; total: number; anomaly_count: number; rate: number }>(
+                `SELECT month_year, area,
+                        COUNT(*)::int                                              AS total,
+                        COUNT(*) FILTER (WHERE anomaly_flag = TRUE)::int           AS anomaly_count,
+                        COALESCE(ROUND(COUNT(*) FILTER (WHERE anomaly_flag = TRUE) * 100.0
+                                       / NULLIF(COUNT(*),0), 2), 0)::float8        AS rate
+                 FROM oss_cell_kpis
+                 WHERE area IS NOT NULL
+                   AND UPPER(TRIM(area)) NOT IN ('NULL','NONE','N/A','')
+                 GROUP BY month_year, area
+                 HAVING COUNT(*) >= 10
+                 ORDER BY month_year ASC, anomaly_count DESC`
+            ),
+            // NEW — Granger causality results from prod engine (no auth → 500; that's fine, panel shows empty).
+            safeFetch('/granger-causality?limit=500', token),
         ]);
 
         const threshold = 0.23654;
@@ -60,6 +100,8 @@ export async function GET() {
             recentAnomalies,
             reconstructionError,
             threshold,
+            byAreaMonthly,
+            granger: grangerResp?.results ?? [],
         });
     } catch (err: any) {
         console.error('VAE anomalies error:', err);

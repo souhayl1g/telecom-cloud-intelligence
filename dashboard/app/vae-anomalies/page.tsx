@@ -1,6 +1,14 @@
 "use client";
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import PageInfoBar from '../../components/PageInfoBar';
+import TunisiaMap from '../../components/TunisiaMap';
+import GovernorateDetailPanel from '../../components/GovernorateDetailPanel';
+import { aggregateByGovernorate, areaToGovernorate } from '../../lib/tunisia-areas';
+import { MapPin, Activity, AlertTriangle, Gauge, ServerCrash } from 'lucide-react';
+import { PageSkeleton } from '../../components/ui/LoadingSkeleton';
+import ErrorState from '../../components/ui/ErrorState';
+import EmptyState from '../../components/ui/EmptyState';
+import StatTile from '../../components/ui/StatTile';
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface VAEData {
@@ -10,6 +18,8 @@ interface VAEData {
     recentAnomalies: { cell_id: string; area: string; throughput_mbps: number; latency_ms: number; packet_loss_rate: number; cell_load_pct: number; timestamp: string }[];
     reconstructionError: { bin: string; normal: number; anomaly: number }[];
     threshold: number;
+    byAreaMonthly?: { month_year: string; area: string; total: number; anomaly_count: number; rate: number }[];
+    granger?: { area?: string; oss_variable: string; cem_variable: string; direction?: string; best_lag: number; best_pvalue: number; significant?: boolean }[];
 }
 
 /* ── Stacked Bar Chart ──────────────────────────────────────────────────── */
@@ -96,15 +106,20 @@ function getSeverityBadge(cellLoad: number) {
 export default function VAEAnomaliesPage() {
     const [data, setData] = useState<VAEData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedGov, setSelectedGov] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
             const res = await fetch('/api/vae-anomalies', { cache: 'no-store' });
-            if (!res.ok) throw new Error('Failed to fetch');
+            if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
             const json = await res.json();
             setData(json);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            setError(err?.message ?? 'Unknown error');
         } finally {
             setLoading(false);
         }
@@ -115,24 +130,51 @@ export default function VAEAnomaliesPage() {
     }, [fetchData]);
 
     if (loading) {
+        return <PageSkeleton withChart />;
+    }
+
+    if (error || !data) {
         return (
-            <div className="l4-loading">
-                <div className="l4-loading-spinner" />
-                <div className="l4-loading-text">Loading VAE Anomalies...</div>
-            </div>
+            <ErrorState
+                title="Could not load VAE anomalies"
+                message={error ?? 'No data returned from /api/vae-anomalies. The pipeline may not have produced results yet.'}
+                onRetry={fetchData}
+            />
         );
     }
 
-    if (!data) {
-        return <div className="empty-state"><div className="empty-state-text">Failed to load VAE anomaly data</div></div>;
+    if (data.summary.total === 0) {
+        return (
+            <EmptyState
+                title="No anomaly data yet"
+                description="Run a pipeline cycle to populate the VAE anomaly detector. Results appear here within 2 minutes."
+                icon={ServerCrash}
+            />
+        );
     }
 
     const { summary, byArea, byCell, recentAnomalies, reconstructionError, threshold } = data;
 
-    const areaChartData = byArea.slice(0, 10).map(a => ({
-        label: a.area,
-        value: a.anomaly_count,
-    }));
+    // Aggregate cell-level area codes into Tunisia governorates
+    const governorateRows = aggregateByGovernorate(byArea);
+    const maxGovAnoms = Math.max(...governorateRows.map(r => r.anomaly_count), 1);
+    const selectedRow = governorateRows.find(r => r.governorate === selectedGov);
+
+    // Build monthly frames for map animation (one frame per month_year).
+    // Each frame aggregates that month's per-area rows into governorates.
+    const mapFrames = useMemo(() => {
+        const monthly = data.byAreaMonthly ?? [];
+        if (monthly.length === 0) return undefined;
+        const byMonth = new Map<string, { area: string; total: number; anomaly_count: number; rate: number }[]>();
+        for (const r of monthly) {
+            const list = byMonth.get(r.month_year) ?? [];
+            list.push({ area: r.area, total: r.total, anomaly_count: r.anomaly_count, rate: r.rate });
+            byMonth.set(r.month_year, list);
+        }
+        return Array.from(byMonth.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([month, rows]) => ({ label: month, rows: aggregateByGovernorate(rows) }));
+    }, [data.byAreaMonthly]);
 
     const cellChartData = byCell.slice(0, 10).map(c => ({
         label: c.cell_id,
@@ -151,24 +193,35 @@ export default function VAEAnomaliesPage() {
                 ]}
             />
 
-            {/* KPI Cards */}
+            {/* KPI tiles */}
             <div className="grid grid-4">
-                <div className="card card-compact">
-                    <div className="stat-label">Total Records</div>
-                    <div className="stat-value">{summary.total.toLocaleString()}</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Anomaly Count</div>
-                    <div className="stat-value" style={{ color: 'var(--color-danger)' }}>{summary.anomaly_count.toLocaleString()}</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Anomaly Rate</div>
-                    <div className="stat-value" style={{ color: 'var(--color-warning)' }}>{summary.anomaly_rate}%</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Avg Cell Load (Anomalous)</div>
-                    <div className="stat-value" style={{ color: 'var(--color-info)' }}>{summary.avg_cell_load_anomalous}%</div>
-                </div>
+                <StatTile
+                    label="Total Records"
+                    value={summary.total.toLocaleString()}
+                    icon={Activity}
+                    sub="OSS cell measurements analyzed"
+                />
+                <StatTile
+                    label="Anomaly Count"
+                    value={summary.anomaly_count.toLocaleString()}
+                    icon={AlertTriangle}
+                    tone="danger"
+                    sub="VAE reconstruction error > threshold"
+                />
+                <StatTile
+                    label="Anomaly Rate"
+                    value={`${summary.anomaly_rate}%`}
+                    icon={Gauge}
+                    tone="warning"
+                    sub="of all cell measurements"
+                />
+                <StatTile
+                    label="Avg Cell Load (anom.)"
+                    value={`${summary.avg_cell_load_anomalous}%`}
+                    icon={Gauge}
+                    tone="info"
+                    sub="anomalous cells run hotter"
+                />
             </div>
 
             {/* Charts Row */}
@@ -194,10 +247,57 @@ export default function VAEAnomaliesPage() {
                 <div className="card card-accent-top">
                     <div className="section-title">
                         <span className="dot" />
-                        Anomalies by Area
-                        <span className="section-subtitle">Top 10 areas by count</span>
+                        Anomalies by Governorate
+                        <span className="section-subtitle">{governorateRows.length} regions · scroll for all</span>
                     </div>
-                    <SimpleBarChart data={areaChartData} color="#ef4444" />
+                    <div className="gov-list-scroll">
+                        {governorateRows.map((r) => (
+                            <div key={r.governorate} className="gov-row">
+                                <div className="gov-row-name">
+                                    <MapPin size={13} strokeWidth={2.2} className="gov-row-pin" />
+                                    <span>{r.governorate}</span>
+                                    <span className="gov-row-cells">{r.cell_count} cells</span>
+                                </div>
+                                <div className="gov-row-bar">
+                                    <div
+                                        className="gov-row-bar-fill"
+                                        style={{ width: `${Math.min((r.anomaly_count / maxGovAnoms) * 100, 100)}%` }}
+                                    />
+                                </div>
+                                <div className="gov-row-value">{r.anomaly_count.toLocaleString()}</div>
+                                <div className="gov-row-rate">{r.rate}%</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Tunisia Anomaly Map — animated + click-to-explain */}
+            <div className="card card-accent-top">
+                <div className="section-title">
+                    <span className="dot" />
+                    Tunisia Anomaly Heat Map
+                    <span className="section-subtitle">
+                        {mapFrames ? `${mapFrames.length}-frame temporal animation · ` : ''}
+                        click governorate for Granger-derived causes · {governorateRows.length} regions
+                    </span>
+                </div>
+                <div className="tunisia-map-container with-panel">
+                    <TunisiaMap
+                        rows={governorateRows}
+                        metric="anomaly_count"
+                        frames={mapFrames}
+                        selected={selectedGov}
+                        onSelect={setSelectedGov}
+                    />
+                    <GovernorateDetailPanel
+                        governorate={selectedGov}
+                        row={selectedRow}
+                        grangerAll={data.granger ?? []}
+                        cellsAll={byCell}
+                        recentAll={recentAnomalies}
+                        onClose={() => setSelectedGov(null)}
+                    />
                 </div>
             </div>
 
@@ -233,10 +333,11 @@ export default function VAEAnomaliesPage() {
                             <tbody>
                                 {recentAnomalies.map((a, i) => {
                                     const badge = getSeverityBadge(a.cell_load_pct ?? 0);
+                                    const gov = areaToGovernorate(a.area);
                                     return (
                                         <tr key={i}>
                                             <td className="mono">{a.cell_id}</td>
-                                            <td>{a.area}</td>
+                                            <td>{gov ?? a.area}</td>
                                             <td className="mono">{a.throughput_mbps?.toFixed(1) ?? '—'} Mbps</td>
                                             <td className="mono">{a.latency_ms?.toFixed(1) ?? '—'} ms</td>
                                             <td className="mono">{(a.packet_loss_rate * 100)?.toFixed(2) ?? '—'}%</td>
