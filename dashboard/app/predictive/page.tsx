@@ -1,308 +1,312 @@
-import { api } from '../../lib/api';
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageInfoBar from '../../components/PageInfoBar';
+import StatTile from '../../components/ui/StatTile';
+import { PageSkeleton } from '../../components/ui/LoadingSkeleton';
+import ErrorState from '../../components/ui/ErrorState';
+import EmptyState from '../../components/ui/EmptyState';
+import {
+    ArrowRight, Clock, Sigma, Activity, AlertTriangle, GitBranch, Layers,
+    TrendingDown, TrendingUp, MapPin, Info, FlaskConical,
+} from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-
-/* ── Helper: simple linear regression forecast ──────────────────────────── */
-function forecast(values: number[], steps: number): number[] {
-    const n = values.length;
-    if (n < 2) return Array(steps).fill(values[0] ?? 0);
-    const xMean = (n - 1) / 2;
-    const yMean = values.reduce((a, b) => a + b, 0) / n;
-    let num = 0, den = 0;
-    for (let i = 0; i < n; i++) {
-        num += (i - xMean) * (values[i] - yMean);
-        den += (i - xMean) ** 2;
-    }
-    const slope = den !== 0 ? num / den : 0;
-    const intercept = yMean - slope * xMean;
-    return Array.from({ length: steps }, (_, i) => {
-        const v = slope * (n + i) + intercept;
-        return Math.max(0, Math.min(1, v));
-    });
+/* ── Types ──────────────────────────────────────────────────────────────── */
+interface Projection {
+    area: string;
+    oss_variable: string;
+    cem_variable: string;
+    best_lag: number;
+    lead_time_minutes: number;
+    p_value: number;
+    direction?: string;
+    n_observations: number;
+    fit_intercept: number;
+    fit_slope: number;
+    fit_r2: number;
+    latest_oss: number | null;
+    current_cem: number | null;
+    projected_cem: number;
+    delta_cem: number | null;
 }
 
-function trendDirection(values: number[]): 'up' | 'down' | 'stable' {
-    if (values.length < 3) return 'stable';
-    const recent = values.slice(-3);
-    const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
-    const older = values.slice(0, -3);
-    const olderAvg = older.length > 0 ? older.reduce((a, b) => a + b, 0) / older.length : avg;
-    const diff = avg - olderAvg;
-    if (Math.abs(diff) < 0.02) return 'stable';
-    return diff > 0 ? 'up' : 'down';
+interface ForecastResp {
+    lag_window_minutes: number;
+    area_filter: string | null;
+    projections: Projection[];
+    note?: string;
 }
 
-/* ── Sparkline SVG ──────────────────────────────────────────────────────── */
-function ForecastChart({ historical, predicted, color, height = 80 }: {
-    historical: number[]; predicted: number[]; color: string; height?: number;
-}) {
-    const all = [...historical, ...predicted];
-    if (all.length < 2) return null;
-    const max = Math.max(...all, 0.01);
-    const min = Math.min(...all);
-    const range = max - min || 1;
-    const w = 300;
-    const totalPts = all.length;
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function pValueBadge(p: number): { label: string; cls: string } {
+    if (p < 0.01) return { label: 'p<0.01', cls: 'badge-danger' };
+    if (p < 0.05) return { label: 'p<0.05', cls: 'badge-warning' };
+    if (p < 0.10) return { label: 'p<0.10', cls: 'badge-info' };
+    return { label: `p=${p.toFixed(3)}`, cls: 'badge-muted' };
+}
 
-    const toPoint = (v: number, i: number) => {
-        const x = (i / (totalPts - 1)) * w;
-        const y = height - ((v - min) / range) * (height - 8) - 4;
-        return { x, y };
-    };
+function r2Tone(r2: number): 'success' | 'info' | 'warning' | 'danger' {
+    if (r2 >= 0.6) return 'success';
+    if (r2 >= 0.3) return 'info';
+    if (r2 >= 0.1) return 'warning';
+    return 'danger';
+}
 
-    const histPoints = historical.map((v, i) => toPoint(v, i));
-    const predPoints = predicted.map((v, i) => toPoint(v, historical.length + i));
-    const splitX = histPoints.length > 0 ? histPoints[histPoints.length - 1].x : 0;
+function fmtLead(min: number): string {
+    if (min < 60) return `${Math.round(min)} min`;
+    const h = min / 60;
+    if (h < 48) return `${h.toFixed(1)} h`;
+    return `${(h / 24).toFixed(1)} d`;
+}
 
+/** Tiny inline forecast sparkline: shows current and projected CEM as two points
+ *  separated by an arrow on a normalized 0..1 axis. No mock historical extrapolation. */
+function CausalSparkline({ current, projected, color }: { current: number | null; projected: number; color: string }) {
+    const w = 220;
+    const h = 56;
+    const y = (v: number) => h - 8 - Math.max(0, Math.min(1, v)) * (h - 16);
+    const c = current ?? projected;
     return (
-        <svg width="100%" height={height} viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{ display: 'block' }}>
-            <defs>
-                <linearGradient id={`fg-${color.replace(/[^a-z0-9]/gi, '')}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0" />
-                </linearGradient>
-            </defs>
-            {/* Forecast zone */}
-            <rect x={splitX} y="0" width={w - splitX} height={height} fill="rgba(99, 102, 241, 0.04)" />
-            <line x1={splitX} y1="0" x2={splitX} y2={height} stroke="var(--border)" strokeWidth="1" strokeDasharray="4,3" />
-            {/* Historical area */}
-            <polygon
-                points={`${histPoints[0]?.x ?? 0},${height} ${histPoints.map(p => `${p.x},${p.y}`).join(' ')} ${histPoints[histPoints.length - 1]?.x ?? 0},${height}`}
-                fill={`url(#fg-${color.replace(/[^a-z0-9]/gi, '')})`}
-            />
-            <polyline points={histPoints.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
-            {/* Predicted */}
-            {predPoints.length > 0 && histPoints.length > 0 && (
-                <polyline
-                    points={`${histPoints[histPoints.length - 1].x},${histPoints[histPoints.length - 1].y} ${predPoints.map(p => `${p.x},${p.y}`).join(' ')}`}
-                    fill="none" stroke={color} strokeWidth="2" strokeDasharray="6,3" strokeLinecap="round" opacity="0.7"
-                />
-            )}
-            {/* Predicted dots */}
-            {predPoints.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r="3" fill={color} opacity="0.6" />
-            ))}
+        <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+            <line x1={0} y1={h - 8} x2={w} y2={h - 8} stroke="rgba(15,23,42,0.08)" strokeWidth={1} />
+            <line x1={w / 2} y1={0} x2={w / 2} y2={h} stroke="rgba(15,23,42,0.06)" strokeWidth={1} strokeDasharray="3,3" />
+            <text x={4} y={11} fontSize={9} fill="#94A3B8" fontFamily="'Fira Code', monospace">now</text>
+            <text x={w - 4} y={11} fontSize={9} fill="#94A3B8" fontFamily="'Fira Code', monospace" textAnchor="end">+lag</text>
+            <line x1={20} y1={y(c)} x2={w - 20} y2={y(projected)} stroke={color} strokeWidth={2} strokeLinecap="round" />
+            <circle cx={20} cy={y(c)} r={4} fill={color} />
+            <circle cx={w - 20} cy={y(projected)} r={4} fill={color} stroke="#FFFFFF" strokeWidth={1.5} />
+            <text x={20} y={y(c) - 8} fontSize={10} fill="#0F172A" textAnchor="start" fontWeight={700} fontFamily="var(--font-geist), sans-serif">
+                {c.toFixed(3)}
+            </text>
+            <text x={w - 20} y={y(projected) - 8} fontSize={10} fill={color} textAnchor="end" fontWeight={700} fontFamily="var(--font-geist), sans-serif">
+                {projected.toFixed(3)}
+            </text>
         </svg>
     );
 }
 
-export default async function PredictivePage() {
-    const [anomalyStats, correlations, cemSummary, vaeSummary, ratSummary] = await Promise.all([
-        api.anomalyStats(),
-        api.correlation(),
-        api.cemScores(),
-        api.vaeAnomalies(),
-        api.ratUnderservice(),
-    ]);
+/* ── Page ───────────────────────────────────────────────────────────────── */
+export default function PredictivePage() {
+    const [resp, setResp] = useState<ForecastResp | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [area, setArea] = useState<string>(''); // empty = all areas
 
-    const forecastSteps = 6;
+    const fetchForecast = useCallback(async (a: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const url = `/api/granger-forecast${a ? `?area=${encodeURIComponent(a)}` : ''}`;
+            const r = await fetch(url, { cache: 'no-store' });
+            if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+            setResp(await r.json());
+        } catch (err: any) {
+            setError(err?.message ?? 'Forecast fetch failed');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-    // Real per-run anomaly severity from /anomaly-stats (reversed to chronological order)
-    const stats = ((anomalyStats as any[]) ?? []).slice(0, 15).reverse();
-    const ossRates = stats.map((s: any) => Number(s.avg_oss_severity) || 0);
-    const ossRateForecast = forecast(ossRates, forecastSteps);
+    useEffect(() => { fetchForecast(area); }, [area, fetchForecast]);
 
-    // Real per-run revenue anomaly severity
-    const revRates = stats.map((s: any) => Number(s.avg_bss_severity) || 0);
-    const revForecast = forecast(revRates, forecastSteps);
+    // List of areas inferred from projections — populates the dropdown.
+    const allAreas = useMemo(() => {
+        const set = new Set<string>();
+        (resp?.projections ?? []).forEach((p) => set.add(p.area));
+        return Array.from(set).sort();
+    }, [resp]);
 
-    // Correlation stability (real data)
-    const corrStrength = ((correlations as any[]) ?? []).slice(0, 15).map((c: any) => Math.abs(c.corr_value ?? 0.5));
-    const corrForecast = forecast(corrStrength, forecastSteps);
+    if (loading) return <PageSkeleton withChart />;
+    if (error) return <ErrorState title="Could not load Granger forecast" message={error} onRetry={() => fetchForecast(area)} />;
+    if (!resp) return null;
 
-    // CEM score trend (single point + synthetic history for demo; in production this would come from a history endpoint)
-    const cemCurrent = (cemSummary as any)?.avg_score ?? 0.5;
-    const cemHistory = stats.map((s: any, i: number) => {
-        // Approximate CEM from pipeline run index as a synthetic history
-        const base = cemCurrent;
-        return Math.max(0, Math.min(1, base + (i - stats.length / 2) * 0.01));
-    });
-    const cemForecast = forecast(cemHistory.length > 1 ? cemHistory : [cemCurrent - 0.02, cemCurrent - 0.01, cemCurrent], forecastSteps);
-    const cemTrend = trendDirection(cemHistory.length > 1 ? cemHistory : [cemCurrent - 0.02, cemCurrent - 0.01, cemCurrent]);
+    const projections = resp.projections;
+    const lagWin = resp.lag_window_minutes;
 
-    // VAE anomaly rate from current summary
-    const vaeTotal = (vaeSummary as any)?.total ?? 1000;
-    const vaeAnom = (vaeSummary as any)?.anomaly_count ?? 0;
-    const vaeRate = vaeTotal > 0 ? vaeAnom / vaeTotal : 0;
-    const vaeHistory = stats.map((s: any, i: number) => {
-        const base = vaeRate;
-        return Math.max(0, Math.min(1, base + (i - stats.length / 2) * 0.005));
-    });
-    const vaeForecast = forecast(vaeHistory.length > 1 ? vaeHistory : [vaeRate * 0.9, vaeRate * 0.95, vaeRate], forecastSteps);
+    if (projections.length === 0) {
+        return (
+            <div className="grid" style={{ gap: 24 }}>
+                <PageInfoBar
+                    eyebrow="Forecast · Granger causal projection"
+                    description="CEM-side projections computed from significant OSS→CEM Granger pairs. Each projection fits a local OLS regression on the area's monthly panel from area_network_health and projects the CEM variable forward by best_lag cycles."
+                    values={[
+                        { text: `Lag window: ${lagWin.toLocaleString()} min per Granger lag` },
+                        { text: 'No projections available yet' },
+                    ]}
+                />
+                <EmptyState
+                    title="No Granger-significant pairs persisted yet"
+                    description={resp.note ?? 'Run the pipeline-worker live engine for at least 3 cycles, then refresh.'}
+                    icon={FlaskConical}
+                />
+            </div>
+        );
+    }
 
-    // RAT underservice rate
-    const ratRate = (ratSummary as any)?.rate ?? 0;
-    const ratHistory = stats.map((s: any, i: number) => {
-        const base = ratRate / 100;
-        return Math.max(0, Math.min(1, base + (i - stats.length / 2) * 0.003));
-    });
-    const ratForecast = forecast(ratHistory.length > 1 ? ratHistory : [ratRate / 100 * 0.9, ratRate / 100 * 0.95, ratRate / 100], forecastSteps);
+    // Summary tiles
+    const peakDrop = projections.reduce<Projection | null>((acc, p) => {
+        if (p.delta_cem == null) return acc;
+        if (!acc || p.delta_cem < (acc.delta_cem ?? 0)) return p;
+        return acc;
+    }, null);
+    const peakRise = projections.reduce<Projection | null>((acc, p) => {
+        if (p.delta_cem == null) return acc;
+        if (!acc || p.delta_cem > (acc.delta_cem ?? 0)) return p;
+        return acc;
+    }, null);
+    const meanR2 = projections.reduce((s, p) => s + p.fit_r2, 0) / projections.length;
+    const shortestLead = projections.reduce<Projection>((acc, p) => (p.lead_time_minutes < acc.lead_time_minutes ? p : acc), projections[0]);
 
     return (
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
-                eyebrow="Forecast · Time-Series Projection"
-                description="Where is the network heading? Weighted linear regression projects VAE anomaly rate, CEM score trend, BSS revenue deviation, and correlation coherence forward over the next 6 cycles (~3 min). Predictions feed the L4 agent so it can act before subscriber experience degrades."
+                eyebrow="Forecast · Granger causal projection"
+                description="CEM-side projections derived from Granger-significant (OSS → CEM) pairs. For each pair we fit OLS  CEM_Y(t) ~ OSS_X(t-best_lag)  on the area's monthly panel from area_network_health, then project CEM_Y at t+best_lag. No mock data; no extrapolation of CEM history alone."
                 values={[
-                    { text: `Current CEM: ${cemCurrent.toFixed(3)} · Trend: ${cemTrend}` },
-                    { text: `VAE anomaly rate: ${(vaeRate * 100).toFixed(2)}% · RAT underservice: ${ratRate.toFixed(1)}%` },
-                    { text: `Samples: ${stats.length} observations · linear regression forecast` },
+                    { text: `${projections.length} causal projections` },
+                    { text: `Lag window: ${lagWin.toLocaleString()} min per Granger lag` },
+                    { text: `Mean fit R²: ${meanR2.toFixed(3)}` },
                 ]}
             />
 
-            {/* Forecast KPIs */}
+            {/* Area selector */}
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14 }}>
+                <Layers size={14} strokeWidth={2.4} color="#64748B" />
+                <label htmlFor="area-select" style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Area filter</label>
+                <select
+                    id="area-select"
+                    value={area}
+                    onChange={(e) => setArea(e.target.value)}
+                    style={{
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        fontFamily: "'Fira Code', monospace",
+                        fontSize: 12,
+                    }}
+                >
+                    <option value="">All areas</option>
+                    {allAreas.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                    ))}
+                </select>
+                <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 'auto' }}>
+                    <Info size={11} strokeWidth={2.4} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    Each projection is an OLS local fit on N ≥ 3 lagged observations.
+                </span>
+            </div>
+
+            {/* Headline KPIs */}
             <div className="grid grid-4">
-                <div className="card card-compact">
-                    <div className="stat-card">
-                        <div className="stat-icon purple">{'\u{1F52E}'}</div>
-                        <div className="stat-content">
-                            <div className="stat-label">CEM Forecast (next 3min)</div>
-                            <div className="stat-value" style={{
-                                color: cemForecast[cemForecast.length - 1] >= 0.6 ? 'var(--color-success)' : cemForecast[cemForecast.length - 1] >= 0.3 ? 'var(--color-warning)' : 'var(--color-danger)'
-                            }}>
-                                {cemForecast[cemForecast.length - 1].toFixed(3)}
-                            </div>
-                            <div className="stat-sub">Predicted CEM score</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-card">
-                        <div className="stat-icon danger">{'\u23F1'}</div>
-                        <div className="stat-content">
-                            <div className="stat-label">VAE Anomaly Peak</div>
-                            <div className="stat-value" style={{
-                                color: Math.max(...vaeForecast) > 0.1 ? 'var(--color-danger)' : 'var(--color-success)'
-                            }}>
-                                {(Math.max(...vaeForecast) * 100).toFixed(1)}%
-                            </div>
-                            <div className="stat-sub">Highest predicted rate</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-card">
-                        <div className="stat-icon success">{cemTrend === 'up' ? '\u2191' : cemTrend === 'down' ? '\u2193' : '\u2192'}</div>
-                        <div className="stat-content">
-                            <div className="stat-label">CEM Trend</div>
-                            <div className="stat-value" style={{
-                                color: cemTrend === 'up' ? 'var(--color-success)' : cemTrend === 'down' ? 'var(--color-danger)' : 'var(--text-secondary)'
-                            }}>
-                                {cemTrend === 'up' ? 'Rising' : cemTrend === 'down' ? 'Declining' : 'Stable'}
-                            </div>
-                            <div className="stat-sub">Based on last {stats.length} observations</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-card">
-                        <div className="stat-icon cyan">{'\u{1F4CA}'}</div>
-                        <div className="stat-content">
-                            <div className="stat-label">Confidence</div>
-                            <div className="stat-value" style={{ color: 'var(--color-info)' }}>
-                                {stats.length >= 10 ? '87%' : stats.length >= 5 ? '72%' : '54%'}
-                            </div>
-                            <div className="stat-sub">{stats.length} data points</div>
-                        </div>
-                    </div>
-                </div>
+                <StatTile
+                    label="Sharpest CEM drop"
+                    value={peakDrop?.delta_cem != null ? peakDrop.delta_cem.toFixed(3) : '—'}
+                    icon={TrendingDown}
+                    tone="danger"
+                    sub={peakDrop ? `${peakDrop.area} · ${peakDrop.oss_variable}→${peakDrop.cem_variable}` : 'no decline projected'}
+                />
+                <StatTile
+                    label="Sharpest CEM rise"
+                    value={peakRise?.delta_cem != null ? `+${peakRise.delta_cem.toFixed(3)}` : '—'}
+                    icon={TrendingUp}
+                    tone="success"
+                    sub={peakRise ? `${peakRise.area} · ${peakRise.oss_variable}→${peakRise.cem_variable}` : 'no rise projected'}
+                />
+                <StatTile
+                    label="Shortest lead-time"
+                    value={fmtLead(shortestLead.lead_time_minutes)}
+                    icon={Clock}
+                    tone="warning"
+                    sub={`${shortestLead.area} · lag=${shortestLead.best_lag}`}
+                />
+                <StatTile
+                    label="Mean fit R²"
+                    value={meanR2.toFixed(3)}
+                    icon={Sigma}
+                    tone={r2Tone(meanR2)}
+                    sub={`Across ${projections.length} pairs`}
+                />
             </div>
 
-            {/* VAE + CEM Forecasts */}
-            <div className="grid grid-2">
-                <div className="card card-accent-top">
-                    <div className="section-title">
-                        <span className="dot"></span>
-                        VAE Anomaly Rate Forecast
-                        <span className="section-subtitle">Contamination rate projection</span>
-                    </div>
-                    <div style={{ padding: '16px 0' }}>
-                        <ForecastChart historical={vaeHistory.slice(-15)} predicted={vaeForecast} color="var(--color-danger)" height={120} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-muted)', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                        <span>Current rate: {((vaeHistory[vaeHistory.length - 1] ?? 0) * 100).toFixed(2)}%</span>
-                        <span style={{ marginLeft: 'auto' }}>Predicted peak: {((Math.max(...vaeForecast)) * 100).toFixed(2)}%</span>
-                    </div>
-                </div>
-                <div className="card card-accent-top">
-                    <div className="section-title">
-                        <span className="dot"></span>
-                        CEM Score Trend Forecast
-                        <span className="section-subtitle">Subscriber experience projection</span>
-                    </div>
-                    <div style={{ padding: '16px 0' }}>
-                        <ForecastChart historical={cemHistory.slice(-15)} predicted={cemForecast} color="var(--color-success)" height={120} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-muted)', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                        <span>Current: {(cemHistory[cemHistory.length - 1] ?? cemCurrent).toFixed(3)}</span>
-                        <span style={{ marginLeft: 'auto' }}>Predicted: {cemForecast[cemForecast.length - 1].toFixed(3)}</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Revenue + Correlation Forecasts */}
-            <div className="grid grid-2">
-                <div className="card">
-                    <div className="section-title">
-                        <span className="dot"></span>
-                        BSS Revenue Anomaly Forecast
-                        <span className="section-subtitle">Revenue deviation trend</span>
-                    </div>
-                    <div style={{ padding: '16px 0' }}>
-                        <ForecastChart historical={revRates} predicted={revForecast} color="var(--color-warning)" height={100} />
-                    </div>
-                </div>
-                <div className="card">
-                    <div className="section-title">
-                        <span className="dot"></span>
-                        Correlation Strength Stability
-                        <span className="section-subtitle">OSS-BSS signal coherence</span>
-                    </div>
-                    <div style={{ padding: '16px 0' }}>
-                        <ForecastChart historical={corrStrength} predicted={corrForecast} color="var(--color-cyan)" height={100} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Predictive Insights */}
+            {/* Projections list */}
             <div className="card">
                 <div className="section-title">
-                    <span className="dot"></span>
-                    AI Predictive Insights
-                    <span className="section-subtitle">Automated analysis</span>
+                    <span className="dot" />
+                    Per-pair causal projections
+                    <span className="section-subtitle">Sorted by p-value (most significant first)</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ padding: '14px 16px', background: cemForecast[cemForecast.length - 1] < 0.3 ? 'var(--color-danger-bg)' : 'var(--color-success-bg)', borderRadius: 'var(--radius-md)', border: `1px solid ${cemForecast[cemForecast.length - 1] < 0.3 ? 'var(--color-danger-border)' : 'var(--color-success-border)'}` }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
-                            {cemForecast[cemForecast.length - 1] < 0.3
-                                ? '\u26A0 CEM Degradation Warning'
-                                : '\u2713 CEM Score Stable'
-                            }
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                            {cemForecast[cemForecast.length - 1] < 0.3
-                                ? `Linear regression predicts CEM score will drop below 0.3 within ${forecastSteps * 30} seconds. Consider preemptive network optimization in affected areas.`
-                                : `Current trajectory shows CEM score remaining healthy. Forecast range: ${Math.min(...cemForecast).toFixed(3)}-${Math.max(...cemForecast).toFixed(3)} over next ${forecastSteps * 30} seconds.`
-                            }
-                        </div>
-                    </div>
 
-                    <div style={{ padding: '14px 16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Model Accuracy</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                            Forecasts use weighted linear regression on the last {stats.length} pipeline runs.
-                            Accuracy increases with more data points. Current confidence level: {stats.length >= 10 ? 'High' : stats.length >= 5 ? 'Medium' : 'Low'} ({stats.length} samples).
-                        </div>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                    {projections.slice(0, 24).map((p, i) => {
+                        const pBadge = pValueBadge(p.p_value);
+                        const isDrop = (p.delta_cem ?? 0) < 0;
+                        const color = isDrop ? '#DC2626' : '#10B981';
+                        const projColor = isDrop ? '#B91C1C' : '#059669';
+                        return (
+                            <div key={i} className="gov-detail-pair" style={{ padding: 14 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 18, alignItems: 'center' }}>
+                                    <div>
+                                        <div className="gov-detail-pair-formula" style={{ marginBottom: 6 }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#475569', fontSize: 11, marginRight: 6 }}>
+                                                <MapPin size={11} strokeWidth={2.4} />
+                                                <code style={{ background: 'rgba(15,23,42,0.06)', color: '#0F172A', padding: '2px 6px', borderRadius: 5, fontFamily: "'Fira Code', monospace", fontSize: 11 }}>{p.area}</code>
+                                            </span>
+                                            <code className="gov-detail-pair-oss">{p.oss_variable}</code>
+                                            <ArrowRight size={11} strokeWidth={2.4} />
+                                            <code className="gov-detail-pair-cem">{p.cem_variable}</code>
+                                            <span className={`badge ${pBadge.cls}`}>{pBadge.label}</span>
+                                            <span className="badge badge-info">R²={p.fit_r2.toFixed(2)}</span>
+                                            <span className="badge badge-muted">n={p.n_observations}</span>
+                                        </div>
+                                        <div className="gov-detail-pair-meta">
+                                            <span><Clock size={10} strokeWidth={2.4} /> lag={p.best_lag} (~{fmtLead(p.lead_time_minutes)})</span>
+                                            <span><Sigma size={10} strokeWidth={2.4} /> β={p.fit_slope.toExponential(2)}</span>
+                                            {p.latest_oss != null && (
+                                                <span><Activity size={10} strokeWidth={2.4} /> latest {p.oss_variable}={p.latest_oss.toFixed(2)}</span>
+                                            )}
+                                        </div>
+                                        <div className="gov-detail-pair-cause">
+                                            <strong>Projection.</strong>{' '}
+                                            Current {p.cem_variable}{p.current_cem != null ? ` = ${p.current_cem.toFixed(3)}` : ''} →
+                                            projected {p.projected_cem.toFixed(3)} at t+{fmtLead(p.lead_time_minutes)}.
+                                            {' '}{isDrop ? 'Predicted decline' : 'Predicted recovery'}: Δ = {p.delta_cem?.toFixed(3) ?? '—'}.
+                                        </div>
+                                    </div>
+                                    <CausalSparkline current={p.current_cem} projected={p.projected_cem} color={color} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
 
-                    <div style={{ padding: '14px 16px', background: 'var(--color-info-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-info-border)' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Cross-Domain Signal</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                            VAE anomaly rate and CEM score are tracked together to detect cascading failures.
-                            When network anomalies spike, subscriber experience typically degrades within 2-4 pipeline cycles (1-2 minutes).
-                        </div>
+                {projections.length > 24 && (
+                    <div style={{ marginTop: 10, fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>
+                        Showing 24 of {projections.length} projections. Use the area filter to narrow scope.
                     </div>
+                )}
+            </div>
+
+            {/* Methodology card */}
+            <div className="card">
+                <div className="section-title">
+                    <span className="dot" />
+                    Methodology · why this is causal, not extrapolation
+                    <span className="section-subtitle">From /granger-causality/explain</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '6px 2px 2px', fontSize: 12, color: '#475569', lineHeight: 1.55 }}>
+                    <p>
+                        <GitBranch size={12} strokeWidth={2.4} style={{ verticalAlign: 'middle', marginRight: 6, color: '#94A3B8' }} />
+                        Each row is a Granger-significant pair: past OSS values <em>statistically predict</em> the CEM
+                        variable at lag <code>best_lag</code>. We then fit local OLS
+                        <code> CEM_Y(t) ~ a + b · OSS_X(t−lag) </code>
+                        on the area's monthly panel and project forward.
+                    </p>
+                    <p>
+                        <AlertTriangle size={12} strokeWidth={2.4} style={{ verticalAlign: 'middle', marginRight: 6, color: '#F59E0B' }} />
+                        Naive history-only forecasting (extrapolating CEM forward from itself) does not surface the
+                        upstream OSS driver. The Granger-based projection answers the actionable question:
+                        <strong> if I fix this OSS variable today, what CEM change should I expect after the lag elapses?</strong>
+                    </p>
                 </div>
             </div>
         </div>
