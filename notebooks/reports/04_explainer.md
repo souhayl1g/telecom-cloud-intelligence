@@ -94,6 +94,15 @@ These are documented, not implemented this pass, because each changes the saved 
 
 ---
 
+## Post-Training Evaluation Cell (added 2026-05-26 — frozen model, no retrain)
+
+- **§6.5 Honesty check — 5-fold Stratified CV on a subsample** — instead of trusting one train/test split, run `StratifiedKFold` (5 folds, target balance preserved) on a subsample and report mean ± std ROC-AUC. If the single-split 0.96 is real, the CV mean lands near it with small spread; a large gap would expose an optimistic split. This validates the headline number **without retraining** the production joblib.
+- The **leakage guard** is explained in §2 above: `rat_gap_score` (and its formula inputs) are dropped from the features so the model can't read the answer off its own input — the reason an earlier version scored a fake ROC-AUC = 1.0.
+
+Still deferred (each changes the saved model → measured follow-up): GroupKFold-by-area, monotonic constraints, isotonic calibration, SHAP, and the median + `was_missing` imputation fix (§9 above).
+
+---
+
 ## The papermill `parameters` Cell
 
 `retrain-service` (port 8004) runs this notebook via **papermill**, which can override the `parameters`-tagged cell. So `RAT_LABEL_THRESHOLD`, all XGB hyperparameters, `DECISION_THRESHOLD`, and artifact filenames are named constants there — ops can retrain with a stricter label or different threshold without touching code.

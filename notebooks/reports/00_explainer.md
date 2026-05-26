@@ -162,6 +162,22 @@ A **choropleth** is a map where each region is colored by a value. We use:
 
 ---
 
+### 9.5 Telecom Cell Topology Graph (networkx)
+
+This is the "custom network-research visualization." Instead of yet another bar chart, we draw the network as a **graph** — dots connected by lines — so the jury *sees* its structure.
+
+- **Node** = a Tunisia area (governorate-level roll-up of cells).
+- **Edge** = drawn only when two areas' KPI profiles are strongly similar — Pearson correlation above `TOPO_CORR_THRESHOLD = 0.70`. The threshold keeps the picture from becoming a "hairball"; only meaningful links survive.
+- **Layout** = `spring_layout` (Fruchterman–Reingold, force-directed): pretend every edge is a spring pulling its two nodes together and every node is a magnet pushing others away, then let the system settle. Similar areas end up physically close; odd ones drift to the edge.
+
+**Why a graph for telecom?** A flat "KPI per area" table hides relationships. A force-directed graph reveals which parts of the network *move together* — regions sharing load/infrastructure patterns cluster, while an area whose network behaves unlike everyone else's sits alone, far from the blob. Force-directed graphs are the standard way operators and network researchers visualize cell/site relationships.
+
+**How to read it:** tight cluster = correlated regions; long bridge = weakly-linked areas; a lone node far from the crowd = anomalous behavior worth investigating.
+
+**Defense soundbite:** *"We don't just list KPIs per governorate — we render the network's correlation structure as a graph, so you can see at a glance which regions are coupled and which one stands alone."*
+
+---
+
 ### 10. Stratified Sampling
 
 When you sample 100K rows from 8M, do you want a random 100K? Or do you want PROPORTIONAL representation of real and simulated rows?
@@ -202,6 +218,8 @@ Both are popular "one-line EDA" tools that produce 50-page HTML reports. They're
 | KS test | Statistical test: do two samples come from the same distribution? |
 | Effect size D | KS statistic — max CDF gap; small <0.1, large >0.2 |
 | Choropleth | Map colored by a numeric value per region |
+| Network graph (networkx) | Areas as nodes, strong-correlation links as edges |
+| spring_layout | Force-directed placement — similar nodes cluster, odd ones drift out |
 | Stratified sample | Sample proportionally from each group |
 | Papermill | Tool to run a notebook with parameter overrides (used by retrain container) |
 

@@ -93,15 +93,28 @@ ROC-AUC says "the ranking is good" but production needs a concrete cutoff: *flag
 - **p99 of normal reconstruction error** — flag the worst 1% as anomalous.
 - **Youden's J** — the ROC point maximizing `(TPR − FPR)`.
 
-This threshold should be saved INTO the checkpoint so ai-service uses the same `T`. Currently not persisted — `03_findings.md` G5.
+An **F1-optimal threshold sweep** was **ADDED 2026-05-26** (§12 below): it slides `T` across all error values and picks the cutoff that maximises F1. The chosen `T` is reported in the eval cell; *persisting* it into the `.pt` checkpoint so ai-service uses the identical cutoff is still deferred (`03_findings.md` G5).
 
 ### 10. Latent Space Interpretability (the deferred demo)
 
-The VAE's selling point is that its 8-D latent space is *meaningful*. Project it to 2-D with **UMAP** (Uniform Manifold Approximation and Projection — a non-linear dimensionality reducer that preserves local neighborhoods) and color points by anomaly label: normal cells form a dense blob, anomalies scatter at the edges, and distinct anomaly *types* form separate clusters. This is the picture that sells the model in defense — currently not drawn (G4).
+The VAE's selling point is that its 8-D latent space is *meaningful*. Project it to 2-D with **UMAP** (Uniform Manifold Approximation and Projection — a non-linear dimensionality reducer that preserves local neighborhoods) and color points by anomaly label: normal cells form a dense blob, anomalies scatter at the edges, and distinct anomaly *types* form separate clusters. This is the picture that sells the model in defense — **ADDED 2026-05-26** (§14 below) using **PCA** (deterministic, dependency-light); a UMAP version remains an optional sharper alternative.
 
 ### 11. StandardScaler (why scale first)
 
 KPIs live on wildly different scales (throughput in Mbps, drop-rate in %, latency in ms). Neural nets train badly when one input dominates the gradient. **StandardScaler** transforms each column to mean 0, std 1: `(x − mean) / std`. We **fit on train, apply to val** (never fit on val — that leaks). The fitted scaler is saved as `vae_v3_scaler.joblib` so inference applies the identical transform.
+
+---
+
+## Post-Training Evaluation Cells (added 2026-05-26 — frozen VAE, no retrain)
+
+Notebook cells §10–§15 LOAD the trained `oss_vae_v3.pt` + `vae_v3_scaler.joblib` and analyse them. No retrain, no overwrite — `metrics.json` stays stable.
+
+- **§10 Load frozen VAE** — rebuild the architecture from the checkpoint dict, load weights, reapply the saved scaler.
+- **§11 ROC + PR curves** — threshold-free ranking quality of reconstruction-error as an anomaly score (ROC-AUC ≈ 0.931; PR-AUC for the rare-anomaly view).
+- **§12 F1-optimal threshold sweep** — slide cutoff `T` across all error values, plot precision/recall/F1 vs `T`, pick the F1-max `T`. Turns the ranking into an actual flag. (Persisting `T` into the checkpoint deferred — G5.)
+- **§13 Reconstruction-error distribution** — overlaid error histograms for normal vs anomaly cells; visual proof anomalies sit in the high-error tail.
+- **§14 Latent space (PCA)** — project the 8-D latent means to 2-D and colour by anomaly label: normal blob + anomalies at the edge.
+- **§15 Per-feature anomaly attribution** — for flagged cells, which of the 9 KPIs contributed most to the error → tells operators WHICH KPI is broken, not just THAT the cell is anomalous.
 
 ---
 

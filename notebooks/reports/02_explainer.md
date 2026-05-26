@@ -90,7 +90,7 @@ Why both MAE and RMSE? If RMSE ≫ MAE, a few large errors dominate (heavy-taile
 
 **SHAP** (SHapley Additive exPlanations, Lundberg & Lee 2017) borrows from game theory: it fairly distributes each prediction among its features by asking "how much did feature X change this specific prediction vs its average?" SHAP values are **additive** (they sum to the prediction) and **consistent** (if a feature matters more, its SHAP value can't go down). A SHAP beeswarm plot shows, per feature, the spread + direction of impact across all subscribers — far more trustworthy than raw tree importance.
 
-> Status in this notebook: SHAP is **documented here but not yet wired in** — see `02_findings.md` G3. Adding it does not change the saved model, only adds an analysis cell.
+> Status: **ADDED 2026-05-26** as post-training eval cells (§11 global + §12 per-segment) that LOAD the frozen `cem_v3_lightgbm.joblib` — they report on the model, never retrain it, so the saved artifact and `metrics.json` are untouched. See "Post-Training Evaluation Cells" below.
 
 ### 12. Cross-Validation (StratifiedKFold)
 
@@ -127,11 +127,23 @@ best = study.best_params
 
 A model can be **accurate on average but mis-scaled** in places — e.g. it systematically predicts 0.7 for subscribers whose true score is 0.6. **Isotonic regression** fits a monotonic (non-decreasing) step function mapping predicted → empirically-correct values, fixing such bias without reordering. Useful if the CEM score feeds a threshold-based intervention trigger.
 
-> Status: documented, deferred (G4).
+> Status: a calibration-curve **diagnostic** was ADDED 2026-05-26 (§13 — it only *measures* miscalibration on the frozen model). The isotonic *recalibration* itself (which would change outputs) stays deferred (G4), since it alters predictions.
 
 ### 15. Temporal Holdout
 
 Random split can leak time patterns. **Temporal holdout** = reserve the LAST month entirely as test. If test-on-future R² stays high, the model survives **drift** (data shifting month to month). For the defense, report both random-split (best case) and temporal-holdout (production-realistic) numbers.
+
+---
+
+## Post-Training Evaluation Cells (added 2026-05-26 — frozen model, no retrain)
+
+Notebook cells §10–§14 LOAD the already-trained `cem_v3_lightgbm.joblib` and analyse it. They never call `.fit()` or overwrite the artifact, so `metrics.json` and the dashboard stay stable (freeze-weights rule).
+
+- **§10 Load frozen artifact** — reload the exact joblib `ai-service` serves + the test split, so the analysis matches production.
+- **§11 SHAP global** — beeswarm of SHAP values across all test subscribers: which features drive the CEM score and in which direction.
+- **§12 Per-segment SHAP (Tunis / Sfax / Sousse)** — the SAME analysis sliced by area, revealing whether experience drivers differ by region (e.g. throughput may dominate in dense Tunis). Raw tree `feature_importances_` can never show this.
+- **§13 Calibration curve + residuals** — bin predictions, plot predicted-vs-actual (diagonal = well-calibrated); residual plot checks systematic bias. Diagnostic only.
+- **§14 Error-by-segment** — MAE/RMSE broken down by area and month, exposing where the model is weakest (honest defense material).
 
 ---
 

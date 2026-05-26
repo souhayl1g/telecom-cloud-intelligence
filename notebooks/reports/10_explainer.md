@@ -6,6 +6,20 @@
 
 ---
 
+## The simplest possible explanation (read this first)
+
+**Lightning and thunder.** You always *see* lightning before you *hear* thunder. So if you're forecasting storms, the lightning flash *predicts* the thunderclap — and knowing when lightning struck forecasts thunder better than guessing from past thunder alone.
+
+Granger causality is exactly this idea, in math:
+- The **OSS network signal** is the lightning — it flashes first (the network degrades).
+- The **customer-experience drop** is the thunder — it follows a bit later (subscribers feel it).
+
+The Granger F-test asks one plain question: *"Does knowing the network's recent past improve my forecast of customer experience, beyond what experience's own past already tells me?"* If yes, the network **"Granger-leads"** experience. That lead time is the whole point — it's how we catch problems before the customer complaint reaches Care.
+
+> It does NOT prove the lightning *causes* the thunder in a physics sense (they share a common cause — the storm). Likewise Granger proves *predictive precedence*, not philosophical causation. Say "predictive precedence" in the defense and you're exactly right.
+
+---
+
 ## The Big Picture
 
 You want to claim: **network degradation precedes (and predicts) customer-experience drops.** That is a *causal-direction, time-ordered* claim. Plain correlation can't support it — correlation is symmetric (if X correlates with Y, Y correlates with X equally) and says nothing about *order in time*.
