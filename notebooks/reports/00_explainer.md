@@ -128,6 +128,8 @@ We use `dou_total` (data usage) as a PROXY for CEM score because the true `cem_s
 
 We REPORT outlier % per column but do NOT remove them — that's notebook 01's job (Winsorize at p99).
 
+**Violin plots + z-score (§12.5).** A **violin** is a box plot with a mirrored KDE wrapped around it — its *width* shows where data is dense, exposing multi-modal humps a box plot hides. The **z-score rule** flags any point with `|z| > 3` (more than 3 standard deviations from the mean) — the *symmetric/Gaussian* outlier rule. We print it beside the IQR % so you can see how right-skew inflates the symmetric count: on heavy-tailed traffic, z-score and IQR disagree, and IQR (skew-robust) is the one we trust.
+
 ---
 
 ### 8. Kolmogorov-Smirnov (KS) Test
