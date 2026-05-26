@@ -219,3 +219,70 @@ Deferred because changing splits changes downstream metrics → coordinate with 
 7. **Cells 23–28:** join BSS × OSS → warehouse.parquet. Compute CEM target via formula.
 8. **Cells 29–32:** train/val/test split + temporal holdout + write splits.json.
 9. **Cells 33–34:** sanity-check validation report.
+
+---
+
+## 11. Idempotency Contract
+
+"Idempotent" = running the notebook twice produces the same output. This matters because `pb-model-retrain` may trigger the notebook multiple times.
+
+How we achieve it:
+- **SEED=42** everywhere — all random ops produce same shuffle/split
+- `WinsorBounds` saved to joblib on first run; subsequent runs load + reapply same bounds (no re-fit on shifted data)
+- `IterativeImputer` saved to joblib similarly
+- `splits.json` written atomically (overwrite, not append)
+- MinIO `raw/` purge step removes stale objects before re-upload → no phantom old months
+
+**Threat:** if `TT_data/` gains a new CSV file between runs, `warehouse.parquet` gains rows. This is INTENTIONAL (rolling data intake) but means byte-identical output only holds when the input set is frozen. Document this for defense.
+
+---
+
+## 12. CEM Weight Sensitivity Analysis
+
+The four weights (0.40 / 0.30 / 0.20 / 0.10) are **domain-expert defaults** from Huawei SmartCare CEM methodology. Changing them shifts the target → changes model predictions → changes dashboard scores.
+
+Formal sensitivity: perturb each weight ±0.05, hold others proportional, observe mean CEM score shift:
+
+| Perturbed weight | Direction | Expected effect |
+|---|---|---|
+| attach +0.05 | higher | subscribers with poor attach score lower CEM |
+| 4G share +0.05 | higher | 2G-only subscribers penalized more |
+| integrity +0.05 | higher | more sensitive to OSS data quality |
+| CDR-inv +0.05 | higher | call drop becomes bigger CEM driver |
+
+Named constants `CEM_W_ATTACH`, `CEM_W_4G`, `CEM_W_INTEGRITY`, `CEM_W_CDR` in the constants cell let you re-run with different values by changing one place only.
+
+Defense talking point: "We followed Huawei SmartCare weighting conventions. The assert `sum(weights)==1.0` prevents silent drift. A formal sensitivity ablation can be run by modifying the constants cell."
+
+---
+
+## 13. Leakage Guard
+
+**What is leakage?** Training data "leaks" information about test labels → inflated metrics that collapse at production.
+
+Three leakage risks in this pipeline:
+
+1. **Target leakage** — a feature directly encodes the target. In notebook 04 the label `is_underserved` is derived from `is_4g_capable × (1 − traffic_share_4g)`. Those two columns are DROPPED from features. See `notebook 04 — §2`.
+
+2. **Temporal leakage** — training on future data to predict past labels. Our temporal holdout always uses the LAST month as holdout → no future months in train.
+
+3. **Geographic leakage** — same area appears in both train and test. Random split doesn't prevent this. Full GroupKFold by area is deferred (noted in §10 above); the current random split is honest as long as within-area patterns are not the only signal.
+
+---
+
+## 14. Pandera Schema Assertions (Planned)
+
+`pandera` lets you write:
+```python
+import pandera as pa
+schema = pa.DataFrameSchema({
+    'imsi': pa.Column(str, nullable=False),
+    'dou_total': pa.Column(float, pa.Check.ge(0)),
+    'cem_score_target': pa.Column(float, pa.Check.in_range(0, 1)),
+})
+schema.validate(warehouse)
+```
+
+Currently NOT implemented (mechanical but tedious). Adding it would catch column renames or dtype changes introduced by upstream CSV format changes before they silently corrupt model training.
+
+Priority: medium. Deferred to post-freeze maintenance pass.
