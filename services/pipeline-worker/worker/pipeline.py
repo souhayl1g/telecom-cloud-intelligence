@@ -1,9 +1,9 @@
 """20-step pipeline orchestration (v3.0 only)."""
 import hashlib
+import json
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
-
-import numpy as np
 
 from worker.config import SYNTHETIC_N_RECORDS
 from worker.db import get_conn
@@ -17,45 +17,69 @@ from worker.analytics.correlations import compute_correlations
 from worker.analytics.granger import run_granger_causality
 from worker.inference.v3_client import infer_cem, infer_vae_anomaly, infer_rat_underservice
 from worker.sampler import USE_REAL_DATA, sample_bss_records, sample_oss_records
+from worker.intervention_tracker import track_outcomes
 
 
-def _enrich_bss_for_v3(bss_records: list[dict], oss_records: list[dict]) -> list[dict]:
-    """Compute derived v3 fields + area aggregates for BSS inference."""
-    # Build area aggregates from OSS records (works for both real & synthetic)
-    area_agg: dict = {}
-    for r in oss_records:
-        area = r.get("area", r.get("region", "demo"))
-        if area not in area_agg:
-            area_agg[area] = {"tput": [], "lat": [], "loss": [], "anomaly": 0, "count": 0}
-        area_agg[area]["tput"].append(r.get("throughput_mbps", 0))
-        area_agg[area]["lat"].append(r.get("latency_ms", 0))
-        area_agg[area]["loss"].append(
-            r.get("packet_loss_pct", r.get("packet_loss_rate", 0))
-        )
-        area_agg[area]["count"] += 1
-        if r.get("is_fault"):
-            area_agg[area]["anomaly"] += 1
+def _enrich_bss_for_v3(bss_records: list[dict], _oss_records: list[dict]) -> list[dict]:
+    """Enrich BSS records with real area aggregates from area_network_health.
 
-    for data in area_agg.values():
-        data["avg_throughput"] = float(np.mean(data["tput"])) if data["tput"] else 80.0
-        data["avg_latency"] = float(np.mean(data["lat"])) if data["lat"] else 25.0
-        data["avg_packet_loss"] = float(np.mean(data["loss"])) if data["loss"] else 0.5
-        data["anomaly_rate"] = data["anomaly"] / max(data["count"], 1)
+    Queries the pre-computed area_network_health table (built from all 18.8M
+    real OSS records) instead of computing noisy aggregates from a 200-record
+    sample. No hardcoded fallbacks — missing fields are omitted so the
+    ai-service feature contract defaults them to 0.0.
+    """
+    from worker.sampler import _resolve_default_month
+
+    month_year = _resolve_default_month()
+    areas = list({r.get("area", "demo") for r in bss_records})
+    area_health: dict = {}
+
+    if areas and month_year:
+        try:
+            with get_conn() as conn:
+                with conn.cursor() as cur:
+                    placeholders = ",".join(["%s"] * len(areas))
+                    cur.execute(
+                        f"""SELECT area, avg_throughput, avg_latency, avg_packet_loss,
+                                   anomaly_count, subscriber_count
+                            FROM area_network_health
+                            WHERE area IN ({placeholders}) AND month_year = %s""",
+                        (*areas, month_year),
+                    )
+                    for row in cur.fetchall():
+                        area_health[row[0]] = {
+                            "avg_throughput": row[1],
+                            "avg_latency": row[2],
+                            "avg_packet_loss": row[3],
+                            "anomaly_count": row[4],
+                            "subscriber_count": row[5],
+                        }
+        except Exception as e:
+            print(f"[pipeline] area_network_health query failed (non-fatal): {e}")
 
     enriched = []
     for r in bss_records:
         area = r.get("area", "demo")
-        agg = area_agg.get(area, {})
+        health = area_health.get(area, {})
         gen = str(r.get("generation", "")).upper()
-        enriched.append({
+        record = {
             **r,
             "generation_4g": 1.0 if "4G" in gen or "LTE" in gen else 0.0,
             "generation_5g": 1.0 if "5G" in gen else 0.0,
-            "avg_throughput": agg.get("avg_throughput", 80.0),
-            "avg_latency": agg.get("avg_latency", 25.0),
-            "avg_packet_loss": agg.get("avg_packet_loss", 0.5),
-            "anomaly_rate": agg.get("anomaly_rate", 0.05),
-        })
+        }
+        # Only inject area fields when real data exists. Missing fields are
+        # omitted; ai-service feature contract defaults them to 0.0.
+        if health:
+            record["avg_throughput"] = health["avg_throughput"]
+            record["avg_latency"] = health["avg_latency"]
+            record["avg_packet_loss"] = health["avg_packet_loss"]
+            record["anomaly_rate"] = health["anomaly_count"] / max(health.get("subscriber_count", 1), 1)
+            record["avg_throughput_area"] = health["avg_throughput"]
+            record["avg_latency_area"] = health["avg_latency"]
+            record["avg_loss_area"] = health["avg_packet_loss"]
+            record["avg_users_area"] = health["subscriber_count"]
+            record["anomaly_count_area"] = health["anomaly_count"]
+        enriched.append(record)
     return enriched
 
 
@@ -209,45 +233,90 @@ def _run_pipeline_steps(
     bss_enriched = _enrich_bss_for_v3(bss_records, oss_records)
 
     # ── 12. CEM inference ──────────────────────────────────────────────
+    inference_failed = False
+    cem_result: dict = {"predictions": [], "model_version": "v3.0"}
     print("[12/20] Calling AI service /infer/cem ...")
-    cem_result = infer_cem(run_id, region, bss_enriched)
-    cem_scores = [p["cem_score"] for p in cem_result.get("predictions", [])]
-    print(
-        f"  CEM: {len(cem_scores)} predictions  "
-        f"model={cem_result.get('model_version')}  "
-        f"mean={sum(cem_scores)/len(cem_scores):.4f}" if cem_scores else "  CEM: no predictions"
-    )
+    try:
+        cem_result = infer_cem(run_id, region, bss_enriched)
+        cem_scores = [p["cem_score"] for p in cem_result.get("predictions", [])]
+        print(
+            f"  CEM: {len(cem_scores)} predictions  "
+            f"model={cem_result.get('model_version')}  "
+            f"mean={sum(cem_scores)/len(cem_scores):.4f}" if cem_scores else "  CEM: no predictions"
+        )
+    except Exception as e:
+        inference_failed = True
+        print(f"  CEM: FAILED — {e}")
 
     # ── 13. RAT underservice inference ─────────────────────────────────
+    rat_result: dict = {"predictions": [], "underserved_count": 0, "total": 0, "underserved_rate": 0.0, "model_version": "v3.0"}
     print("[13/20] Calling AI service /infer/rat-underservice ...")
-    rat_result = infer_rat_underservice(run_id, region, bss_enriched)
-    print(
-        f"  RAT: underserved={rat_result.get('underserved_count')}/{rat_result.get('total')}  "
-        f"rate={rat_result.get('underserved_rate')}  "
-        f"model={rat_result.get('model_version')}"
-    )
+    try:
+        rat_result = infer_rat_underservice(run_id, region, bss_enriched)
+        print(
+            f"  RAT: underserved={rat_result.get('underserved_count')}/{rat_result.get('total')}  "
+            f"rate={rat_result.get('underserved_rate')}  "
+            f"model={rat_result.get('model_version')}"
+        )
+    except Exception as e:
+        inference_failed = True
+        print(f"  RAT: FAILED — {e}")
 
     # ── 14. VAE anomaly inference ──────────────────────────────────────
+    vae_result: dict = {"records": [], "anomalous_count": 0, "total": 0, "anomaly_rate": 0.0, "model_version": "v3.0"}
     print("[14/20] Calling AI service /infer/vae-anomaly ...")
-    vae_result = infer_vae_anomaly(run_id, region, oss_records)
-    print(
-        f"  VAE: anomalies={vae_result.get('anomalous_count')}/{vae_result.get('total')}  "
-        f"rate={vae_result.get('anomaly_rate')}  "
-        f"model={vae_result.get('model_version')}"
-    )
+    try:
+        vae_result = infer_vae_anomaly(run_id, region, oss_records)
+        print(
+            f"  VAE: anomalies={vae_result.get('anomalous_count')}/{vae_result.get('total')}  "
+            f"rate={vae_result.get('anomaly_rate')}  "
+            f"model={vae_result.get('model_version')}"
+        )
+    except Exception as e:
+        inference_failed = True
+        print(f"  VAE: FAILED — {e}")
 
     # ── 15. OSS↔CEM correlations ───────────────────────────────────────
     print("[15/20] Computing OSS↔CEM correlations ...")
     correlations = compute_correlations(oss_records, bss_records)
     for c in correlations:
+        p_str = f"{c['p_value']:.4f}" if c['p_value'] is not None else "N/A"
         print(
             f"  {c['method']:>8s}  {c['metric_x']:<28s} ↔ {c['metric_y']:<22s}  "
-            f"r={c['corr_value']:+.4f}  p={c['p_value']:.4f}"
+            f"r={c['corr_value']:+.4f}  p={p_str}"
         )
 
-    # ── 16. Granger causality ──────────────────────────────────────────
-    print("[16/20] Running Granger causality analysis ...")
-    granger_summary = run_granger_causality()
+    # ── 16. Granger causality (skip-guard) ─────────────────────────────
+    granger_summary: dict = {"significant_findings": 0}
+    try:
+        # Compute a simple hash signature of area_network_health
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT area, month_year, avg_throughput, avg_latency, avg_packet_loss, anomaly_count, subscriber_count FROM area_network_health ORDER BY area, month_year"
+                )
+                rows = cur.fetchall()
+        ah_signature = hashlib.sha256(
+            json.dumps(rows, default=str).encode()
+        ).hexdigest()
+
+        _GRANGER_STATE_FILE = "/tmp/.pipeline_last_granger_hash"
+        last_hash = None
+        try:
+            with open(_GRANGER_STATE_FILE, "r") as f:
+                last_hash = f.read().strip()
+        except FileNotFoundError:
+            pass
+
+        if last_hash == ah_signature:
+            print("[16/20] Granger skipped — area_network_health unchanged.")
+        else:
+            print("[16/20] Running Granger causality analysis ...")
+            granger_summary = run_granger_causality()
+            with open(_GRANGER_STATE_FILE, "w") as f:
+                f.write(ah_signature)
+    except Exception as e:
+        print(f"[pipeline] Granger step failed (non-fatal): {e}")
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -362,15 +431,9 @@ def _run_pipeline_steps(
                     ),
                 )
 
-            # ── mark succeeded ──────────────────────────────────────────
-            cur.execute(
-                "UPDATE pipeline_runs SET status=%s, finished_at=now() "
-                "WHERE run_id=%s;",
-                ("succeeded", run_id),
-            )
-
-    # Refresh dashboard materialized views so /api/* routes serve fresh data.
-    # Runs after the main transaction so a slow refresh can't fail the run.
+    # Refresh dashboard materialized views BEFORE marking finished so
+    # finished_at reflects total wall-clock work (mat view refresh on 19M
+    # rows can take 30-60s — was previously uncounted).
     try:
         with get_conn() as conn:
             conn.autocommit = True
@@ -379,6 +442,30 @@ def _run_pipeline_steps(
                 cur.execute("SELECT refresh_dashboard_views();")
     except Exception as mv_err:
         print(f"[pipeline] mat view refresh failed (non-fatal): {mv_err}")
+
+    # ── Track churn intervention outcomes (longitudinal CEM-delta check) ──
+    try:
+        print("[intervention] tracking outcomes for pending interventions ...")
+        int_summary = track_outcomes()
+        print(
+            f"  checked={int_summary.get('checked', 0)}  "
+            f"improved={int_summary.get('improved', 0)}  "
+            f"no_change={int_summary.get('no_change', 0)}  "
+            f"worsened={int_summary.get('worsened', 0)}  "
+            f"still_pending={int_summary.get('still_pending', 0)}"
+        )
+    except Exception as it_err:
+        print(f"[intervention] tracker failed (non-fatal): {it_err}")
+
+    # ── mark succeeded AFTER all real work ─────────────────────────────
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            status = "partial" if inference_failed else "succeeded"
+            cur.execute(
+                "UPDATE pipeline_runs SET status=%s, finished_at=now() "
+                "WHERE run_id=%s;",
+                (status, run_id),
+            )
 
     print(f"\n[pipeline] ✓ run {run_id} succeeded")
     print(f"  CEM predictions: {len(cem_result.get('predictions', []))}")
