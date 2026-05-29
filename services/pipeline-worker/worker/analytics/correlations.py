@@ -14,32 +14,43 @@ def compute_correlations(oss_records: list[dict], bss_records: list[dict]) -> li
     """Compute Pearson, Spearman, and Distance Correlation between OSS and BSS per area."""
     area_oss: dict = {}
     for r in oss_records:
-        area = r.get("area", r.get("cell_id", "unknown"))
+        area = r.get("area", r.get("region", r.get("cell_id", "unknown")))
         if area not in area_oss:
             area_oss[area] = {"lat": [], "tput": [], "loss": []}
-        area_oss[area]["lat"].append(r["latency_ms"])
-        area_oss[area]["tput"].append(r["throughput_mbps"])
-        area_oss[area]["loss"].append(r.get("packet_loss_pct", r.get("packet_loss_rate", 0)))
+        if r.get("latency_ms") is not None:
+            area_oss[area]["lat"].append(r["latency_ms"])
+        if r.get("throughput_mbps") is not None:
+            area_oss[area]["tput"].append(r["throughput_mbps"])
+        pl = r.get("packet_loss_pct", r.get("packet_loss_rate"))
+        if pl is not None:
+            area_oss[area]["loss"].append(pl)
 
     area_bss: dict = {}
     for r in bss_records:
         area = r.get("area", "unknown")
         if area not in area_bss:
             area_bss[area] = {"dou": [], "nei": [], "s1": []}
-        area_bss[area]["dou"].append(r["dou_total"])
-        area_bss[area]["nei"].append(r.get("network_experience_index", 0.5))
-        area_bss[area]["s1"].append(r["s1_mme_sr"])
+        if r.get("dou_total") is not None:
+            area_bss[area]["dou"].append(r["dou_total"])
+        nei = r.get("network_experience_index")
+        if nei is not None:
+            area_bss[area]["nei"].append(nei)
+        if r.get("s1_mme_sr") is not None:
+            area_bss[area]["s1"].append(r["s1_mme_sr"])
 
     common = sorted(set(area_oss.keys()) & set(area_bss.keys()))
     if len(common) < 3:
         return []
 
-    oss_lat = np.array([np.mean(area_oss[c]["lat"]) for c in common])
-    oss_tput = np.array([np.mean(area_oss[c]["tput"]) for c in common])
-    oss_loss = np.array([np.mean(area_oss[c]["loss"]) for c in common])
-    bss_dou = np.array([np.mean(area_bss[c]["dou"]) for c in common])
-    bss_nei = np.array([np.mean(area_bss[c]["nei"]) for c in common])
-    bss_s1 = np.array([np.mean(area_bss[c]["s1"]) for c in common])
+    def _mean(vals):
+        return np.mean(vals) if vals else np.nan
+
+    oss_lat = np.array([_mean(area_oss[c]["lat"]) for c in common])
+    oss_tput = np.array([_mean(area_oss[c]["tput"]) for c in common])
+    oss_loss = np.array([_mean(area_oss[c]["loss"]) for c in common])
+    bss_dou = np.array([_mean(area_bss[c]["dou"]) for c in common])
+    bss_nei = np.array([_mean(area_bss[c]["nei"]) for c in common])
+    bss_s1 = np.array([_mean(area_bss[c]["s1"]) for c in common])
 
     pairs = [
         ("mean_latency_ms", "mean_network_experience_index", oss_lat, bss_nei),
