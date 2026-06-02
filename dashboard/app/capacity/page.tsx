@@ -1,5 +1,6 @@
 import { api } from '../../lib/api';
 import PageInfoBar from '../../components/PageInfoBar';
+import { formatTunisDateTime } from '../../lib/time';
 
 export const dynamic = 'force-dynamic';
 
@@ -373,7 +374,7 @@ export default async function CapacityPage() {
                                     return (
                                         <tr key={i}>
                                             <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                                {new Date(k.created_at).toLocaleString()}
+                                                {formatTunisDateTime(k.created_at)}
                                             </td>
                                             <td>
                                                 <span style={{ color: score >= 0.7 ? 'var(--color-danger)' : score >= 0.4 ? 'var(--color-warning)' : 'var(--color-success)', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>

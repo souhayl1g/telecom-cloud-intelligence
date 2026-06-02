@@ -6,6 +6,7 @@ import StatTile from '../../components/ui/StatTile';
 import { PageSkeleton } from '../../components/ui/LoadingSkeleton';
 import ErrorState from '../../components/ui/ErrorState';
 import EmptyState from '../../components/ui/EmptyState';
+import { safeFixed } from '../../lib/time';
 import {
     ArrowRight, Clock, Sigma, Activity, AlertTriangle, GitBranch, Layers,
     TrendingDown, TrendingUp, MapPin, Info, FlaskConical,
@@ -255,20 +256,20 @@ export default function PredictivePage() {
                                             <ArrowRight size={11} strokeWidth={2.4} />
                                             <code className="gov-detail-pair-cem">{p.cem_variable}</code>
                                             <span className={`badge ${pBadge.cls}`}>{pBadge.label}</span>
-                                            <span className="badge badge-info">R²={p.fit_r2.toFixed(2)}</span>
+                                            <span className="badge badge-info">R²={safeFixed(p.fit_r2, 2)}</span>
                                             <span className="badge badge-muted">n={p.n_observations}</span>
                                         </div>
                                         <div className="gov-detail-pair-meta">
                                             <span><Clock size={10} strokeWidth={2.4} /> lag={p.best_lag} (~{fmtLead(p.lead_time_minutes)})</span>
                                             <span><Sigma size={10} strokeWidth={2.4} /> β={p.fit_slope.toExponential(2)}</span>
                                             {p.latest_oss != null && (
-                                                <span><Activity size={10} strokeWidth={2.4} /> latest {p.oss_variable}={p.latest_oss.toFixed(2)}</span>
+                                                <span><Activity size={10} strokeWidth={2.4} /> latest {p.oss_variable}={safeFixed(p.latest_oss, 2)}</span>
                                             )}
                                         </div>
                                         <div className="gov-detail-pair-cause">
                                             <strong>Projection.</strong>{' '}
                                             Current {p.cem_variable}{p.current_cem != null ? ` = ${p.current_cem.toFixed(3)}` : ''} →
-                                            projected {p.projected_cem.toFixed(3)} at t+{fmtLead(p.lead_time_minutes)}.
+                                            projected {safeFixed(p.projected_cem, 3)} at t+{fmtLead(p.lead_time_minutes)}.
                                             {' '}{isDrop ? 'Predicted decline' : 'Predicted recovery'}: Δ = {p.delta_cem?.toFixed(3) ?? '—'}.
                                         </div>
                                     </div>

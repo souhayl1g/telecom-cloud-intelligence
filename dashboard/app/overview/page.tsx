@@ -3,11 +3,13 @@ import { api } from '../../lib/api';
 import AnomaliesBarChart from '../../components/AnomaliesBarChart';
 import { StaggerGrid, StaggerItem, FadeIn, SlideInBanner } from '../../components/OverviewAnimations';
 import PageInfoBar from '../../components/PageInfoBar';
+import { formatTunisDateTime } from '../../lib/time';
 
 export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
-    const [anomalies, revenue, runs, correlations, vaeSummary, cemSummary, ratSummary] = await Promise.all([
+    // Defensive parallel fetch — one failure doesn't blank the whole dashboard
+    const results = await Promise.allSettled([
         api.anomalies(),
         api.cemAnomalies(),
         api.pipelineRuns(),
@@ -16,6 +18,8 @@ export default async function OverviewPage() {
         api.cemScores(),
         api.ratUnderservice(),
     ]);
+    const [anomalies, revenue, runs, correlations, vaeSummary, cemSummary, ratSummary] =
+        results.map((r) => (r.status === 'fulfilled' ? r.value : null)) as any[];
 
     const ossCount = anomalies?.length ?? 0;
     const bssCount = revenue?.length ?? 0;
@@ -39,12 +43,12 @@ export default async function OverviewPage() {
     return (
         <div className="dash-grid">
             <PageInfoBar
-                eyebrow="Cloud-Native AI Operations · Live"
-                description="Live OSS+BSS intelligence platform for Tunisie Telecom, running on Huawei Cloud Stack. Detects VAE anomalies, scores subscriber experience via CEM LightGBM, identifies RAT underservice with XGBoost GPU, correlates network KPIs with customer-experience outcomes, and drives closed-loop autonomous operations via the L4 Agent."
+                eyebrow="NeXo Operations · Live"
+                description="Real-time view of your network and subscribers. AI watches every cell, scores every customer experience, and flags problems before they spread."
                 values={[
-                    { text: '3 v3 ML models — CEM LightGBM, VAE PyTorch, RAT XGBoost' },
-                    { text: 'OSS ↔ BSS correlation engine (Pearson + Spearman + Granger causality)' },
-                    { text: 'ADN Level-4 autonomous remediation playbooks' },
+                    { text: `${vaeCount.toLocaleString()} active anomalies` },
+                    { text: `${pendingActions} action${pendingActions === 1 ? '' : 's'} need attention` },
+                    { text: `Health: ${agentHealth.toUpperCase()}` },
                 ]}
             />
 
@@ -130,7 +134,7 @@ export default async function OverviewPage() {
                         <div className="dash-kpi-content">
                             <span className="dash-kpi-label">Correlations</span>
                             <span className="dash-kpi-value">{corrCount}</span>
-                            <span className="dash-kpi-sub">{strongCorrs} strong | OSS{'\u2194'}BSS</span>
+                            <span className="dash-kpi-sub">{strongCorrs} strong | OSS{'\u2194'}CEM</span>
                         </div>
                     </Link>
                 </StaggerItem>
@@ -299,7 +303,7 @@ export default async function OverviewPage() {
                             </thead>
                             <tbody>
                                 {(runs as any[])?.slice(0, 6).map((r: any, idx: number) => (
-                                    <tr key={idx}>
+                                    <tr key={r.run_id || r.id || `run-${idx}`}>
                                         <td className="mono">{(r.run_id ?? r.id ?? '\u2014').toString().slice(0, 12)}...</td>
                                         <td>
                                             <span className={`status-dot ${r.status}`}></span>
@@ -307,8 +311,8 @@ export default async function OverviewPage() {
                                                 {r.status}
                                             </span>
                                         </td>
-                                        <td>{r.started_at ? new Date(r.started_at).toLocaleString() : r.created_at ?? '\u2014'}</td>
-                                        <td>{r.finished_at ? new Date(r.finished_at).toLocaleString() : '\u2014'}</td>
+                                        <td>{r.started_at ? formatTunisDateTime(r.started_at) : r.created_at ?? '\u2014'}</td>
+                                        <td>{formatTunisDateTime(r.finished_at)}</td>
                                     </tr>
                                 )) || <tr><td colSpan={4} className="empty-state-text">No pipeline runs</td></tr>}
                             </tbody>

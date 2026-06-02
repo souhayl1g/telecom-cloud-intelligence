@@ -77,6 +77,9 @@ export async function GET(_req: NextRequest) {
         vaeSummary,
         cemSummary,
         ratSummary,
+        ticketsStats,
+        notificationsStats,
+        interventionsStats,
     ] = await Promise.all([
         safeFetch("/correlation", token),
         safeFetch("/pipeline-runs", token),
@@ -87,16 +90,29 @@ export async function GET(_req: NextRequest) {
         safeFetch("/granger-causality", token),
         safeFetch("/areas", token),
         safeQuery(`
-            SELECT cell_id, area, throughput_mbps, latency_ms, packet_loss_rate, cell_load_pct,
-                   TRUE AS anomaly_flag,
-                   LEAST(1.0, GREATEST(0.0, COALESCE(cell_load_pct,0)/100.0))::float8 AS severity,
-                   ts
-              FROM mv_oss_recent_anomalies
-             ORDER BY ts DESC
+            SELECT cell_id, area, rat_type, throughput_mbps,
+                   latency_ms_derived       AS latency_ms,
+                   packet_loss_pct_derived  AS packet_loss_rate,
+                   cell_load_pct_real       AS cell_load_pct,
+                   integrity, call_drop_rate, rsrp_dbm, active_users,
+                   anomaly_flag,
+                   /* Severity: composite of integrity drop + CDR breach + derived loss */
+                   LEAST(1.0, GREATEST(0.0,
+                       0.5 * (1.0 - COALESCE(integrity, 100.0) / 100.0)
+                     + 0.3 * LEAST(1.0, COALESCE(call_drop_rate, 0.0) / 5.0)
+                     + 0.2 * LEAST(1.0, COALESCE(packet_loss_pct_derived, 0.0) / 10.0)
+                   ))::float8 AS severity,
+                   timestamp AS ts
+              FROM vw_oss_cell_derived
+             WHERE anomaly_flag = TRUE
+             ORDER BY timestamp DESC
              LIMIT 200
         `),
         safeQuery(`
-            SELECT imsi_hash, cem_score, rat_gap_score, NULL::boolean AS churn_risk_flag,
+            SELECT imsi_hash,
+                   NULL::float8 AS cem_score,
+                   rat_gap_score,
+                   NULL::boolean AS churn_risk_flag,
                    rat_gap_score AS severity,
                    NOW() AS created_at
               FROM mv_rat_top_underserved
@@ -124,6 +140,9 @@ export async function GET(_req: NextRequest) {
                    rat_rate             AS rate
               FROM mv_dashboard_summary
         `),
+        safeFetch("/tickets/stats", token),
+        safeFetch("/notifications/stats", token),
+        safeFetch("/interventions/stats", token),
     ]);
 
     return NextResponse.json({
@@ -144,6 +163,9 @@ export async function GET(_req: NextRequest) {
         vaeSummary: vaeSummary?.[0] ?? null,
         cemSummary: cemSummary?.[0] ?? null,
         ratSummary: ratSummary?.[0] ?? null,
+        ticketsStats: ticketsStats ?? {},
+        notificationsStats: notificationsStats ?? {},
+        interventionsStats: interventionsStats ?? {},
     });
 }
 

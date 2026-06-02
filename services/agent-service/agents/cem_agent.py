@@ -14,7 +14,9 @@ from psycopg2.extras import RealDictCursor
 
 from agents.base import BaseAgent, AgentIntent, AgentResult
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+DB_URL = os.getenv("DATABASE_URL", "")
+if not DB_URL:
+    raise RuntimeError("DATABASE_URL environment variable is required")
 
 
 def get_conn():

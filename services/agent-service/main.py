@@ -13,9 +13,10 @@ Endpoints:
 import os
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 
+from auth import require_internal_auth
 from orchestrator import Orchestrator
 from agents.base import AgentIntent
 from agents.cem_agent import CEMAgent
@@ -55,7 +56,7 @@ def health():
 
 
 @app.post("/agent/query")
-async def agent_query(req: QueryRequest):
+async def agent_query(req: QueryRequest, _=Depends(require_internal_auth)):
     """Send a natural language query to the Orchestrator."""
     try:
         result = await orchestrator.process(req.query, thread_id=req.thread_id)
@@ -65,7 +66,7 @@ async def agent_query(req: QueryRequest):
 
 
 @app.post("/agent/cem")
-async def agent_cem(req: AgentRequest):
+async def agent_cem(req: AgentRequest, _=Depends(require_internal_auth)):
     """Direct call to CEMAgent."""
     agent = CEMAgent()
     intent = AgentIntent(action=req.action, params=req.params)
@@ -80,7 +81,7 @@ async def agent_cem(req: AgentRequest):
 
 
 @app.post("/agent/network")
-async def agent_network(req: AgentRequest):
+async def agent_network(req: AgentRequest, _=Depends(require_internal_auth)):
     """Direct call to NetworkAgent."""
     agent = NetworkAgent()
     intent = AgentIntent(action=req.action, params=req.params)
@@ -95,7 +96,7 @@ async def agent_network(req: AgentRequest):
 
 
 @app.post("/agent/action")
-async def agent_action(req: AgentRequest):
+async def agent_action(req: AgentRequest, _=Depends(require_internal_auth)):
     """Direct call to ActionAgent."""
     agent = ActionAgent()
     intent = AgentIntent(action=req.action, params=req.params)
@@ -110,7 +111,7 @@ async def agent_action(req: AgentRequest):
 
 
 @app.get("/agent/playbooks")
-def list_playbooks():
+def list_playbooks(_=Depends(require_internal_auth)):
     """List all available playbooks."""
     from agents.action_agent import PLAYBOOKS
     return {

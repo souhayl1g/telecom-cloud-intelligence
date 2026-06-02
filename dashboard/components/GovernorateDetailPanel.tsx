@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { GovernorateRow } from "../lib/tunisia-areas";
 import { areaToGovernorate } from "../lib/tunisia-areas";
+import { formatTunisTime } from "../lib/time";
 
 interface GrangerRow {
     area?: string;
@@ -90,7 +91,7 @@ function pValueBadge(p: number): { label: string; cls: string } {
     if (p < 0.01) return { label: "p<0.01", cls: "badge-danger" };
     if (p < 0.05) return { label: "p<0.05", cls: "badge-warning" };
     if (p < 0.10) return { label: "p<0.10", cls: "badge-info" };
-    return { label: `p=${p.toFixed(3)}`, cls: "badge-muted" };
+    return { label: `p=${p != null ? p.toFixed(3) : "?"}`, cls: "badge-muted" };
 }
 
 export default function GovernorateDetailPanel({
@@ -246,7 +247,7 @@ export default function GovernorateDetailPanel({
                                                 </span>
                                                 <span>
                                                     <Sigma size={10} strokeWidth={2.4} />
-                                                    p={g.best_pvalue.toFixed(4)}
+                                                    p={g.best_pvalue != null ? g.best_pvalue.toFixed(4) : "?"}
                                                 </span>
                                             </div>
                                             {cause && (
@@ -278,17 +279,17 @@ export default function GovernorateDetailPanel({
                                             <div className="gov-detail-recent-meta">
                                                 <code>{r.cell_id}</code>
                                                 <span className="gov-detail-recent-time">
-                                                    {new Date(r.timestamp).toLocaleTimeString()}
+                                                    {formatTunisTime(r.timestamp)}
                                                 </span>
                                             </div>
                                             <div className="gov-detail-recent-cause">
                                                 {cause?.title ?? r.worstKey}
                                             </div>
                                             <div className="gov-detail-recent-kpis">
-                                                <span>thr {r.throughput_mbps.toFixed(1)} Mbps</span>
-                                                <span>lat {r.latency_ms.toFixed(0)} ms</span>
-                                                <span>loss {(r.packet_loss_rate * 100).toFixed(2)}%</span>
-                                                <span>load {r.cell_load_pct.toFixed(0)}%</span>
+                                                <span>thr {r.throughput_mbps != null ? r.throughput_mbps.toFixed(1) : "-"} Mbps</span>
+                                                <span>lat {r.latency_ms != null ? r.latency_ms.toFixed(0) : "-"} ms</span>
+                                                <span>loss {r.packet_loss_rate != null ? (r.packet_loss_rate * 100).toFixed(2) : "-"}%</span>
+                                                <span>load {r.cell_load_pct != null ? r.cell_load_pct.toFixed(0) : "-"}%</span>
                                             </div>
                                         </li>
                                     );
@@ -318,7 +319,7 @@ export default function GovernorateDetailPanel({
                                             />
                                         </div>
                                         <span className="gov-detail-cell-val">
-                                            {c.anomaly_count}/{c.total} ({c.rate.toFixed(1)}%)
+                                            {c.anomaly_count ?? 0}/{c.total ?? 0} ({c.rate != null ? c.rate.toFixed(1) : "-"}%)
                                         </span>
                                     </li>
                                 ))}

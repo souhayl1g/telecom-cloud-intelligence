@@ -48,11 +48,63 @@ function colorForIntensity(t: number) {
     return `rgb(${r}, ${g}, ${b})`;
 }
 
+function num(v: unknown): number {
+    return typeof v === "number" && isFinite(v) ? v : 0;
+}
+
+/** d3-geo requires exterior rings to be counter-clockwise per RFC 7946.
+ *  The source GeoJSON is wound clockwise, which makes every feature
+ *  render as "the whole world except this polygon" — solid fill, no shapes.
+ *  This helper rewinds each ring in-place so centroids, bounds and paths
+ *  compute correctly.
+ */
+function rewindRing(ring: number[][]): number[][] {
+    let area = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+        const [x1, y1] = ring[i];
+        const [x2, y2] = ring[i + 1];
+        area += (x2 - x1) * (y2 + y1);
+    }
+    // Negative area  => clockwise  => reverse to make CCW.
+    if (area < 0) return [...ring].reverse();
+    return ring;
+}
+
+function rewindGeoJSON<T extends Geometry, P>(
+    fc: FeatureCollection<T, P>
+): FeatureCollection<T, P> {
+    const features = fc.features.map((f) => {
+        const geom = f.geometry as any;
+        if (geom.type === "Polygon") {
+            return {
+                ...f,
+                geometry: {
+                    ...geom,
+                    coordinates: geom.coordinates.map((ring: number[][]) => rewindRing(ring)),
+                },
+            };
+        }
+        if (geom.type === "MultiPolygon") {
+            return {
+                ...f,
+                geometry: {
+                    ...geom,
+                    coordinates: geom.coordinates.map((poly: number[][][]) =>
+                        poly.map((ring: number[][]) => rewindRing(ring))
+                    ),
+                },
+            };
+        }
+        return f;
+    });
+    return { ...fc, features };
+}
+
 function pickMetric(r: GovernorateRow | undefined, m: Metric): number {
     if (!r) return 0;
-    if (m === "rate") return r.rate;
-    if (m === "cell_count") return r.cell_count;
-    return r.anomaly_count;
+    if (m === "rate") return num((r as any).rate);
+    if (m === "cell_count") return num((r as any).cell_count);
+    return num((r as any).anomaly_count);
 }
 
 const METRIC_LABEL: Record<Metric, string> = {
@@ -70,7 +122,10 @@ export default function TunisiaMap({
     selected,
     frames,
 }: Props) {
-    const fc = tunisiaGeo as unknown as FeatureCollection<Geometry, FeatureProps>;
+    const fc = useMemo(
+        () => rewindGeoJSON(tunisiaGeo as unknown as FeatureCollection<Geometry, FeatureProps>),
+        []
+    );
     const [metric, setMetric] = useState<Metric>(initialMetric);
     const [hovered, setHovered] = useState<{ name: string; x: number; y: number } | null>(null);
 
@@ -127,8 +182,8 @@ export default function TunisiaMap({
         });
     }, [fc.features, valueByGov, metric]);
 
-    const totalAnoms = activeRows.reduce((s, r) => s + r.anomaly_count, 0);
-    const totalCells = activeRows.reduce((s, r) => s + r.cell_count, 0);
+    const totalAnoms = activeRows.reduce((s, r) => s + num((r as any).anomaly_count), 0);
+    const totalCells = activeRows.reduce((s, r) => s + num((r as any).cell_count), 0);
 
     return (
         <div className="tunisia-map-wrap">
@@ -317,15 +372,15 @@ export default function TunisiaMap({
                                 <>
                                     <div className="tunisia-map-tooltip-row">
                                         <span>Anomalies</span>
-                                        <strong>{row.anomaly_count.toLocaleString()}</strong>
+                                        <strong>{num((row as any).anomaly_count).toLocaleString()}</strong>
                                     </div>
                                     <div className="tunisia-map-tooltip-row">
                                         <span>Rate</span>
-                                        <strong>{row.rate}%</strong>
+                                        <strong>{num((row as any).rate)}%</strong>
                                     </div>
                                     <div className="tunisia-map-tooltip-row">
                                         <span>Cells</span>
-                                        <strong>{row.cell_count}</strong>
+                                        <strong>{num((row as any).cell_count)}</strong>
                                     </div>
                                     <div className="tunisia-map-tooltip-hint">Click to inspect causes</div>
                                 </>

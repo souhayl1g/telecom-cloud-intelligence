@@ -1,0 +1,194 @@
+[
+  {
+    "file": "phase2_eda_inventory_00.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 12,
+    "hint": "inventory",
+    "size_kb": 70.1
+  },
+  {
+    "file": "phase2_eda_correlation_01.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 18,
+    "hint": "correlation",
+    "size_kb": 364.2
+  },
+  {
+    "file": "phase2_eda_correlation_02.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 18,
+    "hint": "correlation",
+    "size_kb": 286.1
+  },
+  {
+    "file": "phase2_eda_correlation_03.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 20,
+    "hint": "correlation",
+    "size_kb": 478.7
+  },
+  {
+    "file": "phase2_eda_missingness_04.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 22,
+    "hint": "missingness",
+    "size_kb": 207.4
+  },
+  {
+    "file": "phase2_eda_inventory_05.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 24,
+    "hint": "inventory",
+    "size_kb": 195.8
+  },
+  {
+    "file": "phase2_eda_missingness_06.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 26,
+    "hint": "missingness",
+    "size_kb": 130.7
+  },
+  {
+    "file": "phase2_eda_correlation_07.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 28,
+    "hint": "correlation",
+    "size_kb": 400.2
+  },
+  {
+    "file": "phase2_eda_correlation_08.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 30,
+    "hint": "correlation",
+    "size_kb": 767.0
+  },
+  {
+    "file": "phase2_eda_correlation_09.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 30,
+    "hint": "correlation",
+    "size_kb": 129.8
+  },
+  {
+    "file": "phase2_eda_missingness_10.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 36,
+    "hint": "missingness",
+    "size_kb": 203.6
+  },
+  {
+    "file": "phase2_eda_missingness_11.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 38,
+    "hint": "missingness",
+    "size_kb": 125.0
+  },
+  {
+    "file": "phase2_eda_missingness_12.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 40,
+    "hint": "missingness",
+    "size_kb": 148.6
+  },
+  {
+    "file": "phase2_eda_missingness_13.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 42,
+    "hint": "missingness",
+    "size_kb": 187.0
+  },
+  {
+    "file": "phase2_eda_correlation_14.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 44,
+    "hint": "correlation",
+    "size_kb": 229.6
+  },
+  {
+    "file": "phase2_eda_correlation_15.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 44,
+    "hint": "correlation",
+    "size_kb": 74.4
+  },
+  {
+    "file": "phase2_eda_missingness_16.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 46,
+    "hint": "missingness",
+    "size_kb": 458.7
+  },
+  {
+    "file": "phase2_eda_inventory_17.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 48,
+    "hint": "inventory",
+    "size_kb": 100.7
+  },
+  {
+    "file": "phase2_eda_missingness_18.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 50,
+    "hint": "missingness",
+    "size_kb": 327.2
+  },
+  {
+    "file": "phase2_eda_missingness_19.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 52,
+    "hint": "missingness",
+    "size_kb": 43.6
+  },
+  {
+    "file": "phase2_eda_missingness_20.png",
+    "phase": "phase2_eda",
+    "notebook": "00_data_understanding_eda.ipynb",
+    "cell": 54,
+    "hint": "missingness",
+    "size_kb": 92.3
+  },
+  {
+    "file": "phase4_cem_feature_importance_00.png",
+    "phase": "phase4_cem",
+    "notebook": "02_cem_score_training.ipynb",
+    "cell": 18,
+    "hint": "feature_importance",
+    "size_kb": 118.8
+  },
+  {
+    "file": "phase4_vae_distribution_00.png",
+    "phase": "phase4_vae",
+    "notebook": "03_oss_vae_anomaly_training.ipynb",
+    "cell": 17,
+    "hint": "distribution",
+    "size_kb": 54.9
+  },
+  {
+    "file": "phase4_rat_inventory_00.png",
+    "phase": "phase4_rat",
+    "notebook": "04_rat_underservice_training.ipynb",
+    "cell": 17,
+    "hint": "inventory",
+    "size_kb": 128.0
+  }
+]

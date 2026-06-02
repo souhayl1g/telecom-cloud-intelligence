@@ -10,18 +10,22 @@ from worker.db import get_conn
 
 warnings.filterwarnings("ignore")
 
-# Pairs to test: (oss_metric, cem_metric, expected_direction)
+# Pairs to test: (oss_metric, cem_metric, expected_direction).
+# Real TT OSS dumps only populate avg_throughput + anomaly_count reliably;
+# latency_ms / packet_loss_rate / cell_load_pct columns are not captured in
+# the carrier export, so pairs that depend on them are skipped in production.
+# Documented in CRISP-DM Phase 2 EDA conclusions.
 CAUSALITY_PAIRS = [
-    ("avg_latency", "avg_cem_score", "negative"),
-    ("avg_packet_loss", "avg_cem_score", "negative"),
-    ("anomaly_count", "underserved_pct", "positive"),
-    ("avg_throughput", "avg_cem_score", "positive"),
-    ("avg_latency", "underserved_pct", "positive"),
+    ("avg_throughput",  "avg_cem_score",   "positive"),
+    ("avg_throughput",  "underserved_pct", "negative"),
+    ("anomaly_count",   "avg_cem_score",   "negative"),
+    ("anomaly_count",   "underserved_pct", "positive"),
+    ("subscriber_count", "avg_cem_score",  "negative"),
 ]
 
 MAX_LAG = 2
 SIGNIFICANCE_LEVEL = 0.05
-MIN_OBSERVATIONS = 4
+MIN_OBSERVATIONS = 3  # 5 months in panel; lag=2 needs ≥3 obs after differencing
 
 
 def _fetch_area_timeseries() -> pd.DataFrame:

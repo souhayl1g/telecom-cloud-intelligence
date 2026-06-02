@@ -337,7 +337,7 @@ Trained on real + simulated data (2.47M subscribers, 500K OSS records).
 
 | Model | Algorithm | Training Data | Test Performance | File |
 |-------|-----------|---------------|------------------|------|
-| **CEM v3** | LightGBM DART | 2.47M subscribers, 13 features | R²=0.9933, MAE=0.0129 | `cem_v3_lightgbm_gpu.joblib` (18.6 MB) |
+| **CEM v3** | LightGBM DART | 2.47M subscribers, 13 features | R²=0.9784, MAE=0.0304 | `cem_v3_lightgbm.joblib` (18.6 MB) |
 | **VAE v3** | PyTorch VAE | 500K OSS records, 9 features | ROC-AUC=0.9307, F1=0.4901 | `oss_vae_v3_gpu.pt` (14.8 KB) |
 | **RAT v3** | XGBoost GPU | 2.47M subscribers, 10 features | ROC-AUC=0.9605, F1=0.5599 | `rat_v3_xgb_gpu.joblib` (4.2 MB) |
 

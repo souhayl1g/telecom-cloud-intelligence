@@ -239,11 +239,14 @@ def _run_pipeline_steps(
     try:
         cem_result = infer_cem(run_id, region, bss_enriched)
         cem_scores = [p["cem_score"] for p in cem_result.get("predictions", [])]
-        print(
-            f"  CEM: {len(cem_scores)} predictions  "
-            f"model={cem_result.get('model_version')}  "
-            f"mean={sum(cem_scores)/len(cem_scores):.4f}" if cem_scores else "  CEM: no predictions"
-        )
+        if cem_scores:
+            print(
+                f"  CEM: {len(cem_scores)} predictions  "
+                f"model={cem_result.get('model_version')}  "
+                f"mean={sum(cem_scores)/len(cem_scores):.4f}"
+            )
+        else:
+            print("  CEM: no predictions")
     except Exception as e:
         inference_failed = True
         print(f"  CEM: FAILED — {e}")

@@ -71,10 +71,10 @@ export default function CorrelationHeatmap({ data }: { data: Correlation[] }) {
                     <div>
                         <div className="corr-heatmap-title">
                             <span className="corr-heatmap-title-dot" />
-                            OSS ↔ BSS Correlation Matrix
+                            OSS ↔ CEM Correlation Matrix
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                            Rows = Network KPIs (OSS) · Columns = Customer KPIs (BSS) · {pearson.length} Pearson pairs
+                            Rows = Network KPIs (OSS) · Columns = Customer KPIs (CEM) · {pearson.length} Pearson pairs
                         </div>
                     </div>
                     <div className="corr-heatmap-legend">

@@ -1,6 +1,7 @@
 "use client";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useTheme } from './ThemeProvider';
+import { formatTunisShortTime } from '../lib/time';
 
 export default function SlaChart({ data }: { data: any[] }) {
     const { theme } = useTheme();
@@ -13,7 +14,7 @@ export default function SlaChart({ data }: { data: any[] }) {
     const chartData = [...data].reverse().map(d => {
         let timeLabel = d.created_at;
         try {
-            timeLabel = new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            timeLabel = formatTunisShortTime(d.created_at);
         } catch (e) { }
         return {
             time: timeLabel,

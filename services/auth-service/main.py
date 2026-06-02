@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from passlib.context import CryptContext
@@ -55,7 +55,9 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_sch
 # Configuration (env vars)
 # ---------------------------------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET", "")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET environment variable is required")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  # 24h default
 
@@ -117,10 +119,13 @@ def _ensure_tables():
                     provider_id   TEXT,
                     role          TEXT NOT NULL DEFAULT 'viewer',
                     is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+                    reset_token   TEXT,
+                    reset_token_expires_at TIMESTAMPTZ,
                     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
                     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
                     UNIQUE(provider, provider_id)
                 );
+                CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token);
 
                 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
                 CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
@@ -146,6 +151,15 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class TokenResponse(BaseModel):
@@ -291,7 +305,7 @@ def get_current_user(request: Request):
 
 
 @app.get("/auth/google")
-def google_login():
+def google_login(response: Response):
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
 
@@ -305,15 +319,28 @@ def google_login():
         f"&access_type=offline"
         f"&prompt=consent"
     )
-    return RedirectResponse(
+    resp = RedirectResponse(
         url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
     )
+    resp.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        max_age=600,
+        samesite="lax",
+        secure=False,  # Set True in production (HTTPS)
+    )
+    return resp
 
 
 @app.get("/auth/google/callback")
-async def google_callback(code: str, state: str = ""):
+async def google_callback(request: Request, code: str, state: str = ""):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
+
+    cookie_state = request.cookies.get("oauth_state")
+    if not cookie_state or not secrets.compare_digest(cookie_state, state):
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
 
     async with httpx.AsyncClient() as client:
         # Exchange code for tokens
@@ -353,10 +380,19 @@ async def google_callback(code: str, state: str = ""):
     )
 
     token, expires = _create_token(user["id"], user["email"], user["role"])
-    # Redirect to frontend with token
-    return RedirectResponse(
+    resp = RedirectResponse(
         url=f"{FRONTEND_URL}/auth/callback?token={token}&expires_in={expires}"
     )
+    resp.set_cookie(
+        key="auth_token",
+        value=token,
+        httponly=True,
+        max_age=expires,
+        samesite="lax",
+        secure=False,  # Set True in production (HTTPS)
+    )
+    resp.delete_cookie(key="oauth_state")
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -365,7 +401,7 @@ async def google_callback(code: str, state: str = ""):
 
 
 @app.get("/auth/github")
-def github_login():
+def github_login(response: Response):
     if not GITHUB_CLIENT_ID:
         raise HTTPException(status_code=501, detail="GitHub OAuth not configured")
 
@@ -376,13 +412,26 @@ def github_login():
         f"&scope=read:user%20user:email"
         f"&state={state}"
     )
-    return RedirectResponse(url=f"https://github.com/login/oauth/authorize?{params}")
+    resp = RedirectResponse(url=f"https://github.com/login/oauth/authorize?{params}")
+    resp.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        max_age=600,
+        samesite="lax",
+        secure=False,  # Set True in production (HTTPS)
+    )
+    return resp
 
 
 @app.get("/auth/github/callback")
-async def github_callback(code: str, state: str = ""):
+async def github_callback(request: Request, code: str, state: str = ""):
     if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
         raise HTTPException(status_code=501, detail="GitHub OAuth not configured")
+
+    cookie_state = request.cookies.get("oauth_state")
+    if not cookie_state or not secrets.compare_digest(cookie_state, state):
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
 
     async with httpx.AsyncClient() as client:
         # Exchange code for access token
@@ -447,9 +496,19 @@ async def github_callback(code: str, state: str = ""):
     )
 
     token, expires = _create_token(user["id"], user["email"], user["role"])
-    return RedirectResponse(
+    resp = RedirectResponse(
         url=f"{FRONTEND_URL}/auth/callback?token={token}&expires_in={expires}"
     )
+    resp.set_cookie(
+        key="auth_token",
+        value=token,
+        httponly=True,
+        max_age=expires,
+        samesite="lax",
+        secure=False,  # Set True in production (HTTPS)
+    )
+    resp.delete_cookie(key="oauth_state")
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -490,15 +549,16 @@ def _upsert_oauth_user(
             existing = cur.fetchone()
 
             if existing:
-                # Link this OAuth provider to the existing account
+                # Link this OAuth provider to the existing account.
+                # Preserve original provider so local password login continues to work.
                 cur.execute(
                     """UPDATE users
-                       SET provider = %s, provider_id = %s,
+                       SET provider_id = %s,
                            avatar_url = COALESCE(avatar_url, %s),
                            updated_at = now()
                        WHERE id = %s
                        RETURNING *""",
-                    (provider, provider_id, avatar_url, existing["id"]),
+                    (provider_id, avatar_url, existing["id"]),
                 )
                 return cur.fetchone()
 
@@ -510,6 +570,143 @@ def _upsert_oauth_user(
                 (email, full_name, avatar_url, provider, provider_id),
             )
             return cur.fetchone()
+
+
+# ---------------------------------------------------------------------------
+# Forgot password
+# ---------------------------------------------------------------------------
+
+# SMTP config (shared with api-gateway notifier)
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASS = os.getenv("SMTP_PASS", "").strip().replace(" ", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "NeXo Telecom Intelligence <nexo-noreply@tunisietelecom.tn>").strip()
+FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", f"{FRONTEND_URL}/reset-password")
+
+# Dev-mode: include reset link in API response when SMTP fails so the UI can
+# display it.  Safe for local development / defense demos — never true in prod.
+DEV_SHOW_FALLBACK_LINK = os.getenv("DEV_SHOW_FALLBACK_LINK", "false").lower() in ("1", "true", "yes")
+
+
+def _send_reset_email(to_email: str, token: str) -> dict:
+    """Send password reset email via SMTP.  Returns status dict for the caller.
+
+    Return value keys:
+        sent      — bool, whether the email was accepted by the SMTP server
+        provider  — 'smtp' | 'console'
+        error     — error message when sent==False (None otherwise)
+        link      — the reset link (always present; UI shows this in dev mode)
+    """
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    import smtplib
+
+    reset_link = f"{FRONTEND_RESET_URL}?token={token}"
+    subject = "NeXo — Reset Your Password"
+    body_text = (
+        f"Hello,\n\n"
+        f"You requested a password reset for your NeXo Telecom Intelligence account.\n\n"
+        f"Click the link below to reset your password (valid for 15 minutes):\n\n"
+        f"{reset_link}\n\n"
+        f"If you did not request this, please ignore this email.\n\n"
+        f"— NeXo Security Team"
+    )
+    body_html = (
+        f'<html><body style="font-family:system-ui,sans-serif;max-width:480px;margin:24px auto;color:#1a1a2e">'
+        f'<h2 style="color:#00D4FF">NeXo Password Reset</h2>'
+        f'<p>You requested a password reset for your NeXo account.</p>'
+        f'<p><a href="{reset_link}" style="display:inline-block;padding:12px 24px;background:#00D4FF;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Reset Password</a></p>'
+        f'<p style="color:#666;font-size:13px">Or copy this link:<br><code style="background:#f4f4f8;padding:4px 8px;border-radius:4px">{reset_link}</code></p>'
+        f'<p style="color:#666;font-size:13px">This link expires in 15 minutes. If you did not request this, ignore this email.</p>'
+        f'<p>— NeXo Security Team</p>'
+        f"</body></html>"
+    )
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM
+    msg["To"] = to_email
+    msg.attach(MIMEText(body_text, "plain", "utf-8"))
+    msg.attach(MIMEText(body_html, "html", "utf-8"))
+
+    if SMTP_HOST and SMTP_USER and SMTP_PASS:
+        try:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_FROM, [to_email], msg.as_string())
+            print(f"[auth] Reset email sent to {to_email}")
+            return {"sent": True, "provider": "smtp", "error": None, "link": reset_link}
+        except Exception as e:
+            err = str(e)
+            print(f"[auth] SMTP send failed: {err}")
+            # Fall through to console fallback
+
+    # Console fallback (always available)
+    print(f"[auth] RESET EMAIL (console fallback) to={to_email}")
+    print(f"[auth]   Link: {reset_link}")
+    return {
+        "sent": False,
+        "provider": "console",
+        "error": "SMTP not configured or credentials rejected. Check auth-service logs.",
+        "link": reset_link,
+    }
+
+
+@app.post("/auth/forgot-password")
+def forgot_password(req: ForgotPasswordRequest):
+    """Send a password reset link to the user's email."""
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM users WHERE email = %s", (req.email,))
+            user = cur.fetchone()
+            if not user:
+                # Don't reveal whether email exists
+                return {"ok": True, "detail": "If an account exists, a reset link has been sent."}
+            if user.get("provider") != "local" or not user.get("password_hash"):
+                raise HTTPException(status_code=400, detail="Password reset is only available for local accounts")
+            cur.execute(
+                "UPDATE users SET reset_token = %s, reset_token_expires_at = %s WHERE id = %s",
+                (token, expires, user["id"]),
+            )
+
+    result = _send_reset_email(req.email, token)
+    resp = {"ok": True, "detail": "If an account exists, a reset link has been sent."}
+    if DEV_SHOW_FALLBACK_LINK and not result["sent"]:
+        resp["fallback_link"] = result["link"]
+        resp["fallback_provider"] = result["provider"]
+    return resp
+
+
+@app.post("/auth/reset-password")
+def reset_password(req: ResetPasswordRequest):
+    """Reset password using a valid token."""
+    hashed = pwd_context.hash(req.password)
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM users WHERE reset_token = %s AND reset_token_expires_at > now()",
+                (req.token,),
+            )
+            user = cur.fetchone()
+            if not user:
+                raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+            cur.execute(
+                "UPDATE users SET password_hash = %s, reset_token = NULL, reset_token_expires_at = NULL, updated_at = now() WHERE id = %s RETURNING *",
+                (hashed, user["id"]),
+            )
+            updated = cur.fetchone()
+
+    token, expires = _create_token(updated["id"], updated["email"], updated["role"])
+    return TokenResponse(
+        access_token=token,
+        expires_in=expires,
+        user=_user_to_dict(updated),
+    )
 
 
 # ---------------------------------------------------------------------------

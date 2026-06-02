@@ -148,6 +148,10 @@ def main():
         (DATA_DIR / "smartcare_cem_jan.csv", ","),
         (DATA_DIR / "smartcare_cem_avr.csv", ","),
         (DATA_DIR / "smartcare_cem_mai.csv", ","),
+        (DATA_DIR / "smartcare_cem_jun.csv", ","),
+        (DATA_DIR / "smartcare_cem_jul.csv", ","),
+        (DATA_DIR / "smartcare_cem_aug.csv", ","),
+        (DATA_DIR / "smartcare_cem_sep.csv", ","),
         # (DATA_DIR / "request_data_1month_500K.txt", "|"),  -- same as mars csv
     ]
 

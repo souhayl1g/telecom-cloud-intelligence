@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from config import MODEL_VERSION, RAT_FEATURES
 from model_cache import load_models
@@ -11,16 +11,9 @@ router = APIRouter()
 
 
 class RatRecord(BaseModel):
-    dou_total: float
-    duration: float
-    s1_mme_sr: float
-    iu_attach_sr: float
-    gb_attach_sr: float
-    network_experience_index: float
-    avg_throughput: float
-    avg_latency: float
-    avg_packet_loss: float
-    anomaly_rate: float
+    """Accepts any extra fields; the router resolves the model's feature
+    contract from rat_v3_feature_names.joblib at inference time."""
+    model_config = ConfigDict(extra="allow")
 
 
 class RatRequest(BaseModel):
@@ -33,6 +26,7 @@ class RatRequest(BaseModel):
 def infer_rat_underservice(req: RatRequest):
     models = load_models()
     rat_model = models.get("rat")
+    feature_names = models.get("rat_features") or RAT_FEATURES
 
     if rat_model is None:
         return {
@@ -51,16 +45,17 @@ def infer_rat_underservice(req: RatRequest):
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    X = np.array(
-        [
-            [
-                getattr(r, f)
-                for f in RAT_FEATURES
-            ]
-            for r in req.records
-        ],
-        dtype=np.float32,
-    )
+    def _vec(rec: RatRecord) -> list[float]:
+        d = rec.model_dump()
+        return [float(d.get(f, 0.0) or 0.0) for f in feature_names]
+
+    X = np.array([_vec(r) for r in req.records], dtype=np.float32)
+
+    if X.shape[1] != len(feature_names):
+        raise HTTPException(
+            status_code=422,
+            detail=f"RAT input shape mismatch: expected {len(feature_names)} features, got {X.shape[1]}",
+        )
 
     try:
         probs = rat_model.predict_proba(X)[:, 1]

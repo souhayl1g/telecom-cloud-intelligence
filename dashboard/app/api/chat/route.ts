@@ -28,6 +28,50 @@ const SYSTEM_PROMPT = `You are Kimi, the NeXo Operations Assistant for Tunisie T
 
 Remember: You're Kimi, an AI assistant. Be natural, not formal!`;
 
+// Block known prompt-injection patterns in context strings.
+const INJECTION_PATTERNS = [
+  /ignore\s+previous/i,
+  /ignore\s+above/i,
+  /ignore\s+all/i,
+  /system\s+prompt/i,
+  /you\s+are\s+now/i,
+  /new\s+instruction/i,
+  /override\s+instructions?/i,
+  /disregard\s+everything/i,
+  /forget\s+everything/i,
+  /DAN\s+mode/i,
+  /jailbreak/i,
+];
+
+function sanitizeContext(ctx: unknown): string {
+  if (!ctx || typeof ctx !== "object") {
+    return "";
+  }
+  // Only allow known-safe top-level keys
+  const allowedKeys = [
+    "slaRisk", "anomalies", "revenueAnomalies", "correlations",
+    "pipelineRuns", "kpiSummary", "actions", "anomalyStats",
+    "cemScores", "ratUnderservice", "vaeAnomalies",
+  ];
+  const safe: Record<string, unknown> = {};
+  for (const key of allowedKeys) {
+    if (key in ctx) {
+      safe[key] = (ctx as Record<string, unknown>)[key];
+    }
+  }
+  let serialized = JSON.stringify(safe, null, 2);
+  // Scrub injection patterns
+  for (const pattern of INJECTION_PATTERNS) {
+    serialized = serialized.replace(pattern, "[REDACTED]");
+  }
+  // Hard cap on length to prevent context stuffing
+  const MAX_CONTEXT_CHARS = 8000;
+  if (serialized.length > MAX_CONTEXT_CHARS) {
+    serialized = serialized.slice(0, MAX_CONTEXT_CHARS) + "\n...[truncated]";
+  }
+  return serialized;
+}
+
 export async function POST(req: NextRequest) {
   const { messages, context, model: requestedModel } = await req.json();
 
@@ -37,8 +81,9 @@ export async function POST(req: NextRequest) {
   console.log(`[Chat API] Using model: ${model}, Ollama URL: ${OLLAMA_URL}`);
 
   // Build the full message list with system prompt + optional live context
-  const systemContent = context
-    ? `${SYSTEM_PROMPT}\n\n--- LIVE PLATFORM DATA ---\n${JSON.stringify(context, null, 2)}`
+  const safeContext = sanitizeContext(context);
+  const systemContent = safeContext
+    ? `${SYSTEM_PROMPT}\n\n--- LIVE PLATFORM DATA ---\n${safeContext}`
     : SYSTEM_PROMPT;
 
   const ollamaMessages = [
@@ -124,7 +169,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return new Response(
       JSON.stringify({
-        error: "Cannot connect to Ollama. Ensure it is running on localhost:11434",
+        error: "Cannot connect to Ollama. Ensure it is running and reachable.",
         details: String(e),
       }),
       { status: 503, headers: { "Content-Type": "application/json" } }

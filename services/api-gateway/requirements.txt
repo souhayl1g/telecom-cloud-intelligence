@@ -4,6 +4,9 @@ pydantic==2.8.2
 psycopg2-binary==2.9.9
 python-jose[cryptography]==3.3.0
 requests==2.32.3
+boto3==1.35.0
+fpdf2==2.7.9
+twilio==9.3.7
 opentelemetry-api==1.25.0
 opentelemetry-sdk==1.25.0
 opentelemetry-exporter-otlp-proto-grpc==1.25.0

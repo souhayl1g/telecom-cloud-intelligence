@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import PageInfoBar from '../../components/PageInfoBar';
 import { useRefresh } from '../../components/RefreshContext';
 import L4ADNArchitecture from '../../components/L4ADNArchitecture';
+import { formatTunisTime } from '../../lib/time';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -143,12 +143,43 @@ function generateActions(ctx: PlatformContext): AgentAction[] {
         });
     }
 
+    // Churn-prevention workflow trigger — fires when both low-CEM cohort
+    // AND high RAT underservice rate are present (compound signal).
+    if (cemPoor >= 100 && ratRate >= 10) {
+        actions.push({
+            id: `churn-${bucket}`, type: 'auto_remediation',
+            title: 'Churn Prevention Workflow Recommended',
+            description: `${cemPoor.toLocaleString()} subscribers with poor CEM + ${ratRate.toFixed(1)}% RAT underservice. Compound churn risk detected — recommend bulk retention workflow.`,
+            severity: 'critical', status: 'pending',
+            timestamp: new Date(now.getTime() - 120000).toISOString(),
+            source: 'Compound Risk Engine', confidence: 0.91,
+            impact: `Up to ${(cemPoor * 20).toLocaleString()} TND/month revenue at risk`,
+            requiresApproval: true,
+            playbookId: 'pb-churn-prevention',
+        });
+    }
+
+    // Critical VAE → auto-open NOC ticket
+    if (vaeCount >= 100) {
+        actions.push({
+            id: `ticket-${bucket}`, type: 'escalation',
+            title: 'Open NOC Ticket — Critical VAE Burst',
+            description: `${vaeCount} VAE anomalies detected in last cycle. Recommend opening a NOC ticket for engineer dispatch.`,
+            severity: 'critical', status: 'pending',
+            timestamp: new Date(now.getTime() - 60000).toISOString(),
+            source: 'L4 Agent · Auto-Escalation', confidence: 0.95,
+            impact: 'Network reliability — engineer dispatch required',
+            requiresApproval: true,
+            playbookId: 'pb-create-ticket',
+        });
+    }
+
     // Granger causality-based prediction action
     if (grangerSig > 0) {
         actions.push({
             id: `granger-${bucket}`, type: 'prediction',
             title: 'Granger Causal Pairs Detected',
-            description: `${grangerSig} statistically significant OSS→BSS causal pairs found (p<0.05). Use for predictive remediation timing.`,
+            description: `${grangerSig} statistically significant OSS→CEM causal pairs found (p<0.05). Use for predictive remediation timing.`,
             severity: 'info', status: 'auto_approved',
             timestamp: new Date(now.getTime() - 1200000).toISOString(),
             source: 'Granger Engine', confidence: 0.95,
@@ -161,7 +192,7 @@ function generateActions(ctx: PlatformContext): AgentAction[] {
     if (strongCorrs.length > 0) {
         actions.push({
             id: `corr-${bucket}`, type: 'prediction',
-            title: 'Strong OSS-BSS Correlation Detected',
+            title: 'Strong OSS-CEM Correlation Detected',
             description: `${strongCorrs.length} strong correlations found. Agent leveraging cross-domain signals for improved prediction.`,
             severity: 'info', status: 'auto_approved',
             timestamp: new Date(now.getTime() - 1800000).toISOString(),
@@ -174,7 +205,7 @@ function generateActions(ctx: PlatformContext): AgentAction[] {
     actions.push({
         id: `monitor-${bucket}`, type: 'prediction',
         title: 'Continuous Monitoring Active',
-        description: 'L4 Agent is actively monitoring all OSS/BSS telemetry streams. Next analysis cycle in 30 seconds.',
+        description: 'L4 Agent is actively monitoring all OSS/CEM telemetry streams. Next analysis cycle in 30 seconds.',
         severity: 'info', status: 'auto_approved',
         timestamp: new Date(now.getTime() - 60000).toISOString(),
         source: 'L4 Agent Core', confidence: 1.0,
@@ -186,7 +217,7 @@ function generateActions(ctx: PlatformContext): AgentAction[] {
 }
 
 /* ── Action consolidation ──────────────────────────────────────────────────
- * Group identical titles so the user sees "BSS Revenue Anomaly (18)" once,
+ * Group identical titles so the user sees "CEM Anomaly (18)" once,
  * not 18 identical cards. The group keeps the earliest id/timestamp as its
  * anchor and exposes children for drill-down.
  */
@@ -312,8 +343,9 @@ export default function L4AgentPage() {
     ];
 
     // Push notification
+    let _notifCounter = 0;
     const pushNotification = useCallback((n: Omit<Notification, 'id' | 'timestamp'>) => {
-        const notif: Notification = { ...n, id: `n-${Date.now()}-${Math.random()}`, timestamp: Date.now() };
+        const notif: Notification = { ...n, id: `n-${Date.now()}-${++_notifCounter}`, timestamp: Date.now() };
         setNotifications(prev => [notif, ...prev].slice(0, 20));
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -356,18 +388,26 @@ export default function L4AgentPage() {
     // Save chat history to localStorage whenever messages change
     useEffect(() => {
         if (messages.length > 0) {
-            localStorage.setItem('l4-agent-chat-history', JSON.stringify(messages));
+            try {
+                localStorage.setItem('l4-agent-chat-history', JSON.stringify(messages));
+            } catch {
+                // Quota exceeded or private mode — silent fallback
+            }
         }
     }, [messages]);
 
     // Save model preference
     useEffect(() => {
-        localStorage.setItem('l4-agent-selected-model', selectedModel);
+        try {
+            localStorage.setItem('l4-agent-selected-model', selectedModel);
+        } catch {
+            // Quota exceeded or private mode — silent fallback
+        }
     }, [selectedModel]);
 
     // Check Ollama availability
     useEffect(() => {
-        fetch('http://localhost:11434/api/tags')
+        fetch('/api/ollama-tags')
             .then(r => r.ok ? setOllamaReady(true) : setOllamaReady(false))
             .catch(() => setOllamaReady(false));
     }, []);
@@ -439,9 +479,14 @@ export default function L4AgentPage() {
                             impact: action.impact,
                             playbook_id: action.playbookId,
                         }),
-                    }).catch(() => null)
+                    })
                 )
-            );
+            ).then(results => {
+                const failed = results.filter(r => r.status === 'rejected').length;
+                if (failed > 0) {
+                    console.warn(`[L4 Agent] ${failed}/${toCreate.length} action creations failed`);
+                }
+            });
 
             // Merge: persisted actions take priority (they have real status)
             const merged = [...persistedActions];
@@ -455,7 +500,7 @@ export default function L4AgentPage() {
                 (a) => a.status === 'pending' && !toastedActionIdsRef.current.has(a.id)
             );
             if (newlyPending.length > 0) {
-                // Deduplicate by title to avoid "BSS Revenue Anomaly, BSS Revenue Anomaly, ..."
+                // Deduplicate by title to avoid "CEM Anomaly, CEM Anomaly, ..."
                 const uniqueTitles = Array.from(new Set(newlyPending.map(a => a.title)));
                 const shownTitles = uniqueTitles.slice(0, 3).join(', ');
                 const more = uniqueTitles.length > 3 ? ` +${uniqueTitles.length - 3} more` : '';
@@ -767,19 +812,9 @@ export default function L4AgentPage() {
                 )}
             </div>
 
-            {/* Page hero — Huawei ADN L4 framing */}
-            <PageInfoBar
-                eyebrow="NeXo · ADN Level 4 · TT Autonomous Operations"
-                description="The Tunisie Telecom autonomy brain. Three-layer architecture (Business / Service / Resource Ops) executing a 30-second closed loop: Awareness → Analysis → Decision → Execution. Five Spirit agents handle scenario-specific autonomy, three Mate copilots assist humans, the Telecom Foundation Model orchestrates intent — and the OSS ∩ BSS Granger convergence engine grounds every decision in causal evidence, not just correlation."
-                values={[
-                    { text: '5 Spirits · CEM, Network, Underservice, Convergence, Action' },
-                    { text: '3 Mates · NOC, Analyst, Field' },
-                    { text: 'Closed-loop cycle every 30s' },
-                    { text: 'Humans approve only critical · all actions auditable' },
-                ]}
-            />
+            {/* Operator-mode L4: PageInfoBar + Defense Explainer removed for production. */}
 
-            {/* ADN architecture hero — 3-layer structure + closed-loop + roster */}
+            {/* Architecture status panel — live operational metrics, not docs */}
             <L4ADNArchitecture
                 cemAvg={cemAvg}
                 vaeAnomalies={vaeAnomalyCount}
@@ -791,117 +826,6 @@ export default function L4AgentPage() {
                 cycleLatencyMs={agentSpeed}
             />
 
-            {/* ── Defense Explainer Card (REMOVE BEFORE PROD: see PRESENTATION_MODE flag) ── */}
-            <details className="card card-accent-top" data-defense-explainer style={{ padding: 0 }}>
-                <summary style={{
-                    cursor: 'pointer', padding: '14px 20px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                    background: 'linear-gradient(135deg, rgba(255,215,0,0.06) 0%, rgba(199,0,11,0.04) 100%)',
-                    borderBottom: '1px solid var(--border)',
-                    listStyle: 'none',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#ffd700' }}>school</span>
-                        <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                                Defense Explainer · How L4 ADN Works End-to-End
-                            </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                Click to expand · removable for production via PRESENTATION_MODE flag
-                            </div>
-                        </div>
-                    </div>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>▼ expand</span>
-                </summary>
-                <div style={{ padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, fontSize: 12.5, lineHeight: 1.6 }}>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 6 }}>What is L4 ADN?</div>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                            <strong>Autonomous Driving Network Level 4</strong> from Huawei&apos;s 2024 industry blueprint with TM Forum.
-                            L4 = the network self-heals, self-optimizes, and self-decides on routine ops; humans only approve critical
-                            interventions. Below L4: L0 manual, L1 assisted, L2 partial, L3 conditional autonomy.
-                        </p>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 6 }}>Three-layer architecture</div>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                            <strong>Resource Ops</strong> = OSS+BSS data, ML models. <strong>Service Ops</strong> = the 5 Spirits
-                            (scenario agents) and 3 Mates (role copilots) that translate raw signals into intent. <strong>Business Ops</strong> =
-                            CEM/customer-experience outcomes the operator cares about. Each layer feeds the one above.
-                        </p>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 6 }}>Closed-loop cycle (every 30s)</div>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                            1. <strong>Awareness</strong>: pull live OSS+BSS telemetry + refresh mat views.
-                            2. <strong>Analysis</strong>: 3 ML models score every record + Granger evaluates causal pairs.
-                            3. <strong>Decision</strong>: ConvergenceSpirit ranks remediations; safe ones auto-approve, risky ones queue.
-                            4. <strong>Execution</strong>: ActionSpirit runs real playbooks against backend services + logs to audit trail.
-                        </p>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--color-purple)', marginBottom: 6 }}>Spirits — what each does</div>
-                        <ul style={{ color: 'var(--text-secondary)', margin: 0, paddingLeft: 18 }}>
-                            <li><strong>ExperienceSpirit</strong> — LightGBM DART scoring CEM (0-1) for 4.36M subscribers; flags poor experience areas.</li>
-                            <li><strong>NetworkSpirit</strong> — PyTorch VAE detecting OSS anomalies on 19.3M cell records; ROC-AUC 0.931.</li>
-                            <li><strong>UnderserviceSpirit</strong> — XGBoost GPU classifying RAT gap (device on lower RAT than capability); ROC-AUC 0.955.</li>
-                            <li><strong>ConvergenceSpirit</strong> — Granger F-test on OSS↔CEM pairs; the only agent that proves <em>causal</em> (not just correlated) relationships.</li>
-                            <li><strong>ActionSpirit</strong> — executes playbooks (model retrain, anomaly triage, capacity scale, SLA breach analysis) against api-gateway + ai-service.</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--color-info)', marginBottom: 6 }}>Mates — role copilots</div>
-                        <ul style={{ color: 'var(--text-secondary)', margin: 0, paddingLeft: 18 }}>
-                            <li><strong>NOCMate</strong> (this page&apos;s chat) — natural-language Q&amp;A over live platform state via Qwen2.5:7b or cloud LLMs.</li>
-                            <li><strong>AnalystMate</strong> — Intelligence page; cross-domain root-cause synthesis joining anomalies + correlations + CEM.</li>
-                            <li><strong>FieldMate</strong> — Playbooks tab; explains each playbook&apos;s steps and impact for field engineers.</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--color-success)', marginBottom: 6 }}>Why this is L4 (and not L3)</div>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                            L3 = the system suggests, humans decide. L4 = the system decides on routine actions, humans only approve
-                            <em>critical</em> ones (severity=critical or warning remediations). NeXo&apos;s <code>classifyAction()</code> in
-                            <code>page.tsx</code> encodes this guardrail. Auto-approved info/predictions execute without human gate; remediations
-                            with subscriber-facing impact require approval. Every action is logged in <code>agent_actions</code> with full
-                            <code>execution_log</code> JSONB — auditable.
-                        </p>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--color-warning)', marginBottom: 6 }}>Why separate AI Hub from L4?</div>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                            <strong>AI Hub / Models page</strong> = the &quot;lab&quot; view: model evaluation metrics, feature importance, training data lineage. Audience: data scientists / defense reviewers.
-                            <strong> L4 ADN page</strong> = the &quot;ops&quot; view: closed-loop autonomy, agent decisions, real playbook execution. Audience: NOC operators.
-                            They share the same models behind <code>ai-service:8001</code> — the L4 page <em>uses</em> them; the AI Hub <em>explains</em> them.
-                        </p>
-                    </div>
-
-                    <div>
-                        <div style={{ fontWeight: 700, color: 'var(--brand-accent)', marginBottom: 6 }}>How playbooks are real (not mocked)</div>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                            Each playbook in <code>api-gateway/routers/actions.py</code> performs actual backend work:
-                            <code>pb-model-retrain</code> POSTs to <code>ai-service/models/reload</code>;
-                            <code>pb-anomaly-triage</code> queries recent anomalies and ranks by severity;
-                            <code>pb-revenue-protect</code> aggregates CEM subscriber risk by area;
-                            <code>pb-sla-breach</code> reads SLA explanation features; <code>pb-capacity-scale</code> computes headroom from KPI history.
-                            Result is persisted in <code>execution_log</code> and visible in the Audit Timeline tab.
-                        </p>
-                    </div>
-
-                </div>
-                <div style={{ padding: '10px 20px', background: 'var(--color-warning-bg)', borderTop: '1px solid var(--color-warning-border)', fontSize: 11, color: 'var(--text-secondary)' }}>
-                    <strong style={{ color: 'var(--color-warning)' }}>Production note:</strong> wrap this <code>&lt;details&gt;</code> in
-                    <code> {'{!PRESENTATION_MODE && ...}'} </code> or grep <code>data-defense-explainer</code> to remove these cards before
-                    shipping to operators. The architecture component above stays.
-                </div>
-            </details>
 
             {/* Compact agent status strip (replaces old duplicate header) */}
             <div className="card card-compact" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -947,7 +871,7 @@ export default function L4AgentPage() {
                     {/* Model Selector Bar */}
                     <div className="l4-model-selector-bar">
                         <div className="l4-model-info">
-                            <span className="l4-model-label">🤖 Model:</span>
+                            <span className="l4-model-label">Model:</span>
                             <select
                                 value={selectedModel}
                                 onChange={(e) => setSelectedModel(e.target.value)}
@@ -996,7 +920,7 @@ export default function L4AgentPage() {
                                     {[
                                         'Analyze current SLA risk and suggest remediation',
                                         'What anomalies were detected in the last pipeline run?',
-                                        'Summarize the OSS-BSS correlation insights',
+                                        'Summarize the OSS-CEM correlation insights',
                                         'What autonomous actions should I approve?',
                                     ].map((s, i) => (
                                         <button key={i} className="l4-suggestion" onClick={() => { setInput(s); inputRef.current?.focus(); }}>
@@ -1072,7 +996,7 @@ export default function L4AgentPage() {
                             className="l4-chat-input"
                             rows={1}
                         />
-                        <button onClick={sendMessage} disabled={!input.trim() || streaming || (chatMode === 'ollama' && ollamaReady === false)} className="l4-send-btn">
+                        <button type="button" onClick={sendMessage} disabled={!input.trim() || streaming || (chatMode === 'ollama' && ollamaReady === false)} className="l4-send-btn">
                             {streaming ? <div className="l4-send-spinner" /> : (
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                             )}
@@ -1209,7 +1133,7 @@ export default function L4AgentPage() {
                                                                 <div className="action-group-row-left">
                                                                     <div className="action-group-row-title">{item.id.slice(0, 18)}…</div>
                                                                     <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                                                                        {new Date(item.timestamp).toLocaleTimeString()}
+                                                                        {formatTunisTime(item.timestamp)}
                                                                         {' · '}confidence {(item.confidence * 100).toFixed(0)}%
                                                                     </div>
                                                                 </div>
@@ -1274,6 +1198,43 @@ export default function L4AgentPage() {
                                                             {step.result?.status && <span className="mono"> [{step.result.status}]</span>}
                                                             {step.driver && <span className="mono"> = {step.driver}</span>}
                                                             {step.priority && <span className="mono"> [{step.priority}]</span>}
+                                                            {step.ticket_id && (
+                                                                <span className="mono">
+                                                                    {' '}
+                                                                    <a href="/tickets" style={{ color: 'var(--color-info)', textDecoration: 'underline' }} onClick={(e) => e.stopPropagation()}>
+                                                                        [{step.ticket_id}]
+                                                                    </a>
+                                                                </span>
+                                                            )}
+                                                            {step.report_id && step.presigned_url && (
+                                                                <span className="mono">
+                                                                    {' '}
+                                                                    <a href={step.presigned_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-success)', textDecoration: 'underline', fontWeight: 600 }} onClick={(e) => e.stopPropagation()}>
+                                                                        ▼ Download Report ({step.report_id})
+                                                                    </a>
+                                                                </span>
+                                                            )}
+                                                            {step.run_id && step.status && (
+                                                                <span className="mono"> [{step.run_id} · {step.status}]</span>
+                                                            )}
+                                                            {step.sent !== undefined && step.logged !== undefined && (
+                                                                <span className="mono"> (sent:{step.sent} logged:{step.logged} failed:{step.failed})</span>
+                                                            )}
+                                                            {step.estimated_revenue_protected_tnd_per_month !== undefined && (
+                                                                <span className="mono"> · revenue protected: {step.estimated_revenue_protected_tnd_per_month} TND/mo</span>
+                                                            )}
+                                                            {step.model_name && <span className="mono"> [{step.model_name}]</span>}
+                                                            {step.improved !== undefined && (
+                                                                <span className="mono"> (improved:{step.improved} no_change:{step.no_change} worsened:{step.worsened})</span>
+                                                            )}
+                                                            {Array.isArray(step.results) && step.results.length > 0 && (
+                                                                <div style={{ paddingLeft: 22, marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
+                                                                    {step.results.slice(0, 3).map((r: any, ri: number) => (
+                                                                        <div key={ri}>↳ {r.channel} · {String(r.recipient ?? '').slice(0, 16)}… · {r.provider} · {r.status}</div>
+                                                                    ))}
+                                                                    {step.results.length > 3 && <div>↳ +{step.results.length - 3} more</div>}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1329,8 +1290,8 @@ export default function L4AgentPage() {
                                     {
                                         id: 'pb-anomaly-triage',
                                         name: 'VAE Anomaly Auto-Triage',
-                                        desc: 'Classify VAE anomaly type, correlate with BSS data, assign priority, create incident ticket.',
-                                        steps: ['Collect anomaly features from VAE PyTorch', 'Run root cause classification', 'Cross-reference with BSS CEM impact', 'Assign severity and priority', 'Create incident ticket', 'Assign to appropriate team'],
+                                        desc: 'Classify VAE anomaly type, correlate with CEM data, assign priority, create incident ticket.',
+                                        steps: ['Collect anomaly features from VAE PyTorch', 'Run root cause classification', 'Cross-reference with CEM impact', 'Assign severity and priority', 'Create incident ticket', 'Assign to appropriate team'],
                                         trigger: 'New critical VAE anomaly detected',
                                         severity: 'warning' as const,
                                         enabled: (platformCtx?.anomalies?.filter((a: any) => a.severity > 0.9).length ?? 0) > 0,
@@ -1362,6 +1323,51 @@ export default function L4AgentPage() {
                                         severity: 'info' as const,
                                         enabled: true,
                                     },
+                                    {
+                                        id: 'pb-alert-subscriber',
+                                        name: 'Alert Affected Subscribers',
+                                        desc: 'Notify subscribers in degraded areas via SMS (Twilio) + email (SMTP). Console-logs in dev mode. Audit row written per send.',
+                                        steps: ['Resolve top-10 at-risk subscribers (CEM<0.3 OR rat_gap>0.5)', 'Compose retention message', 'Send SMS via Twilio (or console-log)', 'Send email if address present', 'Write notifications_sent audit row', 'Return delivery summary'],
+                                        trigger: 'Manual or low-CEM cohort detected',
+                                        severity: 'warning' as const,
+                                        enabled: true,
+                                    },
+                                    {
+                                        id: 'pb-create-ticket',
+                                        name: 'Open NOC Ticket',
+                                        desc: 'Auto-open an internal incident ticket from the current critical signal. Critical severity also pages on-call via email.',
+                                        steps: ['Extract action context (cell_id, area, KPIs)', 'Allocate TT-YYYY-NNNNN from sequence', 'Insert ticket row (status=open)', 'Notify on-call if critical', 'Return ticket_id for cross-reference'],
+                                        trigger: 'Critical anomaly or RAT spike',
+                                        severity: 'warning' as const,
+                                        enabled: true,
+                                    },
+                                    {
+                                        id: 'pb-retrain-model',
+                                        name: 'Real Model Retrain (papermill)',
+                                        desc: 'Actually re-execute the training notebook via papermill in the retrain-service container, write new artifact to shared volume, hot-reload ai-service from disk.',
+                                        steps: ['Snapshot metrics_before from /model-metrics', 'Insert retrain_runs row (status=started)', 'POST retrain-service:8004/retrain (papermill executes notebook)', 'Copy new artifact → ai-service/models/', 'POST ai-service:8001/models/reload', 'Update retrain_runs status + metrics_after'],
+                                        trigger: 'Drift detected OR manual',
+                                        severity: 'info' as const,
+                                        enabled: true,
+                                    },
+                                    {
+                                        id: 'pb-capacity-report',
+                                        name: 'Capacity Recommendation PDF',
+                                        desc: 'Pull last 30 cycles of area_network_health + last 24h anomalies. Render fpdf2 PDF with KPI table, recommendations and methodology. Upload to MinIO with 7-day presigned URL.',
+                                        steps: ['Query area_network_health (last 30 cycles)', 'Count 24h anomalies', 'Compute headroom/ recommendations', 'Render PDF (fpdf2)', 'Upload to MinIO reports/ bucket', 'Generate presigned URL + persist row'],
+                                        trigger: 'Manual or weekly cadence',
+                                        severity: 'info' as const,
+                                        enabled: true,
+                                    },
+                                    {
+                                        id: 'pb-churn-prevention',
+                                        name: 'Churn Prevention Workflow',
+                                        desc: 'Compound workflow: query high-risk subscribers (rat_gap>0.5 AND cem<0.3), send retention SMS, offer free SIM upgrade where USIM-bottlenecked, open tracking ticket, register interventions for longitudinal CEM-delta tracking.',
+                                        steps: ['Query top-100 high-risk subscribers', 'Send retention SMS (Twilio or console)', 'Offer free SIM upgrade if usim_bottleneck', 'Insert churn_interventions rows (outcome=pending)', 'Open bulk tracking ticket if batch ≥20', 'Pipeline-worker auto-flips outcome to improved|no_change|worsened on next cycle'],
+                                        trigger: 'rat_gap>0.5 AND cem<0.3 cohort',
+                                        severity: 'critical' as const,
+                                        enabled: true,
+                                    },
                                 ].map(pb => (
                                     <div key={pb.id} className={`l4-action-item l4-severity-${pb.severity}`} style={{ marginBottom: 8 }}>
                                         <div className="l4-action-header">
@@ -1377,7 +1383,7 @@ export default function L4AgentPage() {
                                         <div style={{ marginTop: 10 }}>
                                             <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Execution Steps</div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                {pb.steps.map((step, i) => (
+                                                {(pb.steps ?? []).map((step, i) => (
                                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: runningPlaybook === pb.id && i <= 2 ? 'var(--color-success)' : 'var(--text-secondary)' }}>
                                                         <span style={{ width: 18, height: 18, borderRadius: '50%', background: runningPlaybook === pb.id && i <= 2 ? 'var(--color-success-bg)' : 'var(--bg-elevated)', border: `1px solid ${runningPlaybook === pb.id && i <= 2 ? 'var(--color-success-border)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, flexShrink: 0, fontWeight: 700 }}>
                                                             {runningPlaybook === pb.id && i <= 2 ? '\u2713' : i + 1}
@@ -1499,7 +1505,7 @@ export default function L4AgentPage() {
                                         },
                                         {
                                             time: '7min ago',
-                                            event: 'OSS-BSS Correlation Updated',
+                                            event: 'OSS-CEM Correlation Updated',
                                             type: 'info' as const,
                                             detail: `${platformCtx?.correlations?.length ?? 0} correlations computed (Pearson + Spearman)`,
                                             action: `${platformCtx?.correlations?.filter((c: any) => Math.abs(c.corr_value) >= 0.7).length ?? 0} strong correlations detected`,

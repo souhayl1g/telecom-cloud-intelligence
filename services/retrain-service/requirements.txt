@@ -1,0 +1,9 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.8.2
+papermill==2.6.0
+nbformat==5.10.4
+ipykernel==6.29.5
+boto3==1.35.0
+requests==2.32.3
+joblib==1.4.2

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from 'react';
 import PageInfoBar from '../../components/PageInfoBar';
+import { formatTunisDate } from '../../lib/time';
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface ModelMetrics {
@@ -31,7 +32,7 @@ interface ModelMetrics {
     // Common
     featureImportances?: Record<string, number>;
     hyperparameters?: Record<string, number>;
-    trainingData: { samples: number };
+    trainingData: { samples?: number; trainSplit?: number; testSplit?: number; realPct?: number; simulatedPct?: number };
     lastTrained: string;
     status: 'healthy' | 'degraded' | 'retraining';
 }
@@ -71,17 +72,18 @@ function Sparkline({ data, color, height = 36, width = 120 }: { data: number[]; 
 }
 
 /* ── Metric Bar ─────────────────────────────────────────────────────────── */
-function MetricBar({ value, label, color, format }: { value: number; label: string; color: string; format?: string }) {
-    const pct = Math.min(value * 100, 100);
-    const display = format || `${(value * 100).toFixed(1)}%`;
+function MetricBar({ value, label, color, format }: { value: number | null | undefined; label: string; color: string; format?: string }) {
+    const hasValue = typeof value === 'number' && isFinite(value);
+    const pct = hasValue ? Math.min((value as number) * 100, 100) : 0;
+    const display = !hasValue ? '—' : (format || `${((value as number) * 100).toFixed(1)}%`);
     return (
         <div style={{ marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{display}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: hasValue ? color : 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace" }}>{display}</span>
             </div>
             <div style={{ height: 6, background: 'var(--bg-elevated)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width 1s ease' }} />
+                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width 1s ease', opacity: hasValue ? 1 : 0.25 }} />
             </div>
         </div>
     );
@@ -114,7 +116,7 @@ function ConfusionMatrix({ tp, fp, fn, tn }: { tp: number; fp: number; fn: numbe
 }
 
 /* ── Radar Chart ─────────────────────────────────────────────────────────── */
-function RadarChart({ metrics, color }: { metrics: { label: string; value: number }[]; color: string }) {
+function RadarChart({ metrics, color }: { metrics: { label: string; value: number | undefined }[]; color: string }) {
     const size = 180;
     const cx = size / 2;
     const cy = size / 2;
@@ -127,7 +129,7 @@ function RadarChart({ metrics, color }: { metrics: { label: string; value: numbe
     };
 
     const bgPoints = Array.from({ length: n }, (_, i) => getPoint(i, 1));
-    const dataPoints = metrics.map((m, i) => getPoint(i, m.value));
+    const dataPoints = metrics.map((m, i) => getPoint(i, m.value ?? 0));
 
     return (
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -193,14 +195,19 @@ export default function ModelEvaluationPage() {
     const [selectedModel, setSelectedModel] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
         try {
-            // Fetch REAL metrics from the API (extracted from notebooks)
+            // Fetch honest metrics from the API (read from notebooks/models/metrics.json)
             const metricsRes = await fetch('/api/model-metrics', { cache: 'no-store' });
-            if (!metricsRes.ok) throw new Error('Failed to fetch metrics');
+            if (!metricsRes.ok) {
+                const body = await metricsRes.json().catch(() => ({}));
+                throw new Error(body?.detail ?? `Failed to fetch metrics (HTTP ${metricsRes.status})`);
+            }
             const { models: raw } = await metricsRes.json();
 
+            const td = (m: any) => m?.trainingData ?? { samples: 0 };
             const modelList: ModelMetrics[] = [
                 {
                     name: raw.cem_score.name,
@@ -210,12 +217,12 @@ export default function ModelEvaluationPage() {
                     featureNames: raw.cem_score.featureNames,
                     task: raw.cem_score.task,
                     color: '#34d399',
-                    testMae: raw.cem_score.metrics.test.mae,
-                    testRmse: raw.cem_score.metrics.test.rmse,
-                    testR2: raw.cem_score.metrics.test.r2,
+                    testMae: raw.cem_score.metrics?.test?.mae,
+                    testRmse: raw.cem_score.metrics?.test?.rmse,
+                    testR2: raw.cem_score.metrics?.test?.r2,
                     featureImportances: raw.cem_score.featureImportances,
                     hyperparameters: raw.cem_score.hyperparameters,
-                    trainingData: raw.cem_score.trainingData,
+                    trainingData: td(raw.cem_score),
                     lastTrained: raw.cem_score.lastTrained,
                     status: 'healthy',
                 },
@@ -227,13 +234,14 @@ export default function ModelEvaluationPage() {
                     featureNames: raw.oss_anomaly.featureNames,
                     task: raw.oss_anomaly.task,
                     color: '#60a5fa',
-                    precision: raw.oss_anomaly.metrics.precision,
-                    recall: raw.oss_anomaly.metrics.recall,
-                    f1: raw.oss_anomaly.metrics.f1,
-                    rocAuc: raw.oss_anomaly.metrics.rocAuc,
-                    accuracy: raw.oss_anomaly.metrics.accuracy,
+                    precision: raw.oss_anomaly.metrics?.precision,
+                    recall: raw.oss_anomaly.metrics?.recall,
+                    f1: raw.oss_anomaly.metrics?.f1,
+                    rocAuc: raw.oss_anomaly.metrics?.rocAuc,
+                    accuracy: raw.oss_anomaly.metrics?.accuracy,
+                    avgPrecision: raw.oss_anomaly.metrics?.prAuc,  // PR-AUC == average precision
                     hyperparameters: raw.oss_anomaly.hyperparameters,
-                    trainingData: raw.oss_anomaly.trainingData,
+                    trainingData: td(raw.oss_anomaly),
                     lastTrained: raw.oss_anomaly.lastTrained,
                     status: 'healthy',
                 },
@@ -245,23 +253,25 @@ export default function ModelEvaluationPage() {
                     featureNames: raw.rat_underservice.featureNames,
                     task: raw.rat_underservice.task,
                     color: '#fbbf24',
-                    precision: raw.rat_underservice.metrics.precision,
-                    recall: raw.rat_underservice.metrics.recall,
-                    f1: raw.rat_underservice.metrics.f1,
-                    rocAuc: raw.rat_underservice.metrics.rocAuc,
-                    accuracy: raw.rat_underservice.metrics.accuracy,
+                    precision: raw.rat_underservice.metrics?.precision,
+                    recall: raw.rat_underservice.metrics?.recall,
+                    f1: raw.rat_underservice.metrics?.f1,
+                    rocAuc: raw.rat_underservice.metrics?.rocAuc,
+                    accuracy: raw.rat_underservice.metrics?.accuracy,
+                    avgPrecision: raw.rat_underservice.metrics?.cv5fold?.prAucMean,
                     featureImportances: raw.rat_underservice.featureImportances,
                     hyperparameters: raw.rat_underservice.hyperparameters,
-                    trainingData: raw.rat_underservice.trainingData,
+                    trainingData: td(raw.rat_underservice),
                     lastTrained: raw.rat_underservice.lastTrained,
                     status: 'healthy',
                 },
             ];
             setModels(modelList);
+            setLoadError(null);
 
             // Check Ollama models
             try {
-                const ollamaRes = await fetch('http://localhost:11434/api/tags');
+                const ollamaRes = await fetch('/api/ollama-tags');
                 if (ollamaRes.ok) {
                     const data = await ollamaRes.json();
                     setOllamaModels((data.models || []).map((m: any) => ({
@@ -275,7 +285,9 @@ export default function ModelEvaluationPage() {
             } catch { /* Ollama not available */ }
 
             setLastRefresh(new Date());
-        } catch { /* silent */ }
+        } catch (e: any) {
+            setLoadError(e?.message ?? 'Could not load model metrics');
+        }
         finally { setLoading(false); }
     }, []);
 
@@ -294,10 +306,29 @@ export default function ModelEvaluationPage() {
         );
     }
 
-    // Determine the primary metric for each model card
-    const getPrimaryMetric = (model: ModelMetrics) => {
-        if (model.task === 'regression') return { label: 'Test R\u00B2', value: model.testR2 ?? 0 };
-        return { label: 'F1-Score', value: model.f1 ?? 0 };
+    if (loadError && models.length === 0) {
+        return (
+            <div className="card" style={{ padding: 24, margin: 24, borderColor: 'var(--color-danger-border)' }}>
+                <div className="section-title">
+                    <span className="dot" style={{ background: 'var(--color-danger)' }} />
+                    Could not load model metrics
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>{loadError}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                    Run <code>python3 scripts/dump_model_metrics.py</code> or trigger the <code>pb-retrain-model</code> playbook to regenerate <code>notebooks/models/metrics.json</code>.
+                </div>
+            </div>
+        );
+    }
+
+    // Determine the primary metric for each model card.
+    // Returns nullable value so the card renders "\u2014" instead of fake "0.0%".
+    const getPrimaryMetric = (model: ModelMetrics): { label: string; value: number | null | undefined } => {
+        if (model.task === 'regression') return { label: 'Test R\u00B2', value: model.testR2 };
+        // Anomaly + classification: prefer F1 when known, else ROC-AUC
+        if (typeof model.f1 === 'number') return { label: 'F1-Score', value: model.f1 };
+        if (typeof model.rocAuc === 'number') return { label: 'ROC-AUC', value: model.rocAuc };
+        return { label: 'F1-Score', value: null };
     };
 
     return (
@@ -307,7 +338,16 @@ export default function ModelEvaluationPage() {
                 description="Can we trust the numbers? Every v3 model — LightGBM CEM Experience Score, PyTorch VAE OSS Anomaly, XGBoost RAT Underservice — is audited here against its real test set on 500K-2M real Tunisie Telecom records: R², MAE, RMSE, Precision/Recall/F1, ROC-AUC, confusion matrix and feature importances. Metrics are extracted directly from the v3.0 training notebooks, not mocked."
                 values={[
                     { text: `${models.length} production models · Qwen2.5 7B for L4 agent chat` },
-                    { text: `Best R²: ${Math.max(...models.map(mm => mm.testR2 ?? 0)).toFixed(3)} · Best F1: ${Math.max(...models.map(mm => mm.f1 ?? 0)).toFixed(3)}` },
+                    { text: (() => {
+                        const r2s = models.map(mm => mm.testR2).filter((v): v is number => typeof v === 'number');
+                        const f1s = models.map(mm => mm.f1).filter((v): v is number => typeof v === 'number');
+                        const aucs = models.map(mm => mm.rocAuc).filter((v): v is number => typeof v === 'number');
+                        const parts: string[] = [];
+                        if (r2s.length) parts.push(`Best R²: ${Math.max(...r2s).toFixed(3)}`);
+                        if (f1s.length) parts.push(`Best F1: ${Math.max(...f1s).toFixed(3)}`);
+                        if (aucs.length) parts.push(`Best ROC-AUC: ${Math.max(...aucs).toFixed(3)}`);
+                        return parts.join(' · ') || 'No metrics loaded';
+                    })() },
                     { text: `${ollamaModels.length} Ollama model(s) available locally` },
                 ]}
             />
@@ -315,7 +355,7 @@ export default function ModelEvaluationPage() {
             {/* Source indicator */}
             <div style={{ padding: '10px 16px', background: 'var(--color-info-bg)', border: '1px solid var(--color-info-border)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--color-info)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                All metrics below are real values computed from trained models in <strong style={{ margin: '0 4px' }}>notebooks/06_cem_v3_training.ipynb, notebooks/07_oss_vae_anomaly.ipynb, notebooks/08_rat_underservice.ipynb, notebooks/09_master_v3_training.py</strong>
+                All metrics below are honest values pulled from <strong style={{ margin: '0 4px' }}>notebooks/models/metrics.json</strong> — generated by <code style={{ margin: '0 4px' }}>scripts/dump_model_metrics.py</code> from the v3 model cards. Missing fields render as <strong>—</strong> instead of fake zeros.
             </div>
 
             {/* Model Selector Cards */}
@@ -342,11 +382,11 @@ export default function ModelEvaluationPage() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{pm.label}</span>
                                 <span style={{ fontSize: 20, fontWeight: 800, color: model.color, fontFamily: "'JetBrains Mono', monospace" }}>
-                                    {(pm.value * 100).toFixed(1)}%
+                                    {typeof pm.value === 'number' ? `${(pm.value * 100).toFixed(1)}%` : '—'}
                                 </span>
                             </div>
                             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>
-                                {model.features} features | {model.trainingData.samples} samples | {model.version}
+                                {model.features} features | {model.trainingData?.samples?.toLocaleString() ?? '—'} samples | {model.version}
                             </div>
                         </div>
                     );
@@ -366,43 +406,47 @@ export default function ModelEvaluationPage() {
 
                             {m.task === 'regression' ? (
                                 <>
-                                    <MetricBar value={m.testR2 ?? 0} label="Test R\u00B2 Score" color="var(--color-success)" format={`${((m.testR2 ?? 0) * 100).toFixed(2)}%`} />
-                                    <MetricBar value={m.trainR2 ?? 0} label="Train R\u00B2 Score" color="var(--color-info)" format={`${((m.trainR2 ?? 0) * 100).toFixed(2)}%`} />
-                                    <MetricBar value={m.cvR2 ?? 0} label={`CV R\u00B2 (5-fold) \u00B1${((m.cvR2Std ?? 0) * 100).toFixed(2)}%`} color="var(--color-purple)" format={`${((m.cvR2 ?? 0) * 100).toFixed(2)}%`} />
+                                    <MetricBar value={m.testR2} label="Test R\u00B2 Score" color="var(--color-success)" format={typeof m.testR2 === 'number' ? `${(m.testR2 * 100).toFixed(2)}%` : undefined} />
+                                    {typeof m.trainR2 === 'number' && m.trainR2 > 0 && (
+                                        <MetricBar value={m.trainR2} label="Train R\u00B2 Score" color="var(--color-info)" format={`${(m.trainR2 * 100).toFixed(2)}%`} />
+                                    )}
+                                    {typeof m.cvR2 === 'number' && m.cvR2 > 0 && (
+                                        <MetricBar value={m.cvR2} label={`CV R\u00B2 (5-fold) \u00B1${typeof m.cvR2Std === 'number' ? (m.cvR2Std * 100).toFixed(2) : '0.00'}%`} color="var(--color-purple)" format={`${(m.cvR2 * 100).toFixed(2)}%`} />
+                                    )}
                                     <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                         <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Test MAE</div>
                                             <div style={{ fontSize: 18, fontWeight: 700, color: m.color, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
-                                                {(m.testMae ?? 0).toFixed(6)}
+                                                {typeof m.testMae === 'number' ? m.testMae.toFixed(6) : '—'}
                                             </div>
                                         </div>
                                         <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Test RMSE</div>
                                             <div style={{ fontSize: 18, fontWeight: 700, color: m.color, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
-                                                {(m.testRmse ?? 0).toFixed(6)}
+                                                {typeof m.testRmse === 'number' ? m.testRmse.toFixed(6) : '—'}
                                             </div>
                                         </div>
                                         <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Test MSE</div>
                                             <div style={{ fontSize: 18, fontWeight: 700, color: m.color, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
-                                                {(m.testMse ?? 0).toFixed(6)}
+                                                {typeof m.testMse === 'number' ? m.testMse.toFixed(6) : '—'}
                                             </div>
                                         </div>
                                         <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>CV MAE</div>
                                             <div style={{ fontSize: 18, fontWeight: 700, color: m.color, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
-                                                {(m.cvMae ?? 0).toFixed(6)}
+                                                {typeof m.cvMae === 'number' ? m.cvMae.toFixed(6) : '—'}
                                             </div>
                                         </div>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <MetricBar value={m.precision ?? 0} label="Precision" color="var(--color-info)" />
-                                    <MetricBar value={m.recall ?? 0} label="Recall" color="var(--color-success)" />
-                                    <MetricBar value={m.f1 ?? 0} label="F1-Score" color="var(--color-purple)" />
-                                    <MetricBar value={m.rocAuc ?? 0} label="ROC-AUC" color="var(--color-cyan)" />
-                                    <MetricBar value={m.avgPrecision ?? 0} label="Avg Precision" color="var(--color-warning)" />
+                                    <MetricBar value={m.precision} label="Precision" color="var(--color-info)" />
+                                    <MetricBar value={m.recall} label="Recall" color="var(--color-success)" />
+                                    <MetricBar value={m.f1} label="F1-Score" color="var(--color-purple)" />
+                                    <MetricBar value={m.rocAuc} label="ROC-AUC" color="var(--color-cyan)" />
+                                    <MetricBar value={m.avgPrecision} label="Avg Precision" color="var(--color-warning)" />
                                 </>
                             )}
                         </div>
@@ -419,11 +463,11 @@ export default function ModelEvaluationPage() {
                                     <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
                                         <RadarChart
                                             metrics={[
-                                                { label: 'PREC', value: m.precision ?? 0 },
-                                                { label: 'RCL', value: m.recall ?? 0 },
-                                                { label: 'F1', value: m.f1 ?? 0 },
-                                                { label: 'AUC', value: m.rocAuc ?? 0 },
-                                                { label: 'AP', value: m.avgPrecision ?? 0 },
+                                                { label: 'PREC', value: m.precision },
+                                                { label: 'RCL', value: m.recall },
+                                                { label: 'F1', value: m.f1 },
+                                                { label: 'AUC', value: m.rocAuc },
+                                                { label: 'AP', value: m.avgPrecision },
                                             ]}
                                             color={m.color}
                                         />
@@ -457,11 +501,11 @@ export default function ModelEvaluationPage() {
                                 </div>
                                 <div className="me-health-item">
                                     <div className="me-health-label">Training Samples</div>
-                                    <div className="me-health-value">{m.trainingData.samples.toLocaleString()}</div>
+                                    <div className="me-health-value">{m.trainingData?.samples?.toLocaleString() ?? '—'}</div>
                                 </div>
                                 <div className="me-health-item">
                                     <div className="me-health-label">Last Trained</div>
-                                    <div className="me-health-value">{new Date(m.lastTrained).toLocaleDateString()}</div>
+                                    <div className="me-health-value">{formatTunisDate(m.lastTrained)}</div>
                                 </div>
                                 {m.hyperparameters && Object.entries(m.hyperparameters).map(([k, v]) => (
                                     <div key={k} className="me-health-item">

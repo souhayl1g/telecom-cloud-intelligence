@@ -24,13 +24,13 @@ type HealthPayload = {
 };
 
 const CATEGORY_META: Record<ServiceCheck["category"], { label: string; color: string; icon: string }> = {
-    api: { label: "API", color: "var(--color-info)", icon: "⚡" },
-    ml: { label: "ML", color: "var(--color-purple)", icon: "🧠" },
-    auth: { label: "Auth", color: "var(--brand-accent)", icon: "🔐" },
-    data: { label: "Data", color: "var(--color-warning)", icon: "💾" },
-    worker: { label: "Pipeline", color: "var(--color-success)", icon: "⚙" },
-    ui: { label: "Frontend", color: "var(--brand-primary)", icon: "◆" },
-    obs: { label: "Observ.", color: "var(--color-success)", icon: "📡" },
+    api: { label: "API", color: "var(--color-info)", icon: "API" },
+    ml: { label: "ML", color: "var(--color-purple)", icon: "ML" },
+    auth: { label: "Auth", color: "var(--brand-accent)", icon: "AUTH" },
+    data: { label: "Data", color: "var(--color-warning)", icon: "DB" },
+    worker: { label: "Pipeline", color: "var(--color-success)", icon: "JOB" },
+    ui: { label: "Frontend", color: "var(--brand-primary)", icon: "UI" },
+    obs: { label: "Observ.", color: "var(--color-success)", icon: "OBS" },
 };
 
 export default function OpsMetricsPage() {

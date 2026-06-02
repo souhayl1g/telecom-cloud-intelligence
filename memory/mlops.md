@@ -12,7 +12,7 @@
 | SLA Risk | v2.0 | GradientBoostingRegressor | Synthetic (200/run) | — | `sla_risk_model.joblib` | 611 KB |
 | OSS Anomaly | v2.0 | IsolationForest | Synthetic (200/run) | — | `anomaly_model.joblib` | 1.75 MB |
 | BSS Revenue | v2.0 | IsolationForest | Synthetic (200/run) | — | `revenue_anomaly_model.joblib` | 1.84 MB |
-| CEM Score | v3.0 | LightGBM DART | 2.47M real+simulated BSS | R²=0.9933, MAE=0.0129 | `cem_v3_lightgbm_gpu.joblib` | 18.6 MB |
+| CEM Score | v3.0 | LightGBM DART | 2.47M real+simulated BSS | R²=0.9784, MAE=0.0304 | `cem_v3_lightgbm.joblib` | 18.6 MB |
 | OSS Anomaly | v3.0 | PyTorch VAE | 500K real+simulated OSS | ROC-AUC=0.9307 | `oss_vae_v3_gpu.pt` | 14.8 KB |
 | RAT Underservice | v3.0 | XGBoost GPU | 2.47M real+simulated BSS | ROC-AUC=0.9605 | `rat_v3_xgb_gpu.joblib` | 4.2 MB |
 

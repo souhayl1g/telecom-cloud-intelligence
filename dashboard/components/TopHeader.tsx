@@ -3,17 +3,18 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { formatTunisDate } from '../lib/time';
 import ThemeToggle from './ThemeToggle';
 import LiveIndicator from './LiveIndicator';
+import NotificationPanel from './NotificationPanel';
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
     '/overview':         { title: 'Overview',       subtitle: 'Platform intelligence overview' },
     '/vae-anomalies':    { title: 'VAE OSS',         subtitle: 'Experience anomaly detection' },
-    '/correlations':     { title: 'Correlations',    subtitle: 'OSS-BSS correlation explorer' },
+    '/correlations':     { title: 'Correlations',    subtitle: 'OSS-CEM correlation explorer' },
     '/granger-causality': { title: 'Granger Causality', subtitle: 'Temporal causality analysis' },
     '/intelligence':     { title: 'AI Intelligence', subtitle: 'Intelligence hub & insights' },
     '/predictive':       { title: 'Forecast',        subtitle: 'Predictive analytics & trends' },
-    '/topology':         { title: 'Topology',        subtitle: 'Network topology view' },
     '/capacity':         { title: 'Capacity',        subtitle: 'Capacity planning & metrics' },
     '/data-warehouse':   { title: 'Data Warehouse',  subtitle: 'DWH explorer & catalog' },
     '/pipeline-runs':    { title: 'Pipelines',       subtitle: 'Pipeline execution history' },
@@ -32,8 +33,7 @@ export default function TopHeader() {
 
     useEffect(() => {
         const update = () => {
-            const d = new Date();
-            setNow(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }));
+            setNow(formatTunisDate(new Date().toISOString()));
         };
         update();
         const id = setInterval(update, 60000);
@@ -42,7 +42,7 @@ export default function TopHeader() {
 
     return (
         <header className="top-header">
-            {/* Left: Page Title + OSS∩BSS Badge */}
+            {/* Left: Page Title + OSS∩CEM Badge */}
             <div className="top-header-left">
                 <AnimatePresence mode="wait">
                     <motion.div
@@ -57,7 +57,7 @@ export default function TopHeader() {
                         <span className="top-header-subtitle">{pageInfo.subtitle}</span>
                     </motion.div>
                 </AnimatePresence>
-                <span className="oss-bss-badge">OSS∩BSS</span>
+                <span className="oss-bss-badge">OSS∩CEM</span>
             </div>
 
             {/* Center: Search */}
@@ -86,11 +86,8 @@ export default function TopHeader() {
                 <span className="top-header-date">{now}</span>
                 <div className="top-header-divider" />
 
-                {/* Notification Bell */}
-                <button className="top-header-icon-btn" title="Notifications">
-                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>notifications</span>
-                    <span className="top-header-notification-dot" />
-                </button>
+                {/* Live notifications */}
+                <NotificationPanel />
 
                 <div className="top-header-divider" />
                 <ThemeToggle />

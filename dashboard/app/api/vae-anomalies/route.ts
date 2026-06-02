@@ -58,19 +58,13 @@ export async function GET() {
             query<{ bin: number; anomaly_flag: boolean; cnt: number }>(
                 `SELECT bin, anomaly_flag, cnt FROM mv_vae_recon_error ORDER BY bin`
             ),
-            // NEW — per-month-per-area aggregation for map animation frames.
-            // Uses raw oss_cell_kpis (no MV needed; cheap with idx_oss_cell_month).
+            // Per-month-per-area aggregation for map animation frames.
+            // Backed by mv_oss_by_month_area (refreshed per pipeline cycle).
+            // Previous implementation aggregated 18M+ rows of oss_cell_kpis
+            // on every request — ~12s per call, made the page hang.
             query<{ month_year: string; area: string; total: number; anomaly_count: number; rate: number }>(
-                `SELECT month_year, area,
-                        COUNT(*)::int                                              AS total,
-                        COUNT(*) FILTER (WHERE anomaly_flag = TRUE)::int           AS anomaly_count,
-                        COALESCE(ROUND(COUNT(*) FILTER (WHERE anomaly_flag = TRUE) * 100.0
-                                       / NULLIF(COUNT(*),0), 2), 0)::float8        AS rate
-                 FROM oss_cell_kpis
-                 WHERE area IS NOT NULL
-                   AND UPPER(TRIM(area)) NOT IN ('NULL','NONE','N/A','')
-                 GROUP BY month_year, area
-                 HAVING COUNT(*) >= 10
+                `SELECT month_year, area, total, anomaly_count, rate
+                 FROM mv_oss_by_month_area
                  ORDER BY month_year ASC, anomaly_count DESC`
             ),
             // NEW — Granger causality results from prod engine (no auth → 500; that's fine, panel shows empty).

@@ -87,7 +87,6 @@ const navItems: NavItem[] = [
     { href: '/granger-causality', label: 'Granger', icon: Icons.pipelines },
     { href: '/intelligence', label: 'Intelligence', icon: Icons.intelligence },
     { href: '/predictive', label: 'Forecast', icon: Icons.health },
-    { href: '/topology', label: 'Topology', icon: Icons.correlations },
     { href: '/capacity', label: 'Capacity', icon: Icons.health },
     { href: '/data-warehouse', label: 'DWH', icon: Icons.dwh },
     { href: '/pipeline-runs', label: 'Pipelines', icon: Icons.pipelines },

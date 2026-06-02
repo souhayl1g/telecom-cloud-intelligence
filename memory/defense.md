@@ -21,7 +21,7 @@
 - Found 13 significant Granger causal relationships across 9 months
 
 ### 2. ML Model Suite
-- **CEM Score:** LightGBM DART, R²=0.9933 on 2.47M subscribers
+- **CEM Score:** LightGBM DART, R²=0.9784 on 2.47M subscribers
 - **OSS Anomaly:** PyTorch VAE, ROC-AUC=0.9307
 - **RAT Underservice:** XGBoost GPU, ROC-AUC=0.9605
 - **SLA Risk:** GradientBoostingRegressor (v2.0 baseline)

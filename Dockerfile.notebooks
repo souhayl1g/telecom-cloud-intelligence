@@ -1,0 +1,39 @@
+# Jupyter notebook runner for NeXoligence ML training + audit notebooks.
+# Notebooks are bind-mounted at runtime (./notebooks:/app/notebooks:ro), so
+# this image only installs dependencies — it does not bake notebook source.
+# TT_data is NEVER copied into any layer (confidentiality); notebooks pull
+# the data from PostgreSQL where it has already been ingested.
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    JUPYTER_PORT=8888
+
+WORKDIR /app
+
+# System deps: build toolchain for psycopg2-binary fallback compile + curl
+# for healthcheck. Kept minimal to keep the image slim.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        libpq-dev \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY notebooks/requirements.txt /tmp/req.txt
+RUN pip install --no-cache-dir -r /tmp/req.txt \
+    && pip install --no-cache-dir lightgbm==4.5.0 xgboost==2.1.1 torch==2.4.1 nbformat==5.10.4
+
+RUN mkdir -p /app/data /app/logs /app/models
+
+EXPOSE 8888
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \
+    CMD curl -fsS "http://127.0.0.1:8888/api" || exit 1
+
+# Start Jupyter on 0.0.0.0:8888. Token is read from env (empty by default
+# in dev — set JUPYTER_TOKEN in compose for shared/remote use).
+CMD ["sh", "-c", "exec jupyter notebook --ip=0.0.0.0 --port=${JUPYTER_PORT} --no-browser --allow-root --notebook-dir=/app/notebooks --ServerApp.token=${JUPYTER_TOKEN} --ServerApp.password='' --ServerApp.disable_check_xsrf=True"]

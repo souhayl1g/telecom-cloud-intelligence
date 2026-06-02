@@ -52,6 +52,13 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:8002/auth/github/callback}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_RESET_URL: ${FRONTEND_URL:-http://localhost:3000}/reset-password
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-NeXo Telecom Intelligence <nexo-noreply@tunisietelecom.tn>}
+      DEV_SHOW_FALLBACK_LINK: ${DEV_SHOW_FALLBACK_LINK:-false}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: auth-service
     ports:
@@ -69,11 +76,40 @@ services:
 
   api-gateway:
     build: ./services/api-gateway
+    volumes:
+      # Mounted read-only so the pb-retrain-model playbook can re-dump
+      # notebooks/models/metrics.json after retrain succeeds.
+      - ./scripts:/scripts:ro
+      - ./notebooks/models:/notebooks/models:rw
+    # NOTE: dashboard container also needs notebooks/models for /api/model-metrics — added below.
     environment:
       DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
       AUTH_SERVICE_URL: http://auth-service:8002
       AGENT_SERVICE_URL: http://agent-service:8003
+      AI_SERVICE_URL: http://ai-service:8001
+      RETRAIN_SERVICE_URL: http://retrain-service:8004
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-nexo-internal-dev-key-change-in-prod}
+      RETRAIN_TIMEOUT_SECONDS: ${RETRAIN_TIMEOUT_SECONDS:-1800}
       JWT_SECRET: ${JWT_SECRET:-telecom-dev-secret-change-in-prod}
+      # MinIO (used by capacity-report PDF uploads + presigned URLs)
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio_pw
+      REPORTS_BUCKET: ${REPORTS_BUCKET:-reports}
+      REPORTS_URL_TTL_SECONDS: ${REPORTS_URL_TTL_SECONDS:-604800}
+      PUBLIC_S3_ENDPOINT: ${PUBLIC_S3_ENDPOINT:-http://localhost:9000}
+      # Notification providers — env-gated; absent = console-log fallback
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-nexo-noreply@tunisietelecom.tn}
+      ONCALL_EMAIL: ${ONCALL_EMAIL:-noc-oncall@tunisietelecom.tn}
+      REPORT_RECIPIENT_EMAIL: ${REPORT_RECIPIENT_EMAIL:-}
+      DEMO_SMS_RECIPIENT: ${DEMO_SMS_RECIPIENT:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: api-gateway
     ports:
@@ -90,10 +126,13 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_healthy
+      minio:
+        condition: service_healthy
 
   ai-service:
     build: ./services/ai-service
     environment:
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-nexo-internal-dev-key-change-in-prod}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: ai-service
     ports:
@@ -121,12 +160,13 @@ services:
       RUN_MODE: daemon
       CYCLE_SECONDS: "120"
       USE_REAL_DATA: "true"
-      SAMPLE_MONTH: "2026-03"
+      SAMPLE_MONTH: ""
       AI_SERVICE_URL: http://ai-service:8001
       DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minio
       S3_SECRET_KEY: minio_pw
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-nexo-internal-dev-key-change-in-prod}
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,6 +180,7 @@ services:
     build: ./services/agent-service
     environment:
       DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-nexo-internal-dev-key-change-in-prod}
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen2.5:7b
       API_GATEWAY_URL: http://api-gateway:8000
@@ -169,14 +210,23 @@ services:
       NEXT_PUBLIC_API_BASE_URL: http://api-gateway:8000
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: kimi-k2.5:cloud
+      # /api/model-metrics reads notebooks/models/metrics.json. The container
+      # has no `notebooks/` baked in, so we mount it and pin the path
+      # explicitly via env to avoid `process.cwd()` ambiguity.
+      METRICS_JSON_PATH: /notebooks/models/metrics.json
+    volumes:
+      - ./notebooks/models:/notebooks/models:ro
     ports:
       - "3001:3001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/login"]
+      # Alpine-based next image does not ship curl. Use wget against the
+      # explicit loopback v4 address (next binds 0.0.0.0 but `localhost`
+      # resolves to ::1 inside this image and next.js is not listening on v6).
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3001/login"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
     mem_limit: 1024m
     depends_on:
       api-gateway:
@@ -315,6 +365,73 @@ services:
       - jaeger
     mem_limit: 256m
     restart: on-failure
+
+  # ── On-demand ML retrain executor (papermill + FastAPI on port 8004) ──
+  retrain-service:
+    build:
+      context: .
+      dockerfile: services/retrain-service/Dockerfile
+    container_name: retrain-service
+    environment:
+      NOTEBOOKS_DIR: /notebooks
+      MODELS_OUTPUT_DIR: /models
+      RETRAIN_WORK_DIR: /tmp/retrain
+      RETRAIN_BUCKET: ${RETRAIN_BUCKET:-retrain-runs}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio_pw
+      DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
+      AI_SERVICE_URL: http://ai-service:8001
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-nexo-internal-dev-key-change-in-prod}
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./notebooks:/notebooks:rw
+      - ./services/ai-service/models:/models:rw
+      - notebooks_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 4g
+    restart: on-failure
+
+  # ── One-shot data ingest. Runs every `docker compose up`; idempotency
+  # check inside init-db-data.sh exits 0 fast if tables are populated.
+  # Reuses Dockerfile.notebooks (psycopg2 + pandas + ingest deps already baked).
+  data-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.notebooks
+    container_name: data-init
+    command: ["bash", "/app/scripts/init-db-data.sh"]
+    environment:
+      DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
+      IMSI_SALT: ${IMSI_SALT:-nexo-tt-salt-2026}
+      SKIP_VENV: "1"
+      PYTHONPATH: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./services/data-ingest:/app/services/data-ingest:ro
+      - ./docs/db:/app/docs/db:ro
+      - ./TT_data:/app/TT_data:rw
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    mem_limit: 1g
+    # Disable inherited Jupyter healthcheck — this is a one-shot container.
+    healthcheck:
+      disable: true
 
 volumes:
   pgdata:

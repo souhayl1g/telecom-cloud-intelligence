@@ -1,14 +1,15 @@
 "use client";
 import { useMemo, useState } from "react";
+import { formatTunisTime } from "../lib/time";
 
 /* ── Real-time Anomaly Timeline ───────────────────────────────────────────
-   Merges OSS + BSS anomalies into a single chronological event stream,
+   Merges OSS + CEM anomalies into a single chronological event stream,
    color-coded by severity, filterable by domain and level.
    ──────────────────────────────────────────────────────────────────────── */
 
 interface TimelineEvent {
     id: string;
-    domain: "OSS" | "BSS";
+    domain: "OSS" | "CEM";
     severity: number;
     level: "critical" | "warning" | "low";
     title: string;
@@ -20,7 +21,7 @@ interface TimelineEvent {
 
 interface AnomalyTimelineProps {
     ossAnomalies: any[];
-    bssAnomalies: any[];
+    cemAnomalies: any[];
 }
 
 function classifyLevel(sev: number): "critical" | "warning" | "low" {
@@ -35,7 +36,7 @@ function parseTs(a: any): string {
     return new Date().toISOString();
 }
 
-function buildEvents(oss: any[], bss: any[]): TimelineEvent[] {
+function buildEvents(oss: any[], cem: any[]): TimelineEvent[] {
     const events: TimelineEvent[] = [];
 
     oss.forEach((a, i) => {
@@ -56,11 +57,11 @@ function buildEvents(oss: any[], bss: any[]): TimelineEvent[] {
         });
     });
 
-    bss.forEach((a, i) => {
+    cem.forEach((a, i) => {
         const sev = a.severity ?? a.score ?? 0;
         events.push({
-            id: `bss-${i}`,
-            domain: "BSS",
+            id: `cem-${i}`,
+            domain: "CEM",
             severity: sev,
             level: classifyLevel(sev),
             title: `${a.operator ?? "Unknown"} \u2014 ${(a.metric_name ?? "revenue").replace(/_/g, " ")}`,
@@ -75,12 +76,12 @@ function buildEvents(oss: any[], bss: any[]): TimelineEvent[] {
 }
 
 /* ── Component ────────────────────────────────────────────────────────────── */
-export default function AnomalyTimeline({ ossAnomalies, bssAnomalies }: AnomalyTimelineProps) {
-    const [domainFilter, setDomainFilter] = useState<"all" | "OSS" | "BSS">("all");
+export default function AnomalyTimeline({ ossAnomalies, cemAnomalies }: AnomalyTimelineProps) {
+    const [domainFilter, setDomainFilter] = useState<"all" | "OSS" | "CEM">("all");
     const [levelFilter, setLevelFilter] = useState<"all" | "critical" | "warning" | "low">("all");
     const [limit, setLimit] = useState(30);
 
-    const allEvents = useMemo(() => buildEvents(ossAnomalies, bssAnomalies), [ossAnomalies, bssAnomalies]);
+    const allEvents = useMemo(() => buildEvents(ossAnomalies, cemAnomalies), [ossAnomalies, cemAnomalies]);
 
     const filtered = useMemo(() => {
         return allEvents
@@ -97,7 +98,7 @@ export default function AnomalyTimeline({ ossAnomalies, bssAnomalies }: AnomalyT
         warning: allEvents.filter((e) => e.level === "warning").length,
         low: allEvents.filter((e) => e.level === "low").length,
         oss: allEvents.filter((e) => e.domain === "OSS").length,
-        bss: allEvents.filter((e) => e.domain === "BSS").length,
+        cem: allEvents.filter((e) => e.domain === "CEM").length,
     }), [allEvents]);
 
     return (
@@ -106,13 +107,13 @@ export default function AnomalyTimeline({ ossAnomalies, bssAnomalies }: AnomalyT
             <div className="tl-controls">
                 <div className="tl-filter-group">
                     <span className="tl-filter-label">Domain</span>
-                    {(["all", "OSS", "BSS"] as const).map((d) => (
+                    {(["all", "OSS", "CEM"] as const).map((d) => (
                         <button
                             key={d}
                             className={`tl-filter-btn ${domainFilter === d ? "tl-filter-active" : ""}`}
                             onClick={() => setDomainFilter(d)}
                         >
-                            {d === "all" ? `All (${stats.total})` : `${d} (${d === "OSS" ? stats.oss : stats.bss})`}
+                            {d === "all" ? `All (${stats.total})` : `${d} (${d === "OSS" ? stats.oss : stats.cem})`}
                         </button>
                     ))}
                 </div>
@@ -161,7 +162,7 @@ export default function AnomalyTimeline({ ossAnomalies, bssAnomalies }: AnomalyT
                                 </span>
                                 <span className="tl-region">{event.region}</span>
                                 <span className="tl-time">
-                                    {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                    {formatTunisTime(event.timestamp)}
                                 </span>
                             </div>
                             <div className="tl-event-title">{event.title}</div>

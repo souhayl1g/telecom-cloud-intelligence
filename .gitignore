@@ -228,3 +228,16 @@ dashboard/.env.local
 
 # Confidential Tunisie Telecom data — NEVER commit
 TT_data/
+
+# AI-agent internal skills / working dirs — local only, not for the repo
+.kimi/
+.codex/
+.agents/
+.config/agents/
+.claude/
+# Agent scratch / generated knowledge artifacts
+graphify-out/
+.planning/
+*.skill
+# NOTE: AGENTS.md / CLAUDE.md (repo root) are intentional project docs — kept
+# tracked, NOT ignored. Only the agent working dirs above are excluded.

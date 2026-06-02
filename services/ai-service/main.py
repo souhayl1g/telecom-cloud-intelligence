@@ -9,7 +9,8 @@ v3.0 models (real-data, GPU-trained on 1.5M+ real TT records):
 
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from auth import require_internal_auth
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -55,6 +56,6 @@ loaded_count = sum(1 for k in ["cem", "rat", "vae"] if _models.get(k) is not Non
 print(f"[ai-service] models ready — {loaded_count}/3 v3 models loaded")
 
 app.include_router(health_router)
-app.include_router(cem_router)
-app.include_router(rat_router)
-app.include_router(vae_router)
+app.include_router(cem_router, dependencies=[Depends(require_internal_auth)])
+app.include_router(rat_router, dependencies=[Depends(require_internal_auth)])
+app.include_router(vae_router, dependencies=[Depends(require_internal_auth)])

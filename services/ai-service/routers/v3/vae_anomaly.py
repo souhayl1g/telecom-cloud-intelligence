@@ -1,26 +1,33 @@
+import os
 from datetime import datetime, timezone
 
 import numpy as np
 import torch
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from config import MODEL_VERSION, VAE_FEATURES
 from model_cache import load_models
+
+# Prefer the feature contract from the trained checkpoint; fall back to static list.
+# The router resolves this at inference time so retraining with a different feature
+# set does not require a code change.
+
+# When the trained threshold is more than this many orders of magnitude smaller
+# than the median reconstruction error of the batch, the checkpoint threshold
+# was calibrated on a different data scale than what production traffic sends
+# (e.g. raw vs scaled inputs).  We fall back to a batch-derived percentile to
+# keep anomaly rates in a sane range. Override via VAE_THRESHOLD_MODE env.
+THRESHOLD_MODE = os.environ.get("VAE_THRESHOLD_MODE", "auto")  # auto | static
+BATCH_PERCENTILE = float(os.environ.get("VAE_BATCH_PERCENTILE", "95"))
 
 router = APIRouter()
 
 
 class VaeRecord(BaseModel):
-    throughput_mbps: float
-    latency_ms: float
-    packet_loss_rate: float
-    jitter_ms: float
-    cell_load_pct: float
-    rsrp_dbm: float
-    active_users: int
-    integrity: float
-    call_drop_rate: float
+    """Accept any extra fields; the router resolves the model's feature
+    contract from the checkpoint at inference time."""
+    model_config = ConfigDict(extra="allow")
 
 
 class VaeRequest(BaseModel):
@@ -35,6 +42,7 @@ def infer_vae_anomaly(req: VaeRequest):
     vae_model = models.get("vae")
     scaler = models.get("vae_scaler")
     threshold = models.get("vae_threshold", 0.18)
+    feature_names = models.get("vae_features") or VAE_FEATURES
 
     if vae_model is None or scaler is None:
         return {
@@ -53,21 +61,16 @@ def infer_vae_anomaly(req: VaeRequest):
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    X = np.array(
-        [
-            [
-                getattr(r, f)
-                for f in VAE_FEATURES
-            ]
-            for r in req.records
-        ],
-        dtype=np.float32,
-    )
+    def _vec(rec: VaeRecord) -> list[float]:
+        d = rec.model_dump()
+        return [float(d.get(f, 0.0) or 0.0) for f in feature_names]
 
-    if X.shape[1] != len(VAE_FEATURES):
+    X = np.array([_vec(r) for r in req.records], dtype=np.float32)
+
+    if X.shape[1] != len(feature_names):
         raise HTTPException(
             status_code=422,
-            detail=f"VAE input shape mismatch: expected {len(VAE_FEATURES)} features, got {X.shape[1]}",
+            detail=f"VAE input shape mismatch: expected {len(feature_names)} features, got {X.shape[1]}",
         )
     try:
         X_scaled = scaler.transform(X)
@@ -77,7 +80,16 @@ def infer_vae_anomaly(req: VaeRequest):
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"VAE inference failed: {e}")
 
-    anomaly_mask = recon_errors > threshold
+    # Autocalibrate threshold when the checkpoint value is wildly mis-scaled.
+    effective_threshold = float(threshold)
+    threshold_source = "checkpoint"
+    if THRESHOLD_MODE == "auto" and len(recon_errors) >= 20:
+        median_err = float(np.median(recon_errors))
+        if median_err > effective_threshold * 50:  # >50x => scale mismatch
+            effective_threshold = float(np.percentile(recon_errors, BATCH_PERCENTILE))
+            threshold_source = f"batch_p{int(BATCH_PERCENTILE)}"
+
+    anomaly_mask = recon_errors > effective_threshold
     anomaly_count = int(anomaly_mask.sum())
     anomaly_rate = round(anomaly_count / len(req.records), 4)
 
@@ -101,7 +113,9 @@ def infer_vae_anomaly(req: VaeRequest):
         "total": len(req.records),
         "anomalous_count": anomaly_count,
         "anomaly_rate": anomaly_rate,
-        "threshold": round(float(threshold), 6),
+        "threshold": round(float(effective_threshold), 6),
+        "threshold_source": threshold_source,
+        "checkpoint_threshold": round(float(threshold), 6),
         "records": results,
         "model_version": MODEL_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),

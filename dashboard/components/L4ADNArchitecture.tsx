@@ -21,7 +21,7 @@ interface ADNArchitectureProps {
  *
  * NeXo's project-specific touch:
  *   • Tunisie Telecom area names (TATAOUINE, SFX*, ZGT*, MAHDIA, GABES, …)
- *   • OSS ∩ BSS convergence as the central thesis (driven by Granger causality)
+ *   • OSS ∩ CEM convergence as the central thesis (driven by Granger causality)
  *   • Real ML models in the Decision layer (LightGBM CEM, PyTorch VAE, XGBoost RAT)
  * ───────────────────────────────────────────────────────────────────────── */
 
@@ -51,13 +51,10 @@ export default function L4ADNArchitecture({
             }}>
                 <div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.4, fontWeight: 600 }}>
-                        NeXo · ADN Level 4 · Tunisie Telecom
+                        Live Autonomy Status · Tunisie Telecom
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4 }}>
-                        Autonomous Operations Architecture
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5, maxWidth: 720 }}>
-                        Three-layer closed-loop autonomy aligned with Huawei&apos;s ADN L4 industry blueprint (TM Forum). Mates assist humans, Spirits run scenario-specific closed loops, the Telecom Foundation Model orchestrates intent-to-action — all anchored on the OSS ∩ BSS convergence engine.
+                        Operations Control
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -136,7 +133,7 @@ export default function L4ADNArchitecture({
                         {/* Resource Operations layer */}
                         <ADNLayer
                             name="Resource Operations"
-                            sub="OSS network resources + BSS subscriber data + ML inference"
+                            sub="OSS network resources + CEM subscriber data + ML inference"
                             color="var(--color-info)"
                             items={[
                                 { label: 'VAE Anomalies', value: vaeAnomalies.toLocaleString(), tone: vaeAnomalies > 50000 ? 'warn' : 'good' },
@@ -152,7 +149,7 @@ export default function L4ADNArchitecture({
                             Closed-Loop Cycle (every 30s)
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <ClosedLoopStep n={1} label="Awareness" detail="OSS+BSS telemetry pull, mat-view refresh" tone="good" />
+                            <ClosedLoopStep n={1} label="Awareness" detail="OSS+CEM telemetry pull, mat-view refresh" tone="good" />
                             <Arrow />
                             <ClosedLoopStep n={2} label="Analysis" detail={`${grangerSig} causal pairs · 3 ML models scoring`} tone="good" />
                             <Arrow />
@@ -172,7 +169,7 @@ export default function L4ADNArchitecture({
                                 <RosterRow icon="favorite" name="ExperienceSpirit" scope="CEM scoring · LightGBM DART · 2.47M subs" />
                                 <RosterRow icon="cell_tower" name="NetworkSpirit" scope="VAE anomaly · PyTorch · 19.3M cell records" />
                                 <RosterRow icon="signal_cellular_alt" name="UnderserviceSpirit" scope="RAT gap · XGBoost GPU · per-subscriber" />
-                                <RosterRow icon="hub" name="ConvergenceSpirit" scope="OSS ∩ BSS Granger causality · L4 backbone" />
+                                <RosterRow icon="hub" name="ConvergenceSpirit" scope="OSS ∩ CEM Granger causality · L4 backbone" />
                                 <RosterRow icon="bolt" name="ActionSpirit" scope="Playbook execution · auto-approve guardrails" />
                             </div>
                         </div>

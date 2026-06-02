@@ -3,6 +3,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import TopHeader from '../components/TopHeader';
+import StatusStrip from '../components/StatusStrip';
 import ThemeProvider from '../components/ThemeProvider';
 import CommandPalette from '../components/CommandPalette';
 import { RefreshProvider } from '../components/RefreshContext';
@@ -40,6 +41,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     <Sidebar />
                     <div className="layout-main">
                         <TopHeader />
+                        <StatusStrip />
                         <div className="layout-content-wrapper">
                             <AnimatePresence mode="wait">
                                 <motion.main

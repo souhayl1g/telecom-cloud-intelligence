@@ -1,0 +1,134 @@
+{
+  "models": {
+    "cem_score": {
+      "name": "CEM Experience Score",
+      "algorithm": "LightGBM (DART)",
+      "version": "v3.0-gpu",
+      "task": "regression",
+      "features": 13,
+      "featureNames": [
+        "usim_bottleneck",
+        "data_intensity",
+        "dou_total",
+        "duration",
+        "s1_mme_sr",
+        "iu_attach_sr",
+        "gb_attach_sr",
+        "avg_throughput",
+        "avg_latency",
+        "avg_packet_loss",
+        "anomaly_rate",
+        "generation_4g",
+        "generation_5g"
+      ],
+      "metrics": {
+        "test": {
+          "r2": 0.9784,
+          "mae": 0.0304,
+          "rmse": 0.0322
+        },
+        "randomSplit": {
+          "r2": 0.9795,
+          "mae": 0.0309,
+          "rmse": 0.0329
+        }
+      },
+      "lastTrained": "2026-05-24T10:10:04.382485+00:00",
+      "source": "notebooks/models/cem_v3_model_card.md",
+      "trainingData": {
+        "trainSplit": 2097822,
+        "testSplit": 370204,
+        "samples": 2468026,
+        "realPct": 39.2,
+        "simulatedPct": 60.8
+      }
+    },
+    "oss_anomaly": {
+      "name": "OSS Experience Anomaly",
+      "algorithm": "Variational Autoencoder (PyTorch)",
+      "version": "v3.0-gpu",
+      "task": "anomaly_detection",
+      "features": 9,
+      "featureNames": [
+        "throughput_mbps",
+        "latency_ms",
+        "packet_loss_rate",
+        "jitter_ms",
+        "cell_load_pct",
+        "rsrp_dbm",
+        "active_users",
+        "integrity",
+        "call_drop_rate"
+      ],
+      "metrics": {
+        "rocAuc": 0.9821,
+        "prAuc": 0.9974
+      },
+      "lastTrained": "2026-05-24T10:39:58.958525+00:00",
+      "source": "notebooks/models/oss_vae_v3_model_card.md",
+      "trainingData": {
+        "trainSplit": 424769,
+        "testSplit": 74960,
+        "samples": 499729,
+        "realPct": 60.0,
+        "simulatedPct": 40.0
+      }
+    },
+    "rat_underservice": {
+      "name": "RAT Underservice Detection",
+      "algorithm": "XGBoost Classifier",
+      "version": "v3.0-gpu",
+      "task": "classification",
+      "features": 19,
+      "featureNames": [
+        "volte_flag",
+        "usim_flag",
+        "dou_total",
+        "duration",
+        "voice_onlinetime_3g",
+        "voice_onlinetime_2g",
+        "s1_mme_sr",
+        "iu_attach_sr",
+        "gb_attach_sr",
+        "session_flag",
+        "attach_gap",
+        "avg_integrity_area",
+        "avg_cdr_area",
+        "avg_throughput_area",
+        "avg_users_area",
+        "avg_latency_area",
+        "avg_loss_area",
+        "cell_count_area",
+        "anomaly_count_area"
+      ],
+      "metrics": {
+        "rocAuc": 0.9203,
+        "f1": 0.8927,
+        "randomSplit": {
+          "rocAuc": 0.9419,
+          "f1": 0.8418
+        },
+        "temporalHoldOut": {
+          "rocAuc": 0.9203,
+          "f1": 0.8927
+        },
+        "cv5fold": {
+          "rocAucMean": 0.9352,
+          "prAucMean": 0.8912
+        }
+      },
+      "lastTrained": "2026-05-24T11:03:35.978225+00:00",
+      "source": "notebooks/models/rat_underservice_v3_model_card.md",
+      "trainingData": {
+        "trainSplit": 2097822,
+        "testSplit": 370204,
+        "samples": 2468026,
+        "realPct": 39.2,
+        "simulatedPct": 60.8
+      }
+    }
+  },
+  "computedAt": "2026-05-25T10:37:44.304352+00:00",
+  "source": "scripts/dump_model_metrics.py",
+  "note": "Honest metrics pulled from notebooks/models/*_model_card.md (no synthetic values)."
+}

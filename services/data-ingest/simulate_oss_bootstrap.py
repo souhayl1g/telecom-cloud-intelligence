@@ -52,8 +52,8 @@ def fetch_real_oss_sample(n: int) -> pd.DataFrame:
                packet_loss_rate, jitter_ms, active_users, rsrp_dbm,
                cell_load_pct, anomaly_flag, integrity, call_drop_rate, site_name
         FROM oss_cell_kpis
+        TABLESAMPLE SYSTEM (3) REPEATABLE (42)
         WHERE source = 'real'
-        ORDER BY RANDOM()
         LIMIT %s
     """
     with get_conn() as conn:

@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState, useCallback } from 'react';
 import PageInfoBar from '../../components/PageInfoBar';
+import { Users, Smile, Frown, Meh, BarChart3 } from 'lucide-react';
+import { PageSkeleton } from '../../components/ui/LoadingSkeleton';
+import ErrorState from '../../components/ui/ErrorState';
+import EmptyState from '../../components/ui/EmptyState';
+import StatTile from '../../components/ui/StatTile';
+import { areaToGovernorate } from '../../lib/tunisia-areas';
+import { safeFixed } from '../../lib/time';
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface CEMData {
@@ -66,7 +73,7 @@ function HorizontalBarChart({ data, color, maxValue }: { data: { label: string; 
                         <div style={{ height: '100%', width: `${Math.min((d.value / max) * 100, 100)}%`, background: color, borderRadius: 4, transition: 'width 0.5s' }} />
                     </div>
                     <div style={{ width: 56, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", textAlign: 'right', flexShrink: 0 }}>
-                        {d.value.toFixed(3)}
+                        {safeFixed(d.value, 3)}
                     </div>
                 </div>
             ))}
@@ -85,16 +92,20 @@ function ScoreBadge({ score }: { score: number }) {
 export default function CEMScoresPage() {
     const [data, setData] = useState<CEMData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [filter, setFilter] = useState<FilterRange>('all');
 
     const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
             const res = await fetch('/api/cem-scores', { cache: 'no-store' });
-            if (!res.ok) throw new Error('Failed to fetch');
+            if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
             const json = await res.json();
             setData(json);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            setError(err?.message ?? 'Unknown error');
         } finally {
             setLoading(false);
         }
@@ -105,16 +116,27 @@ export default function CEMScoresPage() {
     }, [fetchData]);
 
     if (loading) {
+        return <PageSkeleton withChart />;
+    }
+
+    if (error || !data) {
         return (
-            <div className="l4-loading">
-                <div className="l4-loading-spinner" />
-                <div className="l4-loading-text">Loading CEM Scores...</div>
-            </div>
+            <ErrorState
+                title="Could not load CEM scores"
+                message={error ?? 'No data returned from /api/cem-scores.'}
+                onRetry={fetchData}
+            />
         );
     }
 
-    if (!data) {
-        return <div className="empty-state"><div className="empty-state-text">Failed to load CEM data</div></div>;
+    if (!data.summary?.total) {
+        return (
+            <EmptyState
+                title="No CEM scores yet"
+                description="The CEM scoring model needs a completed pipeline run to populate this page."
+                icon={Meh}
+            />
+        );
     }
 
     const { summary, distribution, areaAverages, topHighest, topLowest } = data;
@@ -138,10 +160,19 @@ export default function CEMScoresPage() {
             count: Number(d.count),
         }));
 
-    const areaChartData = areaAverages.slice(0, 12).map(a => ({
-        label: a.area,
-        value: a.avg_cem_score,
-    }));
+    // Aggregate CEM scores by Tunisia governorate (weighted by subscriber count)
+    const govBuckets = new Map<string, { totalScore: number; subs: number }>();
+    for (const a of areaAverages) {
+        const gov = areaToGovernorate(a.area) ?? 'Other';
+        const b = govBuckets.get(gov) ?? { totalScore: 0, subs: 0 };
+        b.totalScore += a.avg_cem_score * a.subscriber_count;
+        b.subs += a.subscriber_count;
+        govBuckets.set(gov, b);
+    }
+    const areaChartData = Array.from(govBuckets.entries())
+        .map(([gov, b]) => ({ label: gov, value: b.subs > 0 ? b.totalScore / b.subs : 0 }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 24);
 
     const poorPct = summary.total > 0 ? (summary.poor_count / summary.total) * 100 : 0;
     const fairPct = summary.total > 0 ? (summary.fair_count / summary.total) * 100 : 0;
@@ -154,31 +185,40 @@ export default function CEMScoresPage() {
                 description="Customer Experience Management (CEM) scores derived from 13 features across 2.47M Tunisie Telecom subscribers. Scores range 0–1: poor (<0.3), fair (0.3–0.6), good (>0.6). Model R² = 0.9933 on test set."
                 values={[
                     { text: `${summary.total.toLocaleString()} subscribers scored` },
-                    { text: `Average CEM: ${summary.avg_score.toFixed(3)}` },
+                    { text: `Average CEM: ${safeFixed(summary.avg_score, 3)}` },
                     { text: `${goodPct.toFixed(1)}% good experience` },
                 ]}
             />
 
-            {/* KPI Cards */}
+            {/* KPI tiles */}
             <div className="grid grid-4">
-                <div className="card card-compact">
-                    <div className="stat-label">Total Subscribers</div>
-                    <div className="stat-value">{summary.total.toLocaleString()}</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Average CEM Score</div>
-                    <div className="stat-value" style={{ color: 'var(--color-info)' }}>{summary.avg_score.toFixed(3)}</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Poor Experience</div>
-                    <div className="stat-value" style={{ color: 'var(--color-danger)' }}>{poorPct.toFixed(1)}%</div>
-                    <div className="stat-sub">{summary.poor_count.toLocaleString()} subscribers</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Good Experience</div>
-                    <div className="stat-value" style={{ color: 'var(--color-success)' }}>{goodPct.toFixed(1)}%</div>
-                    <div className="stat-sub">{summary.good_count.toLocaleString()} subscribers</div>
-                </div>
+                <StatTile
+                    label="Total Subscribers"
+                    value={summary.total.toLocaleString()}
+                    icon={Users}
+                    sub="scored via LightGBM CEM v3.0"
+                />
+                <StatTile
+                    label="Average CEM Score"
+                    value={safeFixed(summary.avg_score, 3)}
+                    icon={BarChart3}
+                    tone="info"
+                    sub="0.0 worst · 1.0 best"
+                />
+                <StatTile
+                    label="Poor Experience"
+                    value={`${poorPct.toFixed(1)}%`}
+                    icon={Frown}
+                    tone="danger"
+                    sub={`${summary.poor_count.toLocaleString()} subscribers`}
+                />
+                <StatTile
+                    label="Good Experience"
+                    value={`${goodPct.toFixed(1)}%`}
+                    icon={Smile}
+                    tone="success"
+                    sub={`${summary.good_count.toLocaleString()} subscribers`}
+                />
             </div>
 
             {/* Filters */}
@@ -243,8 +283,8 @@ export default function CEMScoresPage() {
                                 {filteredHighest.map((s, i) => (
                                     <tr key={i}>
                                         <td className="mono">{s.imsi_hash.slice(0, 16)}...</td>
-                                        <td style={{ fontWeight: 700, color: 'var(--color-success)' }}>{s.cem_score.toFixed(4)}</td>
-                                        <td>{s.area || '—'}</td>
+                                        <td style={{ fontWeight: 700, color: 'var(--color-success)' }}>{safeFixed(s.cem_score, 4)}</td>
+                                        <td>{areaToGovernorate(s.area) ?? s.area ?? '—'}</td>
                                         <td>{s.generation || '—'}</td>
                                         <td><ScoreBadge score={s.cem_score} /></td>
                                     </tr>
@@ -274,8 +314,8 @@ export default function CEMScoresPage() {
                                 {filteredLowest.map((s, i) => (
                                     <tr key={i}>
                                         <td className="mono">{s.imsi_hash.slice(0, 16)}...</td>
-                                        <td style={{ fontWeight: 700, color: 'var(--color-danger)' }}>{s.cem_score.toFixed(4)}</td>
-                                        <td>{s.area || '—'}</td>
+                                        <td style={{ fontWeight: 700, color: 'var(--color-danger)' }}>{safeFixed(s.cem_score, 4)}</td>
+                                        <td>{areaToGovernorate(s.area) ?? s.area ?? '—'}</td>
                                         <td>{s.generation || '—'}</td>
                                         <td><ScoreBadge score={s.cem_score} /></td>
                                     </tr>

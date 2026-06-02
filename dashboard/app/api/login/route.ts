@@ -18,7 +18,7 @@ export async function POST(req: Request) {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: parseInt(expires_in) || 60 * 60 * 24,
+            maxAge: parseInt(expires_in, 10) || 60 * 60 * 24,
         });
         return res;
     }
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/',
-                maxAge: data.expires_in || 60 * 60 * 24,
+                maxAge: (typeof data.expires_in === 'number' ? data.expires_in : parseInt(data.expires_in, 10)) || 60 * 60 * 24,
             });
             return res;
         } catch {

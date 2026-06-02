@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from config import MODEL_VERSION, CEM_FEATURES
 from model_cache import load_models
@@ -11,19 +11,14 @@ router = APIRouter()
 
 
 class CemRecord(BaseModel):
-    usim_bottleneck: float
-    data_intensity: float
-    dou_total: float
-    duration: float
-    s1_mme_sr: float
-    iu_attach_sr: float
-    gb_attach_sr: float
-    avg_throughput: float
-    avg_latency: float
-    avg_packet_loss: float
-    anomaly_rate: float
-    generation_4g: float
-    generation_5g: float
+    """Accept any extra fields the trained model expects.
+
+    The router resolves the actual feature contract at inference time from
+    `cem_v3_feature_names.joblib` (loaded in model_cache). Missing fields
+    default to 0.0 so a partial-feature payload never returns 422 — it
+    returns a prediction the model can compute on the columns it has.
+    """
+    model_config = ConfigDict(extra="allow")
 
 
 class CemRequest(BaseModel):
@@ -36,6 +31,8 @@ class CemRequest(BaseModel):
 def infer_cem(req: CemRequest):
     models = load_models()
     cem_model = models.get("cem")
+    # Prefer the contract trained with the model; fall back to the static list.
+    feature_names = models.get("cem_features") or CEM_FEATURES
 
     if cem_model is None:
         return {
@@ -54,16 +51,17 @@ def infer_cem(req: CemRequest):
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    X = np.array(
-        [
-            [
-                getattr(r, f)
-                for f in CEM_FEATURES
-            ]
-            for r in req.records
-        ],
-        dtype=np.float32,
-    )
+    def _vec(rec: CemRecord) -> list[float]:
+        d = rec.model_dump()
+        return [float(d.get(f, 0.0) or 0.0) for f in feature_names]
+
+    X = np.array([_vec(r) for r in req.records], dtype=np.float32)
+
+    if X.shape[1] != len(feature_names):
+        raise HTTPException(
+            status_code=422,
+            detail=f"CEM input shape mismatch: expected {len(feature_names)} features, got {X.shape[1]}",
+        )
 
     try:
         preds = cem_model.predict(X)

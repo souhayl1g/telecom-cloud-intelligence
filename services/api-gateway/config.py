@@ -1,6 +1,9 @@
 import os
 
-JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET", "")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET environment variable is required")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
 JWT_ALGORITHM = "HS256"
 
 DATABASE_URL = os.getenv("DATABASE_URL")

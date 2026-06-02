@@ -129,6 +129,22 @@ export default function VAEAnomaliesPage() {
         fetchData();
     }, [fetchData]);
 
+    // Hooks MUST run on every render in stable order — keep useMemo above any
+    // conditional return, null-guard the data dependency inside the factory.
+    const mapFrames = useMemo(() => {
+        const monthly = data?.byAreaMonthly ?? [];
+        if (monthly.length === 0) return undefined;
+        const byMonth = new Map<string, { area: string; total: number; anomaly_count: number; rate: number }[]>();
+        for (const r of monthly) {
+            const list = byMonth.get(r.month_year) ?? [];
+            list.push({ area: r.area, total: r.total, anomaly_count: r.anomaly_count, rate: r.rate });
+            byMonth.set(r.month_year, list);
+        }
+        return Array.from(byMonth.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([month, rows]) => ({ label: month, rows: aggregateByGovernorate(rows) }));
+    }, [data?.byAreaMonthly]);
+
     if (loading) {
         return <PageSkeleton withChart />;
     }
@@ -159,22 +175,6 @@ export default function VAEAnomaliesPage() {
     const governorateRows = aggregateByGovernorate(byArea);
     const maxGovAnoms = Math.max(...governorateRows.map(r => r.anomaly_count), 1);
     const selectedRow = governorateRows.find(r => r.governorate === selectedGov);
-
-    // Build monthly frames for map animation (one frame per month_year).
-    // Each frame aggregates that month's per-area rows into governorates.
-    const mapFrames = useMemo(() => {
-        const monthly = data.byAreaMonthly ?? [];
-        if (monthly.length === 0) return undefined;
-        const byMonth = new Map<string, { area: string; total: number; anomaly_count: number; rate: number }[]>();
-        for (const r of monthly) {
-            const list = byMonth.get(r.month_year) ?? [];
-            list.push({ area: r.area, total: r.total, anomaly_count: r.anomaly_count, rate: r.rate });
-            byMonth.set(r.month_year, list);
-        }
-        return Array.from(byMonth.entries())
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([month, rows]) => ({ label: month, rows: aggregateByGovernorate(rows) }));
-    }, [data.byAreaMonthly]);
 
     const cellChartData = byCell.slice(0, 10).map(c => ({
         label: c.cell_id,
@@ -256,7 +256,7 @@ export default function VAEAnomaliesPage() {
                                 <div className="gov-row-name">
                                     <MapPin size={13} strokeWidth={2.2} className="gov-row-pin" />
                                     <span>{r.governorate}</span>
-                                    <span className="gov-row-cells">{r.cell_count} cells</span>
+                                    <span className="gov-row-cells">{r.cell_count ?? 0} cells</span>
                                 </div>
                                 <div className="gov-row-bar">
                                     <div
@@ -264,8 +264,8 @@ export default function VAEAnomaliesPage() {
                                         style={{ width: `${Math.min((r.anomaly_count / maxGovAnoms) * 100, 100)}%` }}
                                     />
                                 </div>
-                                <div className="gov-row-value">{r.anomaly_count.toLocaleString()}</div>
-                                <div className="gov-row-rate">{r.rate}%</div>
+                                <div className="gov-row-value">{(r.anomaly_count ?? 0).toLocaleString()}</div>
+                                <div className="gov-row-rate">{r.rate ?? 0}%</div>
                             </div>
                         ))}
                     </div>
@@ -335,12 +335,12 @@ export default function VAEAnomaliesPage() {
                                     const badge = getSeverityBadge(a.cell_load_pct ?? 0);
                                     const gov = areaToGovernorate(a.area);
                                     return (
-                                        <tr key={i}>
+                                        <tr key={`${a.cell_id}-${i}`}>
                                             <td className="mono">{a.cell_id}</td>
                                             <td>{gov ?? a.area}</td>
                                             <td className="mono">{a.throughput_mbps?.toFixed(1) ?? '—'} Mbps</td>
                                             <td className="mono">{a.latency_ms?.toFixed(1) ?? '—'} ms</td>
-                                            <td className="mono">{(a.packet_loss_rate * 100)?.toFixed(2) ?? '—'}%</td>
+                                            <td className="mono">{a.packet_loss_rate != null ? (a.packet_loss_rate * 100).toFixed(2) + '%' : '—'}</td>
                                             <td className="mono">{a.cell_load_pct?.toFixed(1) ?? '—'}%</td>
                                             <td><span className={`badge ${badge.cls}`}>{badge.label}</span></td>
                                         </tr>

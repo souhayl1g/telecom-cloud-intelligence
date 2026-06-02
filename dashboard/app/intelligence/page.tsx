@@ -72,7 +72,7 @@ export default async function IntelligencePage() {
                 <RootCauseAnalysis
                     sla={{ score: 0 }}
                     ossAnomalies={ossData}
-                    bssAnomalies={bssData}
+                    cemAnomalies={bssData}
                     correlations={corrData}
                 />
             </div>
@@ -82,11 +82,11 @@ export default async function IntelligencePage() {
                 <div className="section-title">
                     <span className="dot"></span>
                     Anomaly Event Stream
-                    <span className="section-subtitle">{totalAnomalies} events &middot; OSS + BSS</span>
+                    <span className="section-subtitle">{totalAnomalies} events &middot; OSS + CEM</span>
                 </div>
                 <AnomalyTimeline
                     ossAnomalies={ossData}
-                    bssAnomalies={bssData}
+                    cemAnomalies={bssData}
                 />
             </div>
         </div>

@@ -38,6 +38,10 @@ MONTHS = {
     "2026-01": {"label": "jan", "dou_factor": 0.88, "5g_factor": 0.65, "silent_shift": -0.03},
     "2026-04": {"label": "avr", "dou_factor": 1.18, "5g_factor": 1.35, "silent_shift": 0.04},
     "2026-05": {"label": "mai", "dou_factor": 1.35, "5g_factor": 1.65, "silent_shift": 0.08},
+    "2026-06": {"label": "jun", "dou_factor": 1.50, "5g_factor": 1.80, "silent_shift": 0.10},
+    "2026-07": {"label": "jul", "dou_factor": 1.65, "5g_factor": 2.00, "silent_shift": 0.12},
+    "2026-08": {"label": "aug", "dou_factor": 1.55, "5g_factor": 1.90, "silent_shift": 0.10},
+    "2026-09": {"label": "sep", "dou_factor": 1.40, "5g_factor": 1.70, "silent_shift": 0.07},
 }
 
 N_RECORDS = 500_000

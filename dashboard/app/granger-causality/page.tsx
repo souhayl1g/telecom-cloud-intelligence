@@ -74,7 +74,7 @@ export default async function GrangerCausalityPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
                         <div>
                             <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>1. Hypothesis</div>
-                            Past values of OSS metric <em>X</em> (say <code>cell_load_pct</code>) help predict future BSS metric <em>Y</em> (say <code>cem_score</code>) <strong>beyond</strong> what Y&apos;s own past predicts.
+                            Past values of OSS metric <em>X</em> (say <code>cell_load_pct</code>) help predict future CEM metric <em>Y</em> (say <code>cem_score</code>) <strong>beyond</strong> what Y&apos;s own past predicts.
                         </div>
                         <div>
                             <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>2. Two regressions</div>
@@ -93,7 +93,7 @@ export default async function GrangerCausalityPage() {
                 <div className="card card-accent-top">
                     <div className="section-title">
                         <span className="dot" />
-                        Why This = OSS ∩ BSS Convergence
+                        Why This = OSS ∩ CEM Convergence
                         <span className="section-subtitle">The core thesis of NeXo</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
@@ -102,16 +102,16 @@ export default async function GrangerCausalityPage() {
                             Cell-level KPIs: throughput, latency, packet loss, RSRP, cell load. Owned by network operations.
                         </div>
                         <div>
-                            <div style={{ fontWeight: 700, color: 'var(--color-purple)', marginBottom: 4 }}>BSS world</div>
+                            <div style={{ fontWeight: 700, color: 'var(--color-purple)', marginBottom: 4 }}>CEM world</div>
                             Subscriber-level metrics: CEM score, churn flag, RAT gap, DOU. Owned by customer-experience teams.
                         </div>
                         <div>
                             <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 4 }}>Convergence</div>
-                            Without Granger, OSS and BSS are two parallel silos joined only by area aggregation. Granger proves <strong>causal direction</strong> with a measurable lag — turning two correlated streams into a single predictive signal. This is what justifies a unified CEM+OSS dashboard rather than two separate tools.
+                            Without Granger, OSS and CEM are two parallel silos joined only by area aggregation. Granger proves <strong>causal direction</strong> with a measurable lag — turning two correlated streams into a single predictive signal. This is what justifies a unified CEM+OSS dashboard rather than two separate tools.
                         </div>
                         <div style={{ padding: 10, background: 'var(--color-success-bg)', border: '1px solid var(--color-success-border)', borderRadius: 8 }}>
                             <div style={{ fontWeight: 700, color: 'var(--color-success)', marginBottom: 4, fontSize: 12 }}>Reading the table below</div>
-                            A row like <code>cell_load_pct → cem_score</code>, lag=3, p=0.02 means: when an area&apos;s cell load shifts, subscriber CEM score in that area changes 3 cycles later, with 98% statistical confidence. The L4 agent uses these proven pairs to act <em>before</em> the BSS effect manifests — the foundation of preemptive remediation.
+                            A row like <code>cell_load_pct → cem_score</code>, lag=3, p=0.02 means: when an area&apos;s cell load shifts, subscriber CEM score in that area changes 3 cycles later, with 98% statistical confidence. The L4 agent uses these proven pairs to act <em>before</em> the CEM effect manifests — the foundation of preemptive remediation.
                         </div>
                     </div>
                 </div>
@@ -139,17 +139,17 @@ export default async function GrangerCausalityPage() {
                 </div>
                 <div className="card card-compact">
                     <div className="stat-card">
-                        <div className="stat-icon cyan">{'\u23F1'}</div>
+                        <div className="stat-icon cyan">LAG</div>
                         <div className="stat-content">
                             <div className="stat-label">Mean Optimal Lag</div>
-                            <div className="stat-value">{meanLag.toFixed(1)}</div>
+                            <div className="stat-value">{isFinite(meanLag) ? meanLag.toFixed(1) : '—'}</div>
                             <div className="stat-sub">cycles</div>
                         </div>
                     </div>
                 </div>
                 <div className="card card-compact">
                     <div className="stat-card">
-                        <div className="stat-icon purple">{'\u{1F4CA}'}</div>
+                        <div className="stat-icon purple">AREA</div>
                         <div className="stat-content">
                             <div className="stat-label">Areas Covered</div>
                             <div className="stat-value">{areas.length}</div>
@@ -163,14 +163,14 @@ export default async function GrangerCausalityPage() {
                 <div className="section-title">
                     <span className="dot"></span>
                     Causal Pair Summary
-                    <span className="section-subtitle">OSS metric → BSS metric</span>
+                    <span className="section-subtitle">OSS metric → CEM metric</span>
                 </div>
                 <div className="table-container">
                     <table className="table">
                         <thead>
                             <tr>
                                 <th>OSS Metric</th>
-                                <th>BSS Metric</th>
+                                <th>CEM Metric</th>
                                 <th>Tests</th>
                                 <th>Significant %</th>
                                 <th>Mean Lag</th>
@@ -220,7 +220,7 @@ export default async function GrangerCausalityPage() {
                         <thead>
                             <tr>
                                 <th>Area</th>
-                                <th>OSS → BSS</th>
+                                <th>OSS → CEM</th>
                                 <th>Lag</th>
                                 <th>p-value</th>
                                 <th>F-stat</th>

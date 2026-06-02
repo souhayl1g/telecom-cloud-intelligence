@@ -50,7 +50,7 @@ COPY oss_cell_kpis (
     cell_id, area, month_year, throughput_mbps, latency_ms,
     packet_loss_rate, jitter_ms, active_users, rsrp_dbm,
     cell_load_pct, anomaly_flag, rat_type, integrity,
-    call_drop_rate, timestamp, site_name, source
+    call_drop_rate, timestamp, site_name, source, active_users_max
 )
 FROM STDIN WITH (FORMAT csv)
 """
@@ -123,6 +123,8 @@ def _write_row(writer, row, rat_type: str) -> bool:
         my = month_year_from_ts(ts_raw)
         ts = parse_timestamp(ts_raw)
 
+        users_max = ""
+
         if rat_type == "2G":
             cell_id = row[3].strip()
             area = row[2].strip() if row[2] else row[1].strip()
@@ -155,6 +157,10 @@ def _write_row(writer, row, rat_type: str) -> bool:
             tput = parse_float(row[8])
             rsrp = parse_float(row[9])
             users = parse_int(row[10])
+            # L.Traffic.User.Max — real peak user count per cell. Used by the
+            # vw_oss_cell_derived view to compute REAL cell_load = avg/max.
+            if len(row) > 11:
+                users_max = parse_int(row[11])
         else:
             return False
 
@@ -166,12 +172,12 @@ def _write_row(writer, row, rat_type: str) -> bool:
             area,
             my,
             tput,
-            "",  # latency_ms
-            "",  # packet_loss_rate
-            "",  # jitter_ms
+            "",  # latency_ms — not in source, derived by vw_oss_cell_derived
+            "",  # packet_loss_rate — not in source, derived
+            "",  # jitter_ms — not in source, derived
             users,
             rsrp,
-            "",  # cell_load_pct
+            "",  # cell_load_pct — derived in view from active_users / users_max
             is_anomaly(integrity, cdr),
             rat_type,
             integrity,
@@ -179,6 +185,7 @@ def _write_row(writer, row, rat_type: str) -> bool:
             ts,
             site_name,
             "real",
+            users_max,  # REAL — L.Traffic.User.Max (4G only)
         ])
         return True
 

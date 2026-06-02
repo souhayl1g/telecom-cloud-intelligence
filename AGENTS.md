@@ -1,6 +1,6 @@
 # CLAUDE.md — Telecom NeXoligence Platform
 
-> Last updated: 2026-05-26 | **Notebook Enhancement Pass (freeze-safe)** + MANDATORY RULES + Dashboard IA Reorg + Actuation Layer ship · Defense: mid-June → mid-July 2026 · freeze first week June · Methodology: **Hybrid CRISP-DM + MLOps overlay** · HCS portability removed.
+> Last updated: 2026-06-02 | **Email delivery verified** + Auth password-reset flow + Pipeline v3.0 daemon hardened · Notebook Enhancement Pass SHIPPED · Actuation Layer shipped · Defense: mid-June → mid-July 2026 · freeze first week June · Methodology: **Hybrid CRISP-DM + MLOps overlay** · HCS portability removed.
 >
 > Historical detail lives in [docs/CHANGELOG.md](docs/CHANGELOG.md). **AGENTS.md mirrors this file byte-for-byte — keep them in sync.**
 
@@ -59,10 +59,11 @@ Defense-grade enhancement of all 6 notebooks. These rules are LOCKED for the pas
 - **Explanations live in `notebooks/reports/`, not in notebook cells.** Each `NN_explainer.md` defines every term from zero in plain words (project mastery + defense). ETL/cleaning prose moved out of NB01 into `reports/01_explainer.md`.
 - **Granger ADF/KPSS** are diagnostic-only cells; `granger_feature_gate.json` is never regenerated (api-gateway consumes it live).
 - **Commit-scope rule:** notebook-enhancement commits stage **notebooks + reports + requirements only**, never `models/` (use path-scoped `git add`, never `git add -A`).
+- **Pass status (2026-05-26): SHIPPED.** EDA viz expanded (geo choropleth, networkx topology, missingno, KDE, IQR box, violin + z-score); per-model eval cells added (SHAP, calibration, ROC/PR, F1 threshold sweep, PCA latent, per-feature attribution, StratifiedKFold CV) — all load frozen artifacts; explainers synced + accurate; `forecast_explainer.md` added; `NOTEBOOK-REVIEW.md` = 0 critical / 4 warnings / 3 info. **Open:** notebook plot cells are un-executed (run in Jupyter against the live stack to embed outputs); review warnings WR-1..4 optional; model binaries committed as the new baseline.
 
 ---
 
-## Current Architecture State (2026-05-20)
+## Current Architecture State (2026-06-02)
 
 ### Sidebar (6-group story-arc order)
 | Group | Items | Visibility |
@@ -110,6 +111,7 @@ Offline gate: `notebooks/10_granger_feature_selection.ipynb` → `granger_featur
 
 ### Login (`dashboard/app/login/page.tsx`)
 JWT-only — no Google/GitHub buttons in UI (OAuth endpoints exist). Password eye-toggle (`showPassword`). Left pane: brand → headline → `NetworkOrb` → 3 stats.
+**Password reset:** Forgot-password page (`/forgot-password`) requests reset token via SMTP; reset-password page (`/reset-password`) validates token + updates password. Email delivery verified working 2026-06-01.
 
 **Defense pain hook (locked):** *"Network anomalies invisible to OSS until customer complaint reaches Care."* OSS↔CEM convergence via Granger F-test → ConvergenceSpirit → ActionSpirit.
 
@@ -229,9 +231,9 @@ ollama run qwen2.5:7b
 
 | Model | Algorithm | Training Data | Key Metric |
 |-------|-----------|---------------|-----------|
-| CEM Experience Score | LightGBM (DART, 256 leaves, depth=12) | 2.47M subscribers (5 months real+sim) | Test R²=0.9933, MAE=0.0129 |
-| Experience Anomaly | PyTorch VAE (9→32→16→Latent(8)) | 1M OSS records normal-only | ROC-AUC=0.931, Recall=0.700 |
-| RAT Underservice | XGBoost (500 trees, depth=8, GPU) | 2.47M subscribers | ROC-AUC=0.961, F1=0.560 |
+| CEM Experience Score | LightGBM (DART, 256 leaves, depth=12) | 2.47M subscribers (5 months real+sim) | Test R²=0.9784, MAE=0.0304 |
+| Experience Anomaly | PyTorch VAE (9→32→16→Latent(8)) | 1M OSS records normal-only | ROC-AUC=0.9821, PR-AUC=0.9974 |
+| RAT Underservice | XGBoost (500 trees, depth=8, GPU) | 2.47M subscribers | ROC-AUC=0.9203, F1=0.8927 |
 | Churn Trajectory | LSTM/GRU (PyTorch) | **Planned** — needs rolling window history | — |
 | O+B Correlation | Pearson + Spearman + Granger Causality | **Planned** — temporal lag analysis | — |
 
@@ -260,6 +262,13 @@ Detailed v3.0 metrics + features + top SHAP, plus legacy v2.0 models, in [docs/C
 | `/vae-anomalies` | VAE experience anomaly browser | ✅ |
 | `/l4-agent` | ADN L4 Autonomous Ops Agent (real playbooks, persisted actions) | ✅ REAL PLAYBOOKS |
 | `/login` | Auth page (JWT only — Google/GitHub buttons removed from UI 2026-05-18) | ✅ |
+| `/forgot-password` | Request password reset email | ✅ |
+| `/reset-password` | Validate token + set new password | ✅ |
+| `/tickets` | NOC ticket browser + creation | ✅ |
+| `/notifications` | Notification history (SMS/email audit) | ✅ |
+| `/interventions` | Churn intervention tracker | ✅ |
+| `/reports` | Generated capacity PDF reports list | ✅ |
+| `/granger-causality` | Granger causality explorer + lead-time histogram | ✅ |
 
 ---
 
@@ -327,6 +336,13 @@ The L4 agent is a client component and cannot read httpOnly cookies directly.
 | `/api/logout` | Clear auth cookie |
 | `/api/platform-data` | SSR proxy — reads auth_token cookie, fetches all :8000 endpoints |
 | `/api/model-metrics` | Static real ML metrics from notebook evaluation |
+| `/api/forgot-password` | Proxies to auth-service forgot-password |
+| `/api/reset-password` | Proxies to auth-service reset-password |
+| `/api/notifications` | Notification list / send proxy |
+| `/api/tickets` | Ticket CRUD proxy |
+| `/api/interventions` | Intervention list proxy |
+| `/api/reports` | Report list / generate proxy |
+| `/api/ollama-tags` | List available Ollama models |
 
 ### `/api/platform-data` Pattern
 ```typescript
@@ -448,6 +464,8 @@ Schema file: `docs/db/schema.sql`
 | GET | /auth/me | Current user profile (JWT) |
 | GET | /auth/google | Google OAuth redirect |
 | GET | /auth/github | GitHub OAuth redirect |
+| POST | /auth/forgot-password | Send reset token via SMTP |
+| POST | /auth/reset-password | Validate token + update password |
 
 ### ai-service (:8001) — internal, called by pipeline-worker and api-gateway
 | Method | Path | Model | Purpose |
@@ -662,10 +680,10 @@ Rules:
 ### 3. ML Models v3.0 (deployed)
 | Model | Algorithm | Training Data | Key Metric | Status |
 |---|---|---|---|---|
-| CEM Score | LightGBM DART (256 leaves, depth=12) | 2.47M subscribers, 5 months | R²=0.9995, MAE=0.0013 | ✅ Deployed |
-| RAT Underservice | XGBoost (500 trees, depth=8, GPU) | 2.47M subscribers, 5 months | ROC-AUC=0.955, F1=0.540 | ✅ Deployed |
-| Experience Anomaly | PyTorch VAE (9→32→16→Latent(8)) | 1M OSS records, mixed real+sim | ROC-AUC=0.931, Recall=0.702 | ✅ Deployed |
+| CEM Score | LightGBM DART (256 leaves, depth=12) | 2.47M subscribers, 5 months | R²=0.9784, MAE=0.0304 | ✅ Deployed |
+| RAT Underservice | XGBoost (500 trees, depth=8, GPU) | 2.47M subscribers, 5 months | ROC-AUC=0.9203, F1=0.8927 | ✅ Deployed |
+| Experience Anomaly | PyTorch VAE (9→32→16→Latent(8)) | 1M OSS records, mixed real+sim | ROC-AUC=0.9821, PR-AUC=0.9974 | ✅ Deployed |
 | Churn Trajectory | LSTM/GRU (PyTorch) | Rolling window sequences | — | 📋 Planned |
 
-**Achieved metrics:** CEM Score R²=0.9995 ✅ | RAT ROC-AUC=0.955 ✅ | Anomaly ROC-AUC=0.931 ✅ | Churn AUC > 0.85 📋
+**Achieved metrics:** CEM Score R²=0.9784 ✅ | RAT ROC-AUC=0.9203 ✅ | Anomaly ROC-AUC=0.9821 ✅ | Churn AUC > 0.85 📋
 

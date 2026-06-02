@@ -78,7 +78,28 @@ GROUP BY cell_id, area
 ORDER BY anomaly_count DESC
 LIMIT 100;
 
+CREATE UNIQUE INDEX ON mv_oss_by_cell (cell_id, area);
 CREATE INDEX ON mv_oss_by_cell (anomaly_count DESC);
+
+-- ── 3b. OSS aggs by month + area (powers VAE map animation) ─────────────
+-- Aggregating 18M+ rows of oss_cell_kpis on every dashboard request was
+-- ~12s wall-clock and made /api/vae-anomalies hang. Materialized → ms.
+DROP MATERIALIZED VIEW IF EXISTS mv_oss_by_month_area CASCADE;
+CREATE MATERIALIZED VIEW mv_oss_by_month_area AS
+SELECT
+    month_year,
+    area,
+    COUNT(*)::int AS total,
+    COUNT(*) FILTER (WHERE anomaly_flag = TRUE)::int AS anomaly_count,
+    COALESCE(ROUND(COUNT(*) FILTER (WHERE anomaly_flag = TRUE) * 100.0
+            / NULLIF(COUNT(*),0), 2), 0)::float8 AS rate
+FROM oss_cell_kpis
+WHERE area IS NOT NULL
+  AND UPPER(TRIM(area)) NOT IN ('NULL','NONE','N/A','')
+GROUP BY month_year, area
+HAVING COUNT(*) >= 10;
+
+CREATE UNIQUE INDEX ON mv_oss_by_month_area (month_year, area);
 
 -- ── 4. Recent OSS anomalies (already-joined rows) ─────────────────────────
 DROP MATERIALIZED VIEW IF EXISTS mv_oss_recent_anomalies CASCADE;
@@ -91,13 +112,12 @@ SELECT
     latency_ms,
     packet_loss_rate,
     cell_load_pct,
-    rat_type,
-    COALESCE(timestamp, created_at) AS ts
+    created_at AS ts
 FROM oss_cell_kpis
 WHERE anomaly_flag = TRUE
   AND area IS NOT NULL
   AND UPPER(TRIM(area)) NOT IN ('NULL','NONE','N/A','')
-ORDER BY COALESCE(timestamp, created_at) DESC
+ORDER BY created_at DESC
 LIMIT 200;
 
 CREATE UNIQUE INDEX ON mv_oss_recent_anomalies (id);
@@ -277,7 +297,8 @@ CREATE OR REPLACE FUNCTION refresh_dashboard_views() RETURNS void AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_dashboard_summary;
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_oss_by_area;
-    REFRESH MATERIALIZED VIEW mv_oss_by_cell;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_oss_by_month_area;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_oss_by_cell;
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_oss_recent_anomalies;
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_cem_distribution;
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_cem_by_area;

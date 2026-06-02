@@ -21,7 +21,7 @@ export default async function CorrelationsPage() {
     return (
         <div className="grid" style={{ gap: 20 }}>
             <PageInfoBar
-                eyebrow="OSS ↔ BSS Convergence"
+                eyebrow="OSS ↔ CEM Convergence"
                 description="Does a bad cell actually cost us revenue? This page quantifies the link between network KPIs (latency, throughput, packet loss) and customer-facing outcomes (churn risk, data usage, revenue) using Pearson + Spearman. Anything with |ρ| ≥ 0.7 and p < 0.05 is an actionable business lever."
                 values={[
                     { text: `${strongCorrs} strong relationships (|ρ| ≥ 0.7)` },
@@ -78,7 +78,7 @@ export default async function CorrelationsPage() {
                         <thead>
                             <tr>
                                 <th>Metric X (OSS)</th>
-                                <th>Metric Y (BSS)</th>
+                                <th>Metric Y (CEM)</th>
                                 <th>Method</th>
                                 <th>ρ</th>
                                 <th>Strength</th>

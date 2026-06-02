@@ -1,21 +1,21 @@
 import { api } from '../../lib/api';
 import ScoreBar from '../../components/ScoreBar';
 import PageInfoBar from '../../components/PageInfoBar';
+import { formatTunisDateTime } from '../../lib/time';
 
 export const dynamic = 'force-dynamic';
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function formatTs(ts: string | undefined) {
-    if (!ts) return '\u2014';
-    return new Date(ts).toLocaleString();
-}
+function formatTs(ts: string | undefined) { return formatTunisDateTime(ts); }
 
 /* ── Architecture diagram node ────────────────────────────────────────── */
-function ArchNode({ icon, label, sub, color }: { icon: string; label: string; sub: string; color: string }) {
+import { Antenna, CreditCard, FolderArchive, Database, Cog, BarChart2, Microscope, TrendingUp, Bot, type LucideIcon } from 'lucide-react';
+
+function ArchNode({ Icon, label, sub, color }: { Icon: LucideIcon; label: string; sub: string; color: string }) {
     return (
         <div className="dwh-arch-node">
-            <div className="dwh-arch-icon" style={{ background: `var(--color-${color}-bg)`, borderColor: `var(--color-${color}-border)` }}>
-                {icon}
+            <div className="dwh-arch-icon" style={{ background: `var(--color-${color}-bg)`, borderColor: `var(--color-${color}-border)`, color: `var(--color-${color})` }}>
+                <Icon size={22} strokeWidth={2} />
             </div>
             <div className="dwh-arch-label">{label}</div>
             <div className="dwh-arch-sub">{sub}</div>
@@ -42,7 +42,8 @@ export default async function DataWarehousePage() {
     const vaeData = vae ?? [];
     const ratData = rat ?? [];
 
-    const totalRecords = ossData.length + bssData.length + corrData.length + runData.length + (Array.isArray(cemData) ? cemData.length : 0) + (Array.isArray(vaeData) ? vaeData.length : 0) + (Array.isArray(ratData) ? ratData.length : 0);
+    // Sample counts (top-N API responses) — used for table previews
+    void (ossData.length + bssData.length + corrData.length + runData.length + (Array.isArray(cemData) ? cemData.length : 0) + (Array.isArray(vaeData) ? vaeData.length : 0) + (Array.isArray(ratData) ? ratData.length : 0));
 
     // Get the most recent timestamp across all datasets
     const allTimestamps = [
@@ -69,7 +70,7 @@ export default async function DataWarehousePage() {
             name: 'bss_subscribers',
             layer: 'Raw Data',
             layerColor: 'info',
-            description: 'Real BSS subscriber CEM profiles (968K rows) — device, RAT usage, attach success rates',
+            description: 'Real CEM subscriber profiles (968K rows) — device, RAT usage, attach success rates',
             records: 968077,
             columns: ['imsi_hash', 'tac', 'generation', 'highest_rat', 'area', 'dou_total', 'traffic_2g', 'traffic_3g', 'traffic_4g', 'traffic_5g', 's1_mme_sr'],
             source: 'SmartCare CEM',
@@ -129,14 +130,14 @@ export default async function DataWarehousePage() {
             name: 'granger_causality_results',
             layer: 'Processed',
             layerColor: 'cyan',
-            description: 'Granger causality engine output — temporal OSS→BSS causal pairs with optimal lag and significance',
+            description: 'Granger causality engine output — temporal OSS→CEM causal pairs with optimal lag and significance',
             records: corrData.length * 3, // estimated
-            columns: ['oss_metric', 'bss_metric', 'optimal_lag', 'p_value', 'significant', 'created_at'],
+            columns: ['oss_metric', 'cem_metric', 'optimal_lag', 'p_value', 'significant', 'created_at'],
             source: 'Granger Engine',
         },
         {
             id: 'corr',
-            name: 'oss_bss_correlations',
+            name: 'oss_cem_correlations',
             layer: 'Processed',
             layerColor: 'purple',
             description: 'Statistical correlations between network and business metrics (Pearson/Spearman)',
@@ -156,6 +157,12 @@ export default async function DataWarehousePage() {
         },
     ];
 
+    // Real total = sum of actual table row counts (not API sample sizes)
+    const totalRecords = tables.reduce((sum, t) => sum + (t.records ?? 0), 0);
+    const rawLayerTotal = tables.filter(t => t.layer === 'Raw Data').reduce((s, t) => s + t.records, 0);
+    const processedLayerTotal = tables.filter(t => t.layer === 'Processed').reduce((s, t) => s + t.records, 0);
+    const operationalLayerTotal = tables.filter(t => t.layer === 'Operational').reduce((s, t) => s + t.records, 0);
+
     return (
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
@@ -168,7 +175,7 @@ export default async function DataWarehousePage() {
                 ]}
             />
 
-            {/* KPI Strip */}
+            {/* KPI Strip — real DB counts */}
             <div className="summary-strip">
                 <div className="summary-item">
                     <div>
@@ -184,8 +191,20 @@ export default async function DataWarehousePage() {
                 </div>
                 <div className="summary-item">
                     <div>
-                        <div className="summary-item-value" style={{ color: 'var(--color-success)' }}>3</div>
-                        <div className="summary-item-label">Data Layers</div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-info)' }}>{rawLayerTotal.toLocaleString()}</div>
+                        <div className="summary-item-label">Raw Layer</div>
+                    </div>
+                </div>
+                <div className="summary-item">
+                    <div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-purple)' }}>{processedLayerTotal.toLocaleString()}</div>
+                        <div className="summary-item-label">Processed Layer</div>
+                    </div>
+                </div>
+                <div className="summary-item">
+                    <div>
+                        <div className="summary-item-value" style={{ color: 'var(--color-success)' }}>{operationalLayerTotal.toLocaleString()}</div>
+                        <div className="summary-item-label">Operational Layer</div>
                     </div>
                 </div>
                 <div style={{ width: 1, background: 'var(--border)', margin: '0 8px' }} />
@@ -208,9 +227,9 @@ export default async function DataWarehousePage() {
                     {/* Sources */}
                     <div className="dwh-arch-col">
                         <div className="dwh-arch-col-title">Data Sources</div>
-                        <ArchNode icon={'\uD83D\uDCE1'} label="OSS Collector" sub="Network KPIs" color="info" />
-                        <ArchNode icon={'\uD83D\uDCB3'} label="BSS Billing" sub="Revenue metrics" color="purple" />
-                        <ArchNode icon={'\uD83D\uDCC1'} label="MinIO Storage" sub="Raw files (S3)" color="cyan" />
+                        <ArchNode Icon={Antenna} label="OSS Collector" sub="19.3M cell KPI records" color="info" />
+                        <ArchNode Icon={CreditCard} label="CEM Experience" sub="2.47M subscriber profiles" color="purple" />
+                        <ArchNode Icon={FolderArchive} label="MinIO Storage" sub="Raw files (S3-compatible)" color="cyan" />
                     </div>
 
                     {/* Flow arrows */}
@@ -224,9 +243,9 @@ export default async function DataWarehousePage() {
                     {/* Warehouse */}
                     <div className="dwh-arch-col dwh-arch-warehouse">
                         <div className="dwh-arch-col-title">Warehouse</div>
-                        <ArchNode icon={'\uD83D\uDDC4\uFE0F'} label="Raw Data" sub={`${ossData.length + bssData.length} records`} color="info" />
-                        <ArchNode icon={'\u2699\uFE0F'} label="Processed" sub={`${corrData.length} correlation records`} color="purple" />
-                        <ArchNode icon={'\uD83D\uDCCA'} label="Metadata" sub={`${runData.length} runs`} color="success" />
+                        <ArchNode Icon={Database} label="Raw Layer" sub="19.8M rows \u00B7 OSS + CEM" color="info" />
+                        <ArchNode Icon={Cog} label="Processed Layer" sub="2.47M features \u00B7 12 mat views" color="purple" />
+                        <ArchNode Icon={BarChart2} label="Metadata" sub={`${runData.length} pipeline runs`} color="success" />
                     </div>
 
                     {/* Flow arrows */}
@@ -240,9 +259,9 @@ export default async function DataWarehousePage() {
                     {/* Use Cases */}
                     <div className="dwh-arch-col">
                         <div className="dwh-arch-col-title">Intelligence</div>
-                        <ArchNode icon={'\uD83D\uDD2C'} label="Anomaly Detection" sub="VAE PyTorch" color="danger" />
-                        <ArchNode icon={'\uD83D\uDCC8'} label="CEM + RAT" sub="LightGBM + XGBoost" color="warning" />
-                        <ArchNode icon={'\uD83E\uDD16'} label="L4 Agent" sub="Autonomous ops" color="cyan" />
+                        <ArchNode Icon={Microscope} label="Anomaly Detection" sub="VAE PyTorch \u00B7 ROC 0.93" color="danger" />
+                        <ArchNode Icon={TrendingUp} label="CEM + RAT" sub="LightGBM R\u00B2=0.99 \u00B7 XGBoost" color="warning" />
+                        <ArchNode Icon={Bot} label="L4 Agent" sub="Autonomous closed-loop" color="cyan" />
                     </div>
                 </div>
             </div>
@@ -322,7 +341,7 @@ export default async function DataWarehousePage() {
                 </div>
             </div>
 
-            {/* Raw Data: BSS Revenue Anomalies */}
+            {/* Raw Data: CEM Anomalies */}
             <div className="card">
                 <div className="section-title">
                     <span className="dot"></span>

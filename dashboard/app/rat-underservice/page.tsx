@@ -1,6 +1,12 @@
 "use client";
 import { useEffect, useState, useCallback } from 'react';
 import PageInfoBar from '../../components/PageInfoBar';
+import { Signal, SignalLow, Smartphone, Wifi } from 'lucide-react';
+import { PageSkeleton } from '../../components/ui/LoadingSkeleton';
+import ErrorState from '../../components/ui/ErrorState';
+import EmptyState from '../../components/ui/EmptyState';
+import StatTile from '../../components/ui/StatTile';
+import { areaToGovernorate } from '../../lib/tunisia-areas';
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface RATData {
@@ -98,15 +104,19 @@ function RateBarChart({ data }: { data: { label: string; value: number }[] }) {
 export default function RATUnderservicePage() {
     const [data, setData] = useState<RATData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
             const res = await fetch('/api/rat-underservice', { cache: 'no-store' });
-            if (!res.ok) throw new Error('Failed to fetch');
+            if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
             const json = await res.json();
             setData(json);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            setError(err?.message ?? 'Unknown error');
         } finally {
             setLoading(false);
         }
@@ -117,16 +127,27 @@ export default function RATUnderservicePage() {
     }, [fetchData]);
 
     if (loading) {
+        return <PageSkeleton withChart />;
+    }
+
+    if (error || !data) {
         return (
-            <div className="l4-loading">
-                <div className="l4-loading-spinner" />
-                <div className="l4-loading-text">Loading RAT Underservice...</div>
-            </div>
+            <ErrorState
+                title="Could not load RAT underservice"
+                message={error ?? 'No data returned from /api/rat-underservice.'}
+                onRetry={fetchData}
+            />
         );
     }
 
-    if (!data) {
-        return <div className="empty-state"><div className="empty-state-text">Failed to load RAT data</div></div>;
+    if (!data.overall?.total) {
+        return (
+            <EmptyState
+                title="No RAT data yet"
+                description="The XGBoost classifier needs a completed pipeline run to populate underservice scores."
+                icon={SignalLow}
+            />
+        );
     }
 
     const { overall, byGeneration, byArea, topUnderserved } = data;
@@ -141,10 +162,19 @@ export default function RATUnderservicePage() {
         value: g.underserved,
     }));
 
-    const areaData = byArea.slice(0, 12).map(a => ({
-        label: a.area,
-        value: a.rate,
-    }));
+    // Aggregate RAT underservice by Tunisia governorate (rate-weighted)
+    const govBuckets = new Map<string, { total: number; underserved: number }>();
+    for (const a of byArea) {
+        const gov = areaToGovernorate(a.area) ?? 'Other';
+        const b = govBuckets.get(gov) ?? { total: 0, underserved: 0 };
+        b.total += a.total;
+        b.underserved += a.underserved;
+        govBuckets.set(gov, b);
+    }
+    const areaData = Array.from(govBuckets.entries())
+        .map(([gov, b]) => ({ label: gov, value: b.total > 0 ? (b.underserved / b.total) * 100 : 0 }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 24);
 
     return (
         <div className="grid" style={{ gap: 24 }}>
@@ -158,32 +188,35 @@ export default function RATUnderservicePage() {
                 ]}
             />
 
-            {/* KPI Cards */}
+            {/* KPI tiles */}
             <div className="grid grid-4">
-                <div className="card card-compact">
-                    <div className="stat-label">Total Analyzed</div>
-                    <div className="stat-value">{overall.total.toLocaleString()}</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">Underserved Rate</div>
-                    <div className="stat-value" style={{ color: overall.rate > 10 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
-                        {overall.rate}%
-                    </div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">4G Underserved</div>
-                    <div className="stat-value" style={{ color: gen4GRate > 10 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                        {gen4GRate}%
-                    </div>
-                    <div className="stat-sub">{gen4G?.underserved.toLocaleString() ?? 0} subscribers</div>
-                </div>
-                <div className="card card-compact">
-                    <div className="stat-label">5G Underserved</div>
-                    <div className="stat-value" style={{ color: gen5GRate > 10 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                        {gen5GRate}%
-                    </div>
-                    <div className="stat-sub">{gen5G?.underserved.toLocaleString() ?? 0} subscribers</div>
-                </div>
+                <StatTile
+                    label="Total Analyzed"
+                    value={overall.total.toLocaleString()}
+                    icon={Smartphone}
+                    sub="subscribers scored"
+                />
+                <StatTile
+                    label="Underserved Rate"
+                    value={`${overall.rate}%`}
+                    icon={SignalLow}
+                    tone={overall.rate > 10 ? 'danger' : 'warning'}
+                    sub="device > network RAT"
+                />
+                <StatTile
+                    label="4G Underserved"
+                    value={`${gen4GRate}%`}
+                    icon={Signal}
+                    tone={gen4GRate > 10 ? 'danger' : 'success'}
+                    sub={`${gen4G?.underserved.toLocaleString() ?? 0} subscribers`}
+                />
+                <StatTile
+                    label="5G Underserved"
+                    value={`${gen5GRate}%`}
+                    icon={Wifi}
+                    tone={gen5GRate > 10 ? 'danger' : 'success'}
+                    sub={`${gen5G?.underserved.toLocaleString() ?? 0} subscribers`}
+                />
             </div>
 
             {/* Charts Row */}
@@ -203,7 +236,7 @@ export default function RATUnderservicePage() {
                     <div className="section-title">
                         <span className="dot" />
                         Underserved Rate by Area
-                        <span className="section-subtitle">Top 12 areas by percentage</span>
+                        <span className="section-subtitle">Aggregated by Tunisia governorate · sorted by rate</span>
                     </div>
                     <RateBarChart data={areaData} />
                 </div>
@@ -235,7 +268,7 @@ export default function RATUnderservicePage() {
                                     <td style={{ fontWeight: 700, color: s.rat_gap_score > 0.5 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
                                         {s.rat_gap_score.toFixed(4)}
                                     </td>
-                                    <td>{s.area || '—'}</td>
+                                    <td>{areaToGovernorate(s.area) ?? s.area ?? '—'}</td>
                                     <td>{s.generation || '—'}</td>
                                     <td>{s.highest_rat || '—'}</td>
                                     <td>

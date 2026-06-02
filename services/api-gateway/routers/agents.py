@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Body
 import requests
 from auth import require_auth
-from config import AGENT_SERVICE_URL
+from config import AGENT_SERVICE_URL, INTERNAL_API_KEY
 
 router = APIRouter()
 
@@ -10,7 +10,7 @@ router = APIRouter()
 def agent_query(payload: dict = Body(...), user=Depends(require_auth)):
     """Orchestrator: natural language query routed to the appropriate agent."""
     try:
-        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/query", json=payload, timeout=60)
+        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/query", json=payload, timeout=60, headers={"X-Internal-Key": INTERNAL_API_KEY})
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
@@ -21,7 +21,7 @@ def agent_query(payload: dict = Body(...), user=Depends(require_auth)):
 def agent_cem(payload: dict = Body(...), user=Depends(require_auth)):
     """Direct CEMAgent call."""
     try:
-        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/cem", json=payload, timeout=30)
+        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/cem", json=payload, timeout=30, headers={"X-Internal-Key": INTERNAL_API_KEY})
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
@@ -32,7 +32,7 @@ def agent_cem(payload: dict = Body(...), user=Depends(require_auth)):
 def agent_network(payload: dict = Body(...), user=Depends(require_auth)):
     """Direct NetworkAgent call."""
     try:
-        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/network", json=payload, timeout=30)
+        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/network", json=payload, timeout=30, headers={"X-Internal-Key": INTERNAL_API_KEY})
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
@@ -43,7 +43,7 @@ def agent_network(payload: dict = Body(...), user=Depends(require_auth)):
 def agent_action_direct(payload: dict = Body(...), user=Depends(require_auth)):
     """Direct ActionAgent call."""
     try:
-        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/action", json=payload, timeout=30)
+        resp = requests.post(f"{AGENT_SERVICE_URL}/agent/action", json=payload, timeout=30, headers={"X-Internal-Key": INTERNAL_API_KEY})
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
@@ -54,7 +54,7 @@ def agent_action_direct(payload: dict = Body(...), user=Depends(require_auth)):
 def agent_playbooks(user=Depends(require_auth)):
     """List available agent playbooks."""
     try:
-        resp = requests.get(f"{AGENT_SERVICE_URL}/agent/playbooks", timeout=10)
+        resp = requests.get(f"{AGENT_SERVICE_URL}/agent/playbooks", timeout=10, headers={"X-Internal-Key": INTERNAL_API_KEY})
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:

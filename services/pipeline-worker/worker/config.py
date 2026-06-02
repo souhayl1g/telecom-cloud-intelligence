@@ -12,3 +12,4 @@ CYCLE_SECONDS: int = int(os.getenv("CYCLE_SECONDS", "120"))
 BUCKETS = ["raw", "processed", "curated"]
 SYNTHETIC_N_RECORDS = 200
 REGION_DEFAULT = "demo"
+INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY", "")
