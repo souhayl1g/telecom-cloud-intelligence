@@ -621,6 +621,130 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     except Exception as e:
                         execution_log["steps"] = [{"step": "Generate PDF", "error": str(e)[:300]}]
 
+                # ── pb-cem-degradation ────────────────────────────────────
+                elif playbook_id == "pb-cem-degradation":
+                    # 1. Find areas with poor average CEM scores
+                    cur.execute(
+                        """
+                        SELECT area, avg_cem_score, underserved_pct, subscriber_count, anomaly_count
+                        FROM area_network_health
+                        WHERE avg_cem_score < 0.3 OR underserved_pct > 15
+                        ORDER BY avg_cem_score ASC NULLS LAST
+                        LIMIT 10;
+                        """
+                    )
+                    poor_areas = [dict(r) for r in cur.fetchall()]
+                    worst_area = poor_areas[0] if poor_areas else None
+
+                    # 2. Cross-reference OSS KPI anomalies in those areas
+                    oss_anomalies = []
+                    if poor_areas:
+                        area_list = [a["area"] for a in poor_areas if a["area"]]
+                        if area_list:
+                            cur.execute(
+                                """
+                                SELECT cell_id, area, rat_type, cell_load_pct, latency_ms,
+                                       packet_loss_rate, call_drop_rate, rsrp_dbm
+                                FROM oss_cell_kpis
+                                WHERE area = ANY(%s)
+                                  AND (anomaly_flag = TRUE OR cell_load_pct > 80
+                                       OR packet_loss_rate > 0.05 OR call_drop_rate > 0.03)
+                                ORDER BY cell_load_pct DESC NULLS LAST
+                                LIMIT 20;
+                                """,
+                                (area_list,),
+                            )
+                            oss_anomalies = [dict(r) for r in cur.fetchall()]
+
+                    # 3. Cross-reference VAE anomaly scores in those areas
+                    vae_anomalies = []
+                    if poor_areas:
+                        area_list = [a["area"] for a in poor_areas if a["area"]]
+                        if area_list:
+                            cur.execute(
+                                """
+                                SELECT region, cell_id, anomaly_score, reconstruction_error
+                                FROM vae_anomaly_scores
+                                WHERE region = ANY(%s)
+                                  AND is_anomaly = TRUE
+                                ORDER BY anomaly_score DESC NULLS LAST
+                                LIMIT 20;
+                                """,
+                                (area_list,),
+                            )
+                            vae_anomalies = [dict(r) for r in cur.fetchall()]
+
+                    # 4. Identify root-cause KPIs from OSS anomalies
+                    root_causes = []
+                    for oa in oss_anomalies[:5]:
+                        causes = []
+                        if (oa.get("cell_load_pct") or 0) > 80:
+                            causes.append("high_cell_load")
+                        if (oa.get("latency_ms") or 0) > 100:
+                            causes.append("high_latency")
+                        if (oa.get("packet_loss_rate") or 0) > 0.05:
+                            causes.append("packet_loss")
+                        if (oa.get("call_drop_rate") or 0) > 0.03:
+                            causes.append("call_drops")
+                        if (oa.get("rsrp_dbm") or 0) < -110:
+                            causes.append("poor_coverage")
+                        if causes:
+                            root_causes.append({
+                                "cell_id": oa["cell_id"],
+                                "area": oa["area"],
+                                "causes": causes,
+                            })
+
+                    # 5. Create ticket for worst affected area
+                    ticket = None
+                    if worst_area:
+                        ticket = ticketing.create_ticket(
+                            title=f"CEM Degradation: {worst_area['area']} — poor subscriber experience",
+                            description=(
+                                f"Area {worst_area['area']} shows degraded CEM metrics:\n"
+                                f"- Average CEM score: {worst_area.get('avg_cem_score', '—')}\n"
+                                f"- Underserved subscribers: {worst_area.get('underserved_pct', '—')}%\n"
+                                f"- OSS anomalies detected: {len(oss_anomalies)}\n"
+                                f"- VAE anomalies detected: {len(vae_anomalies)}"
+                            ),
+                            severity="critical" if (worst_area.get("avg_cem_score") or 1) < 0.2 else "warning",
+                            source_action_id=action_id,
+                            area=worst_area["area"],
+                            metadata={
+                                "poor_areas_count": len(poor_areas),
+                                "oss_anomaly_count": len(oss_anomalies),
+                                "vae_anomaly_count": len(vae_anomalies),
+                                "root_causes": root_causes[:5],
+                            },
+                        )
+
+                    # 6. Send alert notification
+                    notif_result = None
+                    if worst_area:
+                        notif_result = notifier.send_alert(
+                            subject=f"[NeXo] CEM Degradation in {worst_area['area']}",
+                            body=(
+                                f"Area {worst_area['area']} has poor CEM scores. "
+                                f"Ticket {ticket['ticket_id'] if ticket else 'N/A'} opened. "
+                                f"OSS anomalies: {len(oss_anomalies)}, VAE anomalies: {len(vae_anomalies)}."
+                            ),
+                            source_action_id=action_id,
+                        )
+
+                    execution_log["steps"] = [
+                        {"step": "Identify poor CEM areas", "count": len(poor_areas), "areas": [a["area"] for a in poor_areas]},
+                        {"step": "Correlate OSS anomalies", "count": len(oss_anomalies), "top_cells": [a["cell_id"] for a in oss_anomalies[:5]]},
+                        {"step": "Correlate VAE anomalies", "count": len(vae_anomalies)},
+                        {"step": "Root-cause KPIs", "top_causes": root_causes[:5]},
+                        {"step": "Create NOC ticket", "ticket_id": ticket["ticket_id"] if ticket else None},
+                        {"step": "Send alert", "status": notif_result.status if notif_result else None},
+                        {
+                            "step": "Summary",
+                            "worst_area": worst_area["area"] if worst_area else None,
+                            "avg_cem_score": float(worst_area["avg_cem_score"]) if worst_area and worst_area.get("avg_cem_score") else None,
+                        },
+                    ]
+
                 # ── pb-churn-prevention (workflow) ────────────────────────
                 elif playbook_id == "pb-churn-prevention":
                     meta = _action_metadata(action)

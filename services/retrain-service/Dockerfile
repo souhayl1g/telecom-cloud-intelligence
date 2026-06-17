@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r /tmp/nb-req.txt \
 COPY services/retrain-service/requirements.txt /tmp/svc-req.txt
 RUN pip install --no-cache-dir -r /tmp/svc-req.txt
 
+COPY services/retrain-service/auth.py /app/auth.py
 COPY services/retrain-service/main.py /app/main.py
 
 EXPOSE 8004

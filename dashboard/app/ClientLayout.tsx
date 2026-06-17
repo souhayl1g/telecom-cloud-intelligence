@@ -8,17 +8,17 @@ import ThemeProvider from '../components/ThemeProvider';
 import CommandPalette from '../components/CommandPalette';
 import { RefreshProvider } from '../components/RefreshContext';
 
-const AUTH_PAGES = ['/login', '/signup', '/auth/callback'];
+const AUTH_PAGES = ['/login', '/signup', '/auth/callback', '/forgot-password', '/reset-password'];
 
 const pageVariants = {
-    hidden: { opacity: 0, y: 12, scale: 0.995 },
+    hidden: { opacity: 0, y: 8, scale: 0.997 },
     enter: {
         opacity: 1, y: 0, scale: 1,
-        transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const },
+        transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] as const },
     },
     exit: {
-        opacity: 0, y: -8, scale: 0.998,
-        transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const },
+        opacity: 0, y: -6, scale: 0.999,
+        transition: { duration: 0.14, ease: [0.4, 0, 1, 1] as const },
     },
 };
 

@@ -21,8 +21,17 @@ from agents.cem_agent import CEMAgent
 from agents.network_agent import NetworkAgent
 from agents.action_agent import ActionAgent
 
+# ── LLM provider selection ────────────────────────────────────────────────────
+# Priority: OpenRouter (cloud, fast, reliable) > Ollama (local, heavy).
+# Set OPENROUTER_API_KEY to enable cloud mode. If absent, falls back to Ollama.
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "qwen/qwen-2.5-7b-instruct")
+OPENROUTER_URL = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
+
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
-MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+
+USE_OPENROUTER = bool(OPENROUTER_API_KEY)
 
 # Agent registry
 AGENTS = {
@@ -54,11 +63,56 @@ KEYWORD_MAP = {
 }
 
 
+def _openrouter_generate(prompt: str, json_mode: bool = True) -> Optional[dict]:
+    """Call OpenRouter chat-completions endpoint. Returns parsed JSON or None."""
+    try:
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are an intent classifier for a telecom AI operations platform. "
+                    "Respond ONLY with valid JSON. No markdown, no explanation."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
+        payload = {
+            "model": OPENROUTER_MODEL,
+            "messages": messages,
+            "temperature": 0.1,
+            "max_tokens": 256,
+        }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+
+        resp = requests.post(
+            OPENROUTER_URL,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost:3001",
+                "X-Title": "NeXo Agent",
+            },
+            timeout=45,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["choices"][0]["message"]["content"].strip()
+        # OpenRouter sometimes wraps JSON in markdown fences; strip them.
+        if text.startswith("```"):
+            text = text.strip("`").replace("json", "", 1).strip()
+        return json.loads(text)
+    except Exception as e:
+        print(f"[orchestrator] OpenRouter error: {e}")
+        return None
+
+
 def _ollama_generate(prompt: str, json_mode: bool = True) -> Optional[dict]:
     """Call Ollama generate endpoint. Returns parsed JSON or None on failure."""
     try:
         payload = {
-            "model": MODEL,
+            "model": OLLAMA_MODEL,
             "prompt": prompt,
             "stream": False,
             "options": {"temperature": 0.1, "num_predict": 256},
@@ -74,6 +128,13 @@ def _ollama_generate(prompt: str, json_mode: bool = True) -> Optional[dict]:
     except Exception as e:
         print(f"[orchestrator] Ollama error: {e}")
         return None
+
+
+def _llm_generate(prompt: str, json_mode: bool = True) -> Optional[dict]:
+    """Route to OpenRouter if configured, otherwise Ollama."""
+    if USE_OPENROUTER:
+        return _openrouter_generate(prompt, json_mode)
+    return _ollama_generate(prompt, json_mode)
 
 
 def _build_intent_prompt(query: str) -> str:
@@ -145,7 +206,7 @@ class Orchestrator:
 
         # 1. Intent classification (LLM + fallback)
         prompt = _build_intent_prompt(query)
-        classification = _ollama_generate(prompt)
+        classification = _llm_generate(prompt)
         if classification is None:
             classification = _rule_classify(query)
 

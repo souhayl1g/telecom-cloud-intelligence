@@ -77,8 +77,21 @@
     --bg-image-dark: none;
     --bg-image-light: none;
 
-    /* Transition */
-    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Transition — snappier spring-out curve (faster, smoother) */
+    --transition: 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    --transition-fast: 0.13s cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* ── Liquid Glass material (dark) ──────────────────────────────────── */
+    --glass-blur: 20px;
+    --glass-saturate: 175%;
+    --glass-tint: rgba(255, 255, 255, 0.045);       /* frosted surface fill */
+    --glass-tint-strong: rgba(255, 255, 255, 0.08); /* elevated/hover fill */
+    --glass-edge: rgba(255, 255, 255, 0.14);        /* 1px specular border */
+    --glass-sheen: rgba(255, 255, 255, 0.10);       /* inner top highlight */
+    --glass-shadow: 0 10px 32px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.30);
+    --glass-shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.34);
+    --glass-glow: 0 0 0 1px rgba(0, 212, 255, 0.0), 0 8px 30px rgba(0, 212, 255, 0.10);
 }
 
 /* ── Light Theme — Huawei ──────────────────────────────────────────────── */
@@ -102,6 +115,17 @@
     /* Borders */
     --border: rgba(0, 0, 0, 0.07);
     --border-active: rgba(0, 0, 0, 0.14);
+
+    /* ── Liquid Glass material (light — higher opacity for contrast) ────── */
+    --glass-blur: 18px;
+    --glass-saturate: 160%;
+    --glass-tint: rgba(255, 255, 255, 0.72);
+    --glass-tint-strong: rgba(255, 255, 255, 0.86);
+    --glass-edge: rgba(255, 255, 255, 0.85);
+    --glass-sheen: rgba(255, 255, 255, 0.65);
+    --glass-shadow: 0 10px 30px rgba(20, 27, 45, 0.10), 0 2px 6px rgba(20, 27, 45, 0.06);
+    --glass-shadow-lg: 0 18px 44px rgba(20, 27, 45, 0.14), 0 4px 10px rgba(20, 27, 45, 0.08);
+    --glass-glow: 0 0 0 1px rgba(0, 125, 186, 0.0), 0 8px 26px rgba(0, 125, 186, 0.10);
 
     /* Brand — NeXo cyan/blue + TT/Huawei legacy red (semantic) */
     --brand-primary: #007DBA;
@@ -8723,4 +8747,519 @@ a {
 @keyframes cmd-toast-in {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   L4 Agent — Modern Chat UI (Reasoning + Markdown + Components)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Reasoning Card ──────────────────────────────────────────── */
+.l4-reasoning-card {
+    margin: 8px 16px 4px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 12px;
+}
+.l4-reasoning-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Fira Sans', sans-serif;
+}
+.l4-reasoning-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.l4-reasoning-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    animation: reasoning-pulse 1.5s ease-in-out infinite;
+}
+@keyframes reasoning-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+}
+.l4-reasoning-steps {
+    padding: 0 12px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.l4-reasoning-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.l4-reasoning-step-done {
+    color: var(--text-secondary);
+}
+.l4-reasoning-step-active {
+    color: var(--brand-primary);
+}
+.l4-reasoning-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.l4-reasoning-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    animation: reasoning-pulse 1.2s ease-in-out infinite;
+}
+.l4-reasoning-label {
+    flex: 1;
+}
+.l4-reasoning-detail {
+    color: var(--text-muted);
+    font-size: 10px;
+    font-style: italic;
+    margin-left: 4px;
+}
+
+/* ── Streaming Indicator ─────────────────────────────────────── */
+.l4-streaming-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 0;
+}
+.l4-streaming-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    animation: streaming-bounce 1.4s ease-in-out infinite both;
+}
+.l4-streaming-dot:nth-child(1) { animation-delay: -0.32s; }
+.l4-streaming-dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes streaming-bounce {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Markdown Message ────────────────────────────────────────── */
+.l4-msg-markdown {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-primary);
+}
+.l4-msg-markdown p {
+    margin: 0 0 10px 0;
+}
+.l4-msg-markdown p:last-child {
+    margin-bottom: 0;
+}
+.l4-msg-markdown h1,
+.l4-msg-markdown h2,
+.l4-msg-markdown h3,
+.l4-msg-markdown h4 {
+    margin: 16px 0 8px 0;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+.l4-msg-markdown h1 { font-size: 18px; }
+.l4-msg-markdown h2 { font-size: 16px; }
+.l4-msg-markdown h3 { font-size: 14px; }
+.l4-msg-markdown ul,
+.l4-msg-markdown ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+.l4-msg-markdown li {
+    margin: 4px 0;
+}
+.l4-msg-markdown a {
+    color: var(--brand-primary);
+    text-decoration: none;
+}
+.l4-msg-markdown a:hover {
+    text-decoration: underline;
+}
+.l4-msg-markdown blockquote {
+    margin: 10px 0;
+    padding: 8px 12px;
+    border-left: 3px solid var(--brand-secondary);
+    background: var(--bg-surface);
+    border-radius: 0 6px 6px 0;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+.l4-msg-markdown hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 12px 0;
+}
+.l4-msg-markdown strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+/* ── Inline Code ─────────────────────────────────────────────── */
+.l4-msg-code {
+    background: rgba(0, 212, 255, 0.08);
+    color: var(--brand-primary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+/* ── Code Block ──────────────────────────────────────────────── */
+.l4-msg-pre {
+    margin: 10px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #1e1e1e;
+}
+.l4-msg-pre pre {
+    margin: 0 !important;
+    padding: 12px !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    background: #1e1e1e !important;
+    border-radius: 0 0 8px 8px !important;
+}
+.l4-msg-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #2d2d2d;
+    border-bottom: 1px solid #3d3d3d;
+    font-size: 11px;
+    font-family: 'Fira Sans', sans-serif;
+}
+.l4-msg-code-lang {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+.l4-msg-code-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: transparent;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.l4-msg-code-copy:hover {
+    background: #3d3d3d;
+    color: var(--text-primary);
+}
+
+/* ── Table ───────────────────────────────────────────────────── */
+.l4-msg-table-wrap {
+    overflow-x: auto;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+.l4-msg-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.l4-msg-th {
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.l4-msg-td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+}
+.l4-msg-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* ── Message Actions ─────────────────────────────────────────── */
+.l4-msg-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+.l4-msg:hover .l4-msg-actions {
+    opacity: 1;
+}
+.l4-msg-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Fira Sans', sans-serif;
+}
+.l4-msg-action-btn:hover:not(:disabled) {
+    background: var(--bg-surface-2);
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+}
+.l4-msg-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Starter Questions ───────────────────────────────────────── */
+.l4-starter-questions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 16px;
+}
+
+/* ── Chat Message Meta ───────────────────────────────────────── */
+.l4-msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.l4-msg-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* ── Model Selector Bar tweaks ───────────────────────────────── */
+.l4-model-selector-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg-surface);
+}
+.l4-model-select optgroup {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+}
+.l4-model-select option {
+    font-size: 12px;
+    padding: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIQUID GLASS LAYER  (2026-06-17)
+   iOS-style frosted glass, applied platform-wide via shared surface classes.
+   Palette unchanged — only the *material* changes. Appended last so these
+   single-class rules win by cascade order. Tuned for the demo GPU: blur is
+   capped (~20px) and limited to major surfaces; reduced-motion is respected.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Shared frosted-glass recipe for every primary surface. */
+.card,
+.dash-kpi-card,
+.service-card,
+.login-card,
+.table,
+.top-header,
+.status-strip,
+.cmd-palette,
+.notification-item {
+    background: var(--glass-tint) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-edge);
+    box-shadow:
+        var(--glass-shadow),
+        inset 0 1px 0 var(--glass-sheen),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    transition: transform var(--transition-fast),
+                box-shadow var(--transition-fast),
+                background var(--transition-fast),
+                border-color var(--transition-fast);
+}
+
+/* Interactive lift — only on the card-like surfaces (not chrome bars). */
+.card:hover,
+.dash-kpi-card:hover,
+.service-card:hover,
+.notification-item:hover {
+    background: var(--glass-tint-strong) !important;
+    border-color: var(--border-active);
+    box-shadow:
+        var(--glass-shadow-lg),
+        var(--glass-glow),
+        inset 0 1px 0 var(--glass-sheen);
+    transform: translateY(-2px);
+}
+
+/* Chrome bars: glass but flush (no lift). */
+.sidebar {
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-saturate));
+    background: var(--glass-tint) !important;
+    border-right: 1px solid var(--glass-edge);
+    box-shadow: inset -1px 0 0 var(--glass-sheen);
+}
+.top-header,
+.status-strip {
+    border-radius: 0;
+}
+
+/* Command palette floats highest — strongest glass. */
+.cmd-palette {
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    backdrop-filter: blur(28px) saturate(190%);
+    background: var(--glass-tint-strong) !important;
+    box-shadow: var(--glass-shadow-lg), inset 0 1px 0 var(--glass-sheen);
+}
+.cmd-overlay {
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+/* ── Glass buttons — tactile pill with specular edge + press feedback ──── */
+.pill-btn,
+.quick-link,
+.sidebar-footer-btn,
+.tunisia-map-toolbar-btn,
+.l4-clear-chat-btn,
+.top-header-search,
+.page-info-trigger {
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
+    background: var(--glass-tint) !important;
+    border: 1px solid var(--glass-edge);
+    box-shadow: inset 0 1px 0 var(--glass-sheen);
+    transition: transform var(--transition-fast),
+                background var(--transition-fast),
+                border-color var(--transition-fast),
+                box-shadow var(--transition-fast);
+}
+.pill-btn:hover,
+.quick-link:hover,
+.sidebar-footer-btn:hover,
+.tunisia-map-toolbar-btn:hover,
+.l4-clear-chat-btn:hover,
+.page-info-trigger:hover {
+    background: var(--glass-tint-strong) !important;
+    border-color: var(--border-active);
+    box-shadow: var(--glass-glow), inset 0 1px 0 var(--glass-sheen);
+}
+.pill-btn:active,
+.quick-link:active,
+.sidebar-footer-btn:active,
+.tunisia-map-toolbar-btn:active,
+.l4-clear-chat-btn:active {
+    transform: scale(0.96);
+}
+
+/* Primary CTAs keep the brand gradient but gain glass depth + press. */
+.login-submit,
+.topnav-agent-cta,
+.sidebar-agent-cta {
+    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+}
+.login-submit:hover,
+.topnav-agent-cta:hover,
+.sidebar-agent-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--glass-shadow-lg), var(--glass-glow);
+    filter: saturate(1.08);
+}
+.login-submit:active,
+.topnav-agent-cta:active,
+.sidebar-agent-cta:active {
+    transform: scale(0.97);
+}
+
+/* ── Glass inputs — frosted fields ─────────────────────────────────────── */
+.login-input,
+.login-card input,
+.cmd-input,
+.l4-chat-input,
+.l4-model-select {
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    backdrop-filter: blur(10px) saturate(150%);
+    background: var(--glass-tint) !important;
+    border: 1px solid var(--glass-edge);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.login-input:focus,
+.login-card input:focus,
+.cmd-input:focus,
+.l4-chat-input:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px var(--brand-glow), inset 0 1px 0 var(--glass-sheen);
+}
+
+/* ── Motion polish: snappier micro-interactions everywhere ─────────────── */
+a, button, .sidebar-item, .topnav-item, .stat-tile, .overview-kpi-link, .model-chip {
+    transition-timing-function: var(--ease-glass);
+    transition-duration: 0.16s;
+}
+
+/* ── Accessibility: honor reduced-motion (skill: prefers-reduced-motion) ─ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+    .card:hover, .dash-kpi-card:hover, .service-card:hover,
+    .notification-item:hover, .login-submit:hover { transform: none; }
+}
+
+/* ── Perf guard: drop blur on very small viewports (mobile GPUs) ───────── */
+@media (max-width: 480px) {
+    .card, .dash-kpi-card, .service-card, .login-card, .table,
+    .top-header, .status-strip, .cmd-palette, .notification-item, .sidebar {
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+    }
 }

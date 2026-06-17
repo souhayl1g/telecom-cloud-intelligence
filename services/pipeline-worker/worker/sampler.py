@@ -118,13 +118,26 @@ def sample_bss_records(n: int = SAMPLE_N, month_year: str | None = None) -> list
     return result
 
 
+def _resolve_oss_month() -> str:
+    """Return latest month present in oss_cell_kpis (not bss_subscribers)."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT MAX(month_year) FROM oss_cell_kpis")
+                row = cur.fetchone()
+                return (row and row[0]) or _FALLBACK_MONTH
+    except Exception:
+        return _FALLBACK_MONTH
+
+
 def sample_oss_records(n: int = SAMPLE_N, month_year: str | None = None) -> list[dict]:
     """Sample n OSS cell KPI records for the given month."""
     if month_year is None:
-        month_year = _resolve_default_month()
+        month_year = _resolve_oss_month()
     sql = """
         SELECT cell_id, area, throughput_mbps, latency_ms, packet_loss_rate,
-               jitter_ms, active_users, rsrp_dbm, cell_load_pct, anomaly_flag
+               jitter_ms, active_users, rsrp_dbm, cell_load_pct, anomaly_flag,
+               call_drop_rate, active_users_max
         FROM oss_cell_kpis
         WHERE month_year = %s
         ORDER BY RANDOM()
@@ -138,7 +151,8 @@ def sample_oss_records(n: int = SAMPLE_N, month_year: str | None = None) -> list
     now = datetime.now(timezone.utc).isoformat()
     result = []
     for row in rows:
-        cell_id, area, tput, lat, loss, jitter, users, rsrp, load, anomaly = row
+        (cell_id, area, tput, lat, loss, jitter, users, rsrp, load, anomaly,
+         cdr, active_users_max) = row
         result.append({
             "ts": now,
             "region": area or "demo",
@@ -150,6 +164,8 @@ def sample_oss_records(n: int = SAMPLE_N, month_year: str | None = None) -> list
             "active_users": int(users) if users is not None else None,
             "signal_rsrp_dbm": float(rsrp) if rsrp is not None else None,
             "cell_load_pct": float(load) if load is not None else None,
+            "call_drop_rate": float(cdr) if cdr is not None else None,
+            "active_users_max": int(active_users_max) if active_users_max is not None else None,
             "is_fault": bool(anomaly),
             "source": "real",
         })

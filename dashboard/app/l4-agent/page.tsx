@@ -3,13 +3,19 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRefresh } from '../../components/RefreshContext';
 import L4ADNArchitecture from '../../components/L4ADNArchitecture';
 import { formatTunisTime } from '../../lib/time';
+import ChatMessage from '../../components/chat/ChatMessage';
+import ChatInput from '../../components/chat/ChatInput';
+import ModelSelector from '../../components/chat/ModelSelector';
+import StarterQuestions from '../../components/chat/StarterQuestions';
+import ReasoningCard, { ReasoningStep } from '../../components/chat/ReasoningCard';
+import type { ChatMessageData } from '../../components/chat/ChatMessage';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
 interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
-    timestamp: string;
+    timestamp: number;
 }
 
 interface AgentAction {
@@ -317,7 +323,7 @@ export default function L4AgentPage() {
     const [input, setInput] = useState('');
     const [streaming, setStreaming] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [ollamaReady, setOllamaReady] = useState<boolean | null>(null);
+    // ollamaReady removed — unified chat uses multi-provider fallback chain
     const [selectedAction, setSelectedAction] = useState<AgentAction | null>(null);
     const [activeTab, setActiveTab] = useState<'chat' | 'actions' | 'monitor' | 'playbooks' | 'timeline'>('chat');
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -325,8 +331,10 @@ export default function L4AgentPage() {
     const [anomalyHistory, setAnomalyHistory] = useState<number[]>([]);
     const [runningPlaybook, setRunningPlaybook] = useState<string | null>(null);
     const [agentSpeed, setAgentSpeed] = useState<number>(0);
-    const [selectedModel, setSelectedModel] = useState<string>('kimi-k2.5:cloud');
-    const [chatMode, setChatMode] = useState<'ollama' | 'orchestrator'>('orchestrator');
+    const [selectedModel, setSelectedModel] = useState<string>('deepseek/deepseek-chat-v3-0324:free');
+    const [selectedProvider, setSelectedProvider] = useState<string>('openrouter');
+    const [reasoningSteps, setReasoningSteps] = useState<ReasoningStep[]>([]);
+    const [reasoningComplete, setReasoningComplete] = useState(true);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const startTimeRef = useRef<number>(Date.now());
@@ -334,13 +342,6 @@ export default function L4AgentPage() {
     // Track action IDs we've already shown a toast for — prevents toast spam on every 30s cycle
     const toastedActionIdsRef = useRef<Set<string>>(new Set());
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-    // Available models
-    const AVAILABLE_MODELS = [
-        { id: 'kimi-k2.5:cloud', name: 'Kimi K2.5 Cloud', description: 'Best for chat - fast & natural' },
-        { id: 'qwen2.5:7b', name: 'Qwen 2.5 (7B)', description: 'Good general purpose' },
-        { id: 'glm-5:cloud', name: 'GLM-5 Cloud', description: 'Alternative cloud model' },
-    ];
 
     // Push notification
     let _notifCounter = 0;
@@ -378,10 +379,19 @@ export default function L4AgentPage() {
                 setMessages(parsed);
             } catch { /* ignore invalid saved data */ }
         }
-        // Load saved model preference
+        // Load saved model preference; reset stale paid-provider choices to OpenRouter free default.
         const savedModel = localStorage.getItem('l4-agent-selected-model');
-        if (savedModel) {
-            setSelectedModel(savedModel);
+        const savedProvider = localStorage.getItem('l4-agent-selected-provider');
+        const allowedProviders = ['openrouter', 'ollama'];
+        if (savedProvider && allowedProviders.includes(savedProvider)) {
+            setSelectedProvider(savedProvider);
+            if (savedModel) setSelectedModel(savedModel);
+        } else if (savedProvider) {
+            // Old gemini/kimi/localStorage state — migrate to OpenRouter default.
+            setSelectedProvider('openrouter');
+            setSelectedModel('deepseek/deepseek-chat-v3-0324:free');
+            localStorage.removeItem('l4-agent-selected-provider');
+            localStorage.removeItem('l4-agent-selected-model');
         }
     }, []);
 
@@ -396,20 +406,21 @@ export default function L4AgentPage() {
         }
     }, [messages]);
 
-    // Save model preference
+    // Save model + provider preference
     useEffect(() => {
         try {
             localStorage.setItem('l4-agent-selected-model', selectedModel);
+            localStorage.setItem('l4-agent-selected-provider', selectedProvider);
         } catch {
             // Quota exceeded or private mode — silent fallback
         }
-    }, [selectedModel]);
+    }, [selectedModel, selectedProvider]);
 
-    // Check Ollama availability
+    // Check Ollama availability (for fallback indicator only)
     useEffect(() => {
         fetch('/api/ollama-tags')
-            .then(r => r.ok ? setOllamaReady(true) : setOllamaReady(false))
-            .catch(() => setOllamaReady(false));
+            .then(r => r.ok ? void 0 : void 0)
+            .catch(() => void 0);
     }, []);
 
     // Fetch platform data via Next.js API proxy (includes auth token from cookie)
@@ -593,88 +604,59 @@ export default function L4AgentPage() {
         }
     };
 
-    // Chat send — supports both Ollama direct chat and Orchestrator multi-agent mode
-    const sendMessage = async () => {
-        const text = input.trim();
+    // Unified chat send — real reasoning pipeline via /api/chat
+    const sendMessage = async (overrideText?: string) => {
+        const text = (overrideText || input).trim();
         if (!text || streaming) return;
 
-        const userMsg: ChatMessage = { role: 'user', content: text, timestamp: new Date().toISOString() };
+        const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setStreaming(true);
+        setReasoningSteps([]);
+        setReasoningComplete(false);
 
-        const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: new Date().toISOString() };
+        const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() };
         setMessages(prev => [...prev, assistantMsg]);
 
         try {
-            if (chatMode === 'orchestrator') {
-                // ── NeXo Orchestrator mode ──────────────────────────────────────
-                const res = await fetch('/api/agent-query', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: text }),
-                });
+            const context = platformCtx ? {
+                cemScores: {
+                    cemAvgScore: platformCtx.cemSummary?.avg_score,
+                    cemTotalSubscribers: platformCtx.cemSummary?.total,
+                    cemPoorCount: platformCtx.cemSummary?.poor_count,
+                },
+                vaeAnomalies: {
+                    vaeAnomalyCount: platformCtx.vaeSummary?.anomaly_count,
+                    vaeAnomalyRate: platformCtx.vaeSummary?.anomaly_rate,
+                    vaeAreasAffected: platformCtx.vaeSummary?.areas_affected,
+                },
+                ratUnderservice: {
+                    ratUnderserved: platformCtx.ratSummary?.underserved,
+                    ratUnderserviceRate: platformCtx.ratSummary?.rate,
+                },
+                grangerCausality: {
+                    grangerSignificantPairs: platformCtx.granger?.significant,
+                    correlationsCount: platformCtx.correlations?.length,
+                },
+                pipelineRuns: {
+                    pipelineRuns: platformCtx.pipelineRuns?.length,
+                    lastPipelineStatus: platformCtx.pipelineRuns?.[0]?.status,
+                },
+                agentActions: {
+                    pendingActions: actions.filter(a => a.status === 'pending').length,
+                    autoApprovedCount: actions.filter(a => a.status === 'auto_approved').length,
+                },
+            } : {};
 
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({ error: 'Connection failed' }));
-                    setMessages(prev => {
-                        const updated = [...prev];
-                        updated[updated.length - 1] = {
-                            ...updated[updated.length - 1],
-                            content: `Error: ${err.error || 'Failed to connect to NeXo Orchestrator.'}`,
-                        };
-                        return updated;
-                    });
-                    setStreaming(false);
-                    return;
-                }
-
-                const data = await res.json();
-                const responseText = data.response || data.error || 'No response from orchestrator.';
-                const agentName = data.agent_result?.agent_name || 'Orchestrator';
-                const classification = data.classification || {};
-
-                // Build rich response with agent metadata
-                let richContent = responseText;
-                if (classification.agent && classification.action) {
-                    richContent = `[${agentName} · ${classification.action}]\n\n${responseText}`;
-                }
-
-                setMessages(prev => {
-                    const updated = [...prev];
-                    updated[updated.length - 1] = {
-                        ...updated[updated.length - 1],
-                        content: richContent,
-                    };
-                    return updated;
-                });
-                setStreaming(false);
-                return;
-            }
-
-            // ── Ollama direct chat mode ──────────────────────────────────────
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+                    provider: selectedProvider,
                     model: selectedModel,
-                    context: platformCtx ? {
-                        cem_avg_score: platformCtx.cemSummary?.avg_score,
-                        cem_poor_count: platformCtx.cemSummary?.poor_count,
-                        cem_total_subscribers: platformCtx.cemSummary?.total,
-                        vae_anomaly_count: platformCtx.vaeSummary?.anomaly_count,
-                        vae_anomaly_rate: platformCtx.vaeSummary?.anomaly_rate,
-                        vae_areas_affected: platformCtx.vaeSummary?.areas_affected,
-                        rat_underserved: platformCtx.ratSummary?.underserved,
-                        rat_underservice_rate: platformCtx.ratSummary?.rate,
-                        granger_significant_pairs: platformCtx.granger?.significant,
-                        oss_anomalies_sampled: platformCtx.anomalies?.length,
-                        cem_risk_sampled: platformCtx.cemAnomalies?.length,
-                        correlations_count: platformCtx.correlations?.length,
-                        pipeline_runs: platformCtx.pipelineRuns?.length,
-                        last_pipeline_status: platformCtx.pipelineRuns?.[0]?.status,
-                    } : undefined,
+                    context,
                 }),
             });
 
@@ -684,11 +666,12 @@ export default function L4AgentPage() {
                     const updated = [...prev];
                     updated[updated.length - 1] = {
                         ...updated[updated.length - 1],
-                        content: `Error: ${err.error || 'Failed to connect to L4 Agent LLM. Ensure Ollama is running.'}`,
+                        content: `Error: ${err.error || 'Failed to connect to L4 Agent LLM.'}`,
                     };
                     return updated;
                 });
                 setStreaming(false);
+                setReasoningComplete(true);
                 return;
             }
 
@@ -701,13 +684,27 @@ export default function L4AgentPage() {
                     const { done, value } = await reader.read();
                     if (done) break;
                     const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-                    for (const line of lines) {
-                        const data = line.slice(6);
-                        if (data === '[DONE]') continue;
+                    const lines = chunk.split('\n').filter(Boolean);
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (!line.startsWith('data: ')) continue;
+                        const dataStr = line.slice(6);
+                        if (dataStr === '[DONE]') continue;
                         try {
-                            const json = JSON.parse(data);
-                            if (json.content) {
+                            const json = JSON.parse(dataStr);
+                            // Reasoning event
+                            if (json.step !== undefined && json.label !== undefined) {
+                                setReasoningSteps(prev => {
+                                    const existing = prev.find(s => s.step === json.step);
+                                    if (existing) {
+                                        return prev.map(s => s.step === json.step ? { ...s, ...json } : s);
+                                    }
+                                    return [...prev, { step: json.step, label: json.label, status: json.status, detail: json.detail }];
+                                });
+                            }
+                            // Message content event
+                            if (json.content !== undefined) {
                                 accumulated += json.content;
                                 setMessages(prev => {
                                     const updated = [...prev];
@@ -715,7 +712,11 @@ export default function L4AgentPage() {
                                     return updated;
                                 });
                             }
-                        } catch { /* skip */ }
+                            // Done event
+                            if (json.provider !== undefined) {
+                                setReasoningComplete(true);
+                            }
+                        } catch { /* skip malformed */ }
                     }
                 }
             }
@@ -730,11 +731,20 @@ export default function L4AgentPage() {
             });
         } finally {
             setStreaming(false);
+            setReasoningComplete(true);
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    const handleRegenerate = () => {
+        // Find last user message and re-send it
+        const lastUserIndex = messages.map(m => m.role).lastIndexOf('user');
+        if (lastUserIndex >= 0) {
+            const lastUserMsg = messages[lastUserIndex];
+            // Remove the assistant response that followed it
+            const trimmed = messages.slice(0, lastUserIndex + 1);
+            setMessages(trimmed);
+            sendMessage(lastUserMsg.content);
+        }
     };
 
     // Stats
@@ -868,39 +878,16 @@ export default function L4AgentPage() {
             <div className="l4-main">
                 {/* Chat Panel */}
                 <div className={`l4-chat-panel ${activeTab === 'chat' ? 'l4-panel-active' : ''}`}>
-                    {/* Model Selector Bar */}
-                    <div className="l4-model-selector-bar">
-                        <div className="l4-model-info">
-                            <span className="l4-model-label">Model:</span>
-                            <select
-                                value={selectedModel}
-                                onChange={(e) => setSelectedModel(e.target.value)}
-                                className="l4-model-select"
-                                disabled={streaming}
-                            >
-                                {AVAILABLE_MODELS.map(m => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <span className="l4-model-desc">
-                                {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.description}
-                            </span>
-                        </div>
-                        <div className="l4-chat-actions">
-                            <button
-                                onClick={() => {
-                                    setMessages([]);
-                                    localStorage.removeItem('l4-agent-chat-history');
-                                }}
-                                className="l4-clear-chat-btn"
-                                title="Clear chat history"
-                            >
-                                🗑️ Clear
-                            </button>
-                        </div>
-                    </div>
+                    {/* Model Selector */}
+                    <ModelSelector
+                        value={selectedModel}
+                        onChange={(provider, model) => {
+                            setSelectedProvider(provider);
+                            setSelectedModel(model);
+                        }}
+                        disabled={streaming}
+                    />
+
                     <div className="l4-chat-messages">
                         {messages.length === 0 && (
                             <div className="l4-chat-empty">
@@ -911,97 +898,46 @@ export default function L4AgentPage() {
                                 </div>
                                 <div className="l4-chat-empty-title">ADN L4 Agent</div>
                                 <div className="l4-chat-empty-sub">
-                                    {ollamaReady === false
-                                        ? 'Ollama not detected. Start Ollama with kimi-k2.5:cloud to enable the agent.'
-                                        : 'Chat with Kimi about SLA risk, anomalies, network health, or request autonomous actions.'
-                                    }
+                                    Chat with NeXo about CEM scores, VAE anomalies, RAT underservice, Granger causality, or request autonomous actions.
+                                    <br />
+                                    <span style={{ fontSize: 11, opacity: 0.7 }}>
+                                        Primary: OpenRouter · Fallback: Local Ollama
+                                    </span>
                                 </div>
-                                <div className="l4-suggestions">
-                                    {[
-                                        'Analyze current SLA risk and suggest remediation',
-                                        'What anomalies were detected in the last pipeline run?',
-                                        'Summarize the OSS-CEM correlation insights',
-                                        'What autonomous actions should I approve?',
-                                    ].map((s, i) => (
-                                        <button key={i} className="l4-suggestion" onClick={() => { setInput(s); inputRef.current?.focus(); }}>
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
+                                <StarterQuestions
+                                    onSelect={(q) => sendMessage(q)}
+                                    vaeAnomalyCount={platformCtx?.vaeSummary?.anomaly_count}
+                                    cemPoorCount={platformCtx?.cemSummary?.poor_count}
+                                />
                             </div>
                         )}
 
                         {messages.map((msg, i) => (
-                            <div key={i} className={`l4-msg l4-msg-${msg.role}`}>
-                                <div className="l4-msg-avatar">
-                                    {msg.role === 'user' ? (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                                    ) : (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /><circle cx="12" cy="16" r="1" /></svg>
-                                    )}
-                                </div>
-                                <div className="l4-msg-content">
-                                    <div className="l4-msg-role">{msg.role === 'user' ? 'You' : 'L4 Agent'}</div>
-                                    <div className="l4-msg-text">{msg.content || (streaming && i === messages.length - 1 ? <span className="l4-cursor" /> : '')}</div>
-                                </div>
+                            <div key={i}>
+                                {msg.role === 'assistant' && i === messages.length - 1 && reasoningSteps.length > 0 && (
+                                    <ReasoningCard steps={reasoningSteps} isComplete={reasoningComplete} />
+                                )}
+                                <ChatMessage
+                                    message={{
+                                        role: msg.role,
+                                        content: msg.content,
+                                        timestamp: msg.timestamp,
+                                    }}
+                                    onRegenerate={msg.role === 'assistant' && i === messages.length - 1 ? handleRegenerate : undefined}
+                                    disabled={streaming}
+                                />
                             </div>
                         ))}
                         <div ref={chatEndRef} />
                     </div>
 
-                    {/* Mode Toggle + Input */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mode</div>
-                        <div style={{ display: 'flex', gap: 4, background: 'var(--bg-elevated)', borderRadius: 6, padding: 2 }}>
-                            <button
-                                onClick={() => setChatMode('orchestrator')}
-                                style={{
-                                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                                    background: chatMode === 'orchestrator' ? 'var(--brand-primary)' : 'transparent',
-                                    color: chatMode === 'orchestrator' ? '#fff' : 'var(--text-secondary)',
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                NeXo Orchestrator
-                            </button>
-                            <button
-                                onClick={() => setChatMode('ollama')}
-                                style={{
-                                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                                    background: chatMode === 'ollama' ? 'var(--brand-primary)' : 'transparent',
-                                    color: chatMode === 'ollama' ? '#fff' : 'var(--text-secondary)',
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                Ollama Chat
-                            </button>
-                        </div>
-                        <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-muted)' }}>
-                            {chatMode === 'orchestrator' ? 'CEM + Network + Action agents' : 'Direct LLM conversation'}
-                        </div>
-                    </div>
-                    <div className="l4-chat-input-wrap">
-                        <textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            onPaste={handlePaste}
-                            placeholder={
-                                streaming ? 'Thinking...' :
-                                chatMode === 'orchestrator' ? 'Ask NeXo about subscribers, cells, or actions...' :
-                                ollamaReady === false ? 'Ollama not running...' : 'Ask the L4 Agent...'
-                            }
-                            disabled={streaming || (chatMode === 'ollama' && ollamaReady === false)}
-                            className="l4-chat-input"
-                            rows={1}
-                        />
-                        <button type="button" onClick={sendMessage} disabled={!input.trim() || streaming || (chatMode === 'ollama' && ollamaReady === false)} className="l4-send-btn">
-                            {streaming ? <div className="l4-send-spinner" /> : (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-                            )}
-                        </button>
-                    </div>
+                    <ChatInput
+                        value={input}
+                        onChange={setInput}
+                        onSend={() => sendMessage()}
+                        disabled={streaming}
+                        placeholder="Ask NeXo about subscribers, cells, or actions..."
+                    />
                 </div>
 
                 {/* Monitor Panel */}
@@ -1053,7 +989,7 @@ export default function L4AgentPage() {
                                 </div>
                                 <div className="l4-perf-stats">
                                     <div className="l4-perf-row"><span>Uptime</span><span className="l4-perf-val">{uptimeStr}</span></div>
-                                    <div className="l4-perf-row"><span>Model</span><span className="l4-perf-val">{AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name || selectedModel}</span></div>
+                                    <div className="l4-perf-row"><span>Model</span><span className="l4-perf-val">{selectedModel}</span></div>
                                     <div className="l4-perf-row"><span>Cycle Interval</span><span className="l4-perf-val">30s</span></div>
                                     <div className="l4-perf-row"><span>Total Actions</span><span className="l4-perf-val">{actions.length}</span></div>
                                     <div className="l4-perf-row"><span>ADN Level</span><span className="l4-perf-val" style={{ color: '#ffd700' }}>L4 Autonomous</span></div>

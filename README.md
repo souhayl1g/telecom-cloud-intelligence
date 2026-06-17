@@ -2,14 +2,18 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikitlearn&logoColor=white)
-![MinIO](https://img.shields.io/badge/MinIO-S3--compatible-C72E49?logo=minio&logoColor=white)
+![LightGBM](https://img.shields.io/badge/LightGBM-DART-9ACD32)
+![PyTorch](https://img.shields.io/badge/PyTorch-VAE-EE4C2C?logo=pytorch&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-> Cloud-native telecom analytics and AI-driven operations platform designed for deployment on **Huawei Cloud Stack (HCS)**.
-> Links OSS network KPIs to BSS business impact using real ML models, a 3-layer data lake, and a structured REST API.
+> **Cloud-Native AI Operations Agent for CEM–CVM Intelligence.**
+> An intelligence layer in Huawei's ADN (Autonomous Driving Network) architecture for O+B (OSS+BSS) convergence.
+> Ingests real Tunisie Telecom network KPIs and subscriber-experience data, runs v3.0 ML/DL models, computes
+> OSS↔CEM causality via Granger F-tests, and serves actionable intelligence through a REST API and an
+> autonomous **L4 operations dashboard**.
 
 ---
 
@@ -18,256 +22,180 @@
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
+- [AI Models (v3.0)](#ai-models-v30)
+- [Dashboard](#dashboard)
+- [L4 Autonomous Agent](#l4-autonomous-agent)
 - [API Reference](#api-reference)
-- [Data Model](#data-model)
-- [AI Models](#ai-models)
-- [Roadmap](#roadmap)
-- [Project Structure](#project-structure)
+- [Data](#data)
 - [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
 
 ---
 
 ## Overview
 
-Telecom NeXoligence is a fully containerised platform that:
+NeXoligence bridges Huawei **CEM** (SmartCare customer-experience management) and **CVM** (customer value management).
+It is oriented to **CEM subscriber profiling** — not billing/revenue — aligned with the SmartCare architecture.
 
-1. **Ingests** synthetic OSS (network KPI) and BSS (revenue/usage) data per pipeline run — 200 OSS records from 10 cell towers + 200 BSS subscriber records from 3 Tunisian operators
-2. **Injects realistic faults**: 2–3 random cells degrade (throughput collapse, latency spike) + correlated BSS dips (data usage drops, churn spikes)
-3. **Stores** raw datasets in a 3-layer MinIO data lake (`raw` → `processed` → `curated`)
-4. **Runs 3 AI models** — SLA breach risk scoring (GradientBoostingRegressor), OSS anomaly detection (IsolationForest), BSS revenue anomaly detection (IsolationForest)
-5. **Computes OSS–BSS correlations** — Pearson + Spearman on 5 metric pairs (latency↔revenue, throughput↔data, packet_loss↔churn, etc.)
-6. **Persists all results** to PostgreSQL (7 tables)
-7. **Serves** structured insights through 7 FastAPI REST endpoints
+The platform:
 
-The stack is intentionally portable to **Huawei Cloud Stack**: MinIO → OBS, PostgreSQL → RDS, containers → ECS.
+1. **Ingests** real TT BSS subscriber profiles + OSS cell KPIs into PostgreSQL.
+2. **Samples** stratified batches each pipeline cycle (by area × usertype × RAT).
+3. **Runs three v3.0 models** — CEM experience scoring (LightGBM/DART), experience-anomaly detection (PyTorch VAE), RAT underservice classification (XGBoost).
+4. **Converges OSS↔CEM** geographically (governorate-level join) and computes **Granger causality** (two-tier: offline gate + online lead-time).
+5. **Persists** results to PostgreSQL and serves them via a JWT-protected REST API.
+6. **Acts** — an ADN **L4 agent** auto-approves safe actions and fires real playbooks (tickets, SMS alerts, capacity PDFs, churn interventions, model retrain).
+
+**Methodology:** CRISP-DM (single methodology; MLOps practices map to the Deployment phase, not a separate hybrid).
+
+**The pain it solves:** *network anomalies are invisible to OSS until a customer complaint reaches Care.*
+Granger F-tests on OSS→CEM pairs surface the convergence early, then the L4 agent turns it into action.
 
 ---
 
 ## Architecture
 
+```
+[CEM / SmartCare] ──▶ [NeXo AI Operations Agent] ──▶ [CVM]
+                            │  (this project — cloud native)
+                            ▼
+                    [ADN L4 Auto-Ops Agent]
+              OSS+CEM convergence · Granger causality
+```
+
 ### Services
 
-| Service | Image | Port | Role |
-|---|---|---|---|
-| `postgres` | postgres:16 | 5432 | Serving store + run metadata |
-| `minio` | minio/minio | 9000 / 9001 | S3-compatible data lake |
-| `api-gateway` | custom | 8000 | Public REST API (FastAPI) |
-| `ai-service` | custom | 8001 | ML inference engine (scikit-learn, 3 models) |
-| `pipeline-worker` | custom | — | 22-step pipeline orchestrator (daemon, 2-min cycle) |
-| `prometheus` | prom/prometheus | 9090 | Metrics scraper (api-gateway + ai-service) |
-| `grafana` | grafana/grafana | 3000 | Observability dashboard |
+| Service | Port | Role |
+|---|---|---|
+| `api-gateway` | 8000 | Public REST API (FastAPI 0.115), JWT-protected |
+| `ai-service` | 8001 | ML inference engine — 3× v3.0 models, hot-reloadable |
+| `auth-service` | 8002 | JWT auth + OAuth2 + password reset (SMTP) |
+| `agent-service` | — | LLM orchestrator (OpenRouter cloud, free models) |
+| `pipeline-worker` | — | Daemon pipeline, real ~70–180s cycles |
+| `dashboard` | 3001 | Next.js 14 operations UI (24 pages, liquid-glass design) |
+| `postgres` | 5432 | Serving store + run metadata |
+| `minio` | 9000 / 9001 | S3-compatible 3-layer data lake |
 
-### Data Flow
+**Observability (opt-in `--profile monitoring`):** netdata `19999` · prometheus `9090` · grafana `3000` · jaeger `16686` · otel-collector.
 
-```
-pipeline-worker (daemon, 22 steps per cycle, repeats every 2 min)
-  ├── generate 200 OSS records (with fault injection) + 200 BSS records (80% prepaid / 20% postpaid)
-  ├── upload raw JSON    →  minio  s3://raw/oss/<date>/<run_id>.json
-  │                                s3://raw/bss/<date>/<run_id>.json
-  ├── process + enrich   →  minio  s3://processed/oss/... (latency_severity, qos_score, ...)
-  │                                s3://processed/bss/... (arpu_category, churn_bucket, ...)
-  ├── POST /infer/sla-risk          →  ai-service  (9-feature GBR vector)
-  ├── POST /infer/anomaly           →  ai-service  (200 raw OSS records, IsolationForest)
-  ├── POST /infer/revenue-anomaly   →  ai-service  (200 BSS records, IsolationForest)
-  ├── compute Pearson + Spearman correlations (5 pairs × 2 methods = 10 results)
-  ├── build curated dataset (joined OSS+BSS+AI) → minio s3://curated/...
-  └── INSERT  →  postgres   pipeline_runs · dataset_registry · model_registry
-                             sla_risk_scores · anomalies · cem_anomalies · correlation_insights
+### Convergence join key
 
-api-gateway (:8000)
-  └── SELECT  →  postgres  (serves results to clients via 7 endpoints)
-```
-
-### HCS Deployment Mapping
-
-| Local | Huawei Cloud Stack |
-|---|---|
-| Docker containers | ECS (Elastic Cloud Server) / CCE (Cloud Container Engine) |
-| MinIO volumes | OBS (Object Storage Service) |
-| PostgreSQL container | RDS for PostgreSQL |
-| Docker network | VPC |
-| Env-var secrets | IAM / KMS |
+OSS cell-site KPIs and BSS subscriber records have **no direct IMSI↔cell link** — the join key is **geographic area (governorate)**.
+Cell-site names (≈4,300 distinct) and subscriber areas (24 governorates) are normalized to a canonical governorate before correlation.
 
 ---
 
 ## Quick Start
 
-**Prerequisites:** Docker + Docker Compose
+**Prerequisites:** Docker + Docker Compose. (Dev hardware reference: Ryzen 5 5600H, 24 GB RAM, RTX 3050, WSL2.)
 
 ```bash
-# 1. Clone and start the full 7-container stack
 git clone https://github.com/souhayl1g/telecom-cloud-intelligence.git
 cd telecom-cloud-intelligence
-docker compose up --build -d
+cp .env.example .env          # set OPENROUTER_API_KEY for the L4 agent (optional)
 
-# pipeline-worker starts automatically in daemon mode (runs every 2 min)
-# Wait ~30 s for the first cycle to complete, then query results:
-curl http://localhost:8000/sla-risk
-curl http://localhost:8000/anomalies
-curl http://localhost:8000/revenue-anomalies
-curl http://localhost:8000/correlation
-curl http://localhost:8000/pipeline-runs
+# Demo stack — all UIs (dashboard, API docs, MinIO, Jupyter), staged startup + memory watchdog
+make start-demo
+
+# Defense stack — core services + full monitoring stack
+make start-defense
 ```
 
-> MinIO console: **http://localhost:9001** · user: `minio` · password: `minio_pw`
-> Grafana: **http://localhost:3000** · user: `admin` · password: `admin`
-> Prometheus: **http://localhost:9090**
+Verify:
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8001/health
+curl http://localhost:8002/health
+```
+
+| UI | URL | Credentials |
+|---|---|---|
+| Dashboard | http://localhost:3001 | sign up on `/login` |
+| API docs | http://localhost:8000/docs | JWT bearer |
+| MinIO console | http://localhost:9001 | `minio` / `minio_pw` |
+| Grafana | http://localhost:3000 | `admin` / `admin` |
+| Jupyter | http://localhost:8888 | (demo stack) |
+
+> Data persists in the `pgdata` volume across `make stop`/`restart`. A `data-init` sidecar auto-loads data on first boot if tables are empty. Wipe only with `make nuke` / `make db-reset`.
+
+---
+
+## AI Models (v3.0)
+
+| Model | Algorithm | Training data | Key metric |
+|---|---|---|---|
+| **CEM Experience Score** | LightGBM (DART, 256 leaves, depth 12) | 2.47M subscribers (real+sim) | Test R² = 0.9784, MAE = 0.0304 |
+| **Experience Anomaly** | PyTorch VAE (9→32→16→Latent 8) | 1M OSS records, normal-only | ROC-AUC = 0.9821, PR-AUC = 0.9974 |
+| **RAT Underservice** | XGBoost (500 trees, depth 8, GPU) | 2.47M subscribers | ROC-AUC = 0.9203, F1 = 0.8927 |
+| Churn Trajectory | LSTM/GRU | *planned (needs rolling-window history)* | — |
+| O+B Correlation | Pearson + Spearman + **Granger** | temporal lag analysis | — |
+
+Model metrics on the dashboard come from `notebooks/models/metrics.json` (generated from trainer notebooks) — **no hardcoded fallbacks**. Missing data renders as `—`, never a fake `0`.
+
+The feature contract is the **joblib, not the code**: routers load `*_feature_names.joblib` at startup, so retraining with a wider feature set needs no router change.
+
+---
+
+## Dashboard
+
+Next.js 14 + React 18 + TypeScript, **24 pages**, organized as a 6-group story arc (Start Here · Autonomy · Convergence · ML Models · Actuation · More). Highlights:
+
+- **Liquid-glass design system** — token-driven frosted-glass material (backdrop-blur + saturate, specular edges) applied platform-wide; dark + light themes share one cyan/blue palette; `prefers-reduced-motion` aware.
+- **Tunisia geographic intelligence** — governorate choropleth heatmaps (VAE anomalies, CEM scores, RAT underservice).
+- **Granger explorer** with lead-time histogram, CEM/VAE/RAT browsers, capacity & forecast (Granger lagged OLS).
+- **Cmd+K** command palette fires playbooks from anywhere; 30s-polling status strip.
+
+All client pages requiring auth data go through the `/api/platform-data` SSR proxy (reads the httpOnly `auth_token` cookie, forwards a bearer token to the API gateway).
+
+---
+
+## L4 Autonomous Agent
+
+ADN Level-4 operations: auto-approves safe actions, requires human approval for risky remediations. All actions persist to `agent_actions` (full audit trail).
+
+**Actuation playbooks** (real backend operations):
+
+| Playbook | Action |
+|---|---|
+| `pb-alert-subscriber` | SMS (Twilio, console fallback) to top-10 at-risk + audit row |
+| `pb-create-ticket` | Internal NOC ticket (`TT-YYYY-NNNNN`), emails on-call if critical |
+| `pb-retrain-model` | papermill notebook → hot-reload ai-service → audit row |
+| `pb-capacity-report` | fpdf2 PDF → MinIO `reports/` bucket → presigned URL |
+| `pb-churn-prevention` | `rat_gap>0.5 AND cem<0.3` → SMS → bulk ticket if ≥20 |
+
+**Chat:** an LLM orchestrator over **OpenRouter** (free cloud models) with an automatic multi-model fallback chain (retries the next free model on 404/429). Local Ollama is an offline fallback.
 
 ---
 
 ## API Reference
 
-Base URL: `http://localhost:8000`
+Base URL `http://localhost:8000` — all routes except `/health` require a JWT bearer token.
 
-| Method | Endpoint | Description |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/health` | Service liveness check |
-| `GET` | `/sla-risk` | Latest SLA risk score with feature importances |
-| `GET` | `/sla-risk/history?limit=N` | Last N SLA scores, newest first (default 20, max 200) |
-| `GET` | `/anomalies?limit=N` | Last N OSS anomaly records with `cell_id`, `severity`, `value` (default 50, max 500) |
-| `GET` | `/pipeline-runs?limit=N` | Last N pipeline runs with status and timestamps (default 10, max 100) |
-| `GET` | `/revenue-anomalies?limit=N` | Last N BSS revenue anomalies with `operator`, `line_type`, `plan`, `severity` (default 50, max 500) |
-| `GET` | `/correlation?limit=N` | Last N OSS–BSS correlations: Pearson + Spearman (default 50, max 200) |
+| `GET` | `/health` | Liveness |
+| `GET` | `/cem-scores` / `/vae-anomalies` / `/rat-underservice` | v3.0 model outputs |
+| `GET` | `/correlation?limit=N` | OSS↔CEM Pearson + Spearman (governorate-level) |
+| `GET` | `/granger-causality/lead-time?area=X` | Online Granger lead-time |
+| `GET` | `/anomalies` · `/pipeline-runs` · `/kpi-summary` | Operations data |
+| `GET/POST/PATCH` | `/actions[/{id}][/execute]` | L4 agent action lifecycle + playbook execution |
 
-**Example — `GET /sla-risk`**
+**ai-service (:8001, internal):** `POST /infer/cem` · `POST /infer/vae-anomaly` · `POST /infer/rat-underservice` · `POST /models/reload`.
 
-```json
-{
-  "run_id": "run-a8f5b0809b6c",
-  "region": "demo",
-  "score": 0.724,
-  "model_version": "v2.0",
-  "explanation": {
-    "method": "GradientBoostingRegressor",
-    "top_driver": "mean_latency_ms",
-    "feature_importances": {
-      "mean_latency_ms": 0.69,
-      "mean_packet_loss_pct": 0.12,
-      "max_latency_ms": 0.08
-    }
-  }
-}
-```
-
-### AI Service Internal API (port 8001)
-
-| Method | Endpoint | Model |
-|---|---|---|
-| `GET` | `/health` | Returns model version |
-| `POST` | `/infer/sla-risk` | GradientBoostingRegressor v2.0 — returns `score` (0–1) + feature importances |
-| `POST` | `/infer/anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `anomaly_score` (OSS) |
-| `POST` | `/infer/revenue-anomaly` | IsolationForest v2.0 — returns per-record `is_anomaly` + `anomaly_score` (BSS) |
+**auth-service (:8002):** `/auth/signup` · `/auth/login` · `/auth/me` · `/auth/forgot-password` · `/auth/reset-password` · OAuth (`/auth/google`, `/auth/github`).
 
 ---
 
-## Data Model
+## Data
 
-PostgreSQL database `telecom_intel` — 7 tables:
-
-| Table | Rows/run | Purpose |
-|---|---|---|
-| `pipeline_runs` | 1 | Run lifecycle: `run_id`, `status`, timestamps |
-| `dataset_registry` | 5 | MinIO object metadata: 2 raw + 2 processed + 1 curated |
-| `model_registry` | 3 | Model artifacts: sla-risk, anomaly, revenue-anomaly (v2.0) |
-| `sla_risk_scores` | 1 | GBR score (0–1), explanation JSONB, model version |
-| `anomalies` | 5–30 | Per-record OSS anomalies: `cell_id`, `severity`, `kpi_name`, `value` |
-| `cem_anomalies` | 5–20 | Per-subscriber CEM anomalies: `operator`, `line_type`, `plan`, `severity` |
-| `correlation_insights` | 10 | OSS–BSS Pearson/Spearman correlations (5 pairs × 2 methods) |
-
-Apply schema (first-time setup):
-
-```bash
-docker compose exec postgres psql -U telecom -d telecom_intel -f /dev/stdin < docs/db/schema.sql
-```
-
----
-
-## AI Models
-
-### Model 1: SLA Risk Scorer — `GradientBoostingRegressor v2.0`
-
-Predicts the probability of an SLA breach in the current 15-minute window.
-
-| Parameter | Value |
+| Source | Status |
 |---|---|
-| Training samples | 3,000 synthetic windows |
-| Input features | 9 aggregated KPIs (mean/std/max latency, mean/max packet loss, mean/std throughput, mean active users, mean RSRP) |
-| Hyperparameters | n_estimators=200, max_depth=4, learning_rate=0.05, subsample=0.8 |
-| Output | Risk score 0.0–1.0 + feature importances |
-| Top feature | `mean_latency_ms` (importance ≈ 0.69) |
-| Persistence | `/app/models/sla_risk_model.joblib` (Docker volume `aimodels`) |
+| **BSS** | 968,077 real subscribers (Feb+Mar) + 1.5M simulated (Jan/Apr/May) — 26 features each |
+| **OSS** | 18.8M real cell KPIs (2G/3G/4G) + 200K bootstrap-simulated reservoir |
 
-### Model 2: Network Anomaly Detector — `IsolationForest v2.0`
-
-Flags individual OSS KPI records that deviate from learned normal behaviour.
-
-| Parameter | Value |
-|---|---|
-| Training samples | 3,000 records (95% normal + 5% injected faults) |
-| Input features | 5 per-record KPIs (throughput, latency, packet loss, active users, RSRP) |
-| Hyperparameters | n_estimators=150, contamination=0.05 |
-| Output | `is_anomaly` flag + normalised `severity` (0–1) |
-| Persistence | `/app/models/anomaly_model.joblib` (Docker volume `aimodels`) |
-
-### Model 3: Revenue Anomaly Detector — `IsolationForest v2.0`
-
-Detects anomalous BSS subscriber records (SIM box fraud, dormant SIMs, SMS spam).
-
-| Parameter | Value |
-|---|---|
-| Training samples | 3,000 records (95% normal Tunisian subscriber behaviour, 5% anomalous) |
-| Input features | 5 per-record BSS metrics (revenue_tnd, data_used_gb, voice_min, sms_count, churn_risk) |
-| Hyperparameters | n_estimators=150, contamination=0.05 |
-| Output | `is_anomaly` flag + normalised `severity` (0–1) |
-| Persistence | `/app/models/revenue_anomaly_model.joblib` (Docker volume `aimodels`) |
-
-Models are loaded from disk on restart — no retraining required after the first run.
-
----
-
-## Roadmap
-
-| Phase | Scope | Status |
-|---|---|---|
-| **1** | Vertical slice: data generation → MinIO → PostgreSQL → REST API | ✅ Complete |
-| **2** | Real ML inference: GBR SLA risk + IsolationForest anomaly detection | ✅ Complete |
-| **3** | Fault injection · revenue anomaly detection · OSS–BSS correlation engine · Tunisian prepaid market model | ✅ Complete |
-| **4** | Labeled evaluation dataset — precision, recall, F1 per model | 🔄 Planned |
-| **5** | Prometheus + Grafana observability stack | ✅ Complete |
-| **6** | HCS deployment: OBS + RDS + ECS with evidence | 🔄 Planned |
-
----
-
-## Project Structure
-
-```
-telecom-cloud-intelligence/
-├── docker-compose.yml                    # 7-service stack definition
-├── services/
-│   ├── api-gateway/                      # FastAPI REST gateway (:8000, 7 endpoints)
-│   │   ├── main.py
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
-│   ├── ai-service/                       # ML inference engine (:8001, 3 models)
-│   │   ├── main.py                       # GBR + 2× IsolationForest training & serving
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
-│   └── pipeline-worker/                  # One-shot 22-step pipeline
-│       ├── worker/__main__.py
-│       ├── requirements.txt              # numpy, boto3, psycopg2, requests, scipy
-│       └── Dockerfile
-├── docs/
-│   ├── db/schema.sql                     # PostgreSQL schema (7 tables)
-│   ├── overview/project-snapshot.md      # Master state document
-│   ├── architecture/architecture-v1.md   # C4 architecture diagrams
-│   ├── architecture/ml-models.md         # Complete ML model documentation
-│   ├── data-model/                       # Data lake + ER diagrams
-│   ├── deployment/local-docker.md        # Local deployment diagram
-│   ├── generate_pdf.py                   # Documentation PDF generator
-│   ├── generate_knowledge_base.py        # Academic reference PDF (24 IEEE citations)
-│   └── generate_reference_pdf.py         # Complete technical & commercial reference PDF
-└── diagrams/export/                      # PNG exports of all architecture diagrams
-```
+Real TT data lives in `TT_data/` and is **strictly confidential** — gitignored, never committed, processed locally only.
+Simulated months are generated by stratified bootstrap with log-normal perturbation + temporal drift to fill missing months; the generator is **subordinate to real data**.
 
 ---
 
@@ -275,10 +203,36 @@ telecom-cloud-intelligence/
 
 | Layer | Technology |
 |---|---|
-| Services | Python 3.11, FastAPI 0.115, Uvicorn |
-| ML / AI | scikit-learn 1.5 (GradientBoostingRegressor, IsolationForest ×2), NumPy 2.0, joblib |
-| Statistics | SciPy 1.14 (Pearson/Spearman correlations) |
-| Data pipeline | boto3, psycopg2, NumPy, SciPy |
+| Backend | Python 3.11, FastAPI 0.115, Uvicorn, psycopg2 (no ORM) |
+| ML / DL | LightGBM (DART), XGBoost (GPU), PyTorch (VAE), scikit-learn 1.5, SHAP |
+| Statistics | SciPy (Pearson/Spearman), statsmodels (Granger, ADF/KPSS) |
+| Frontend | Next.js 14, React 18, TypeScript, framer-motion, d3-geo, lucide-react |
+| LLM | OpenRouter (free cloud models) + Ollama (offline fallback) |
 | Storage | PostgreSQL 16, MinIO (S3-compatible) |
-| Containerisation | Docker, Docker Compose |
-| Cloud target | Huawei Cloud Stack (ECS, OBS, RDS, VPC) |
+| Observability | Prometheus, Grafana, Netdata, Jaeger, OpenTelemetry |
+| Containers | Docker, Docker Compose |
+
+---
+
+## Project Structure
+
+```
+telecom-cloud-intelligence/
+├── docker-compose.yml            # multi-service stack (+ monitoring/retrain profiles)
+├── Makefile                      # start-demo · start-defense · watchdog · data ops
+├── services/
+│   ├── api-gateway/              # REST API (:8000), domain routers
+│   ├── ai-service/               # v3.0 inference (:8001), model_cache hot-reload
+│   ├── auth-service/             # JWT + OAuth + password reset (:8002)
+│   ├── agent-service/            # LLM orchestrator (OpenRouter)
+│   └── pipeline-worker/          # daemon pipeline, sampler, analytics, inference client
+├── dashboard/                    # Next.js 14 UI (24 pages, liquid-glass design system)
+├── notebooks/                    # 00 EDA · 01 ETL · 02 CEM · 03 VAE · 04 RAT · 10 Granger
+├── docs/                         # architecture, data model, deployment, defense prep
+└── TT_data/                      # CONFIDENTIAL real TT data (gitignored)
+```
+
+---
+
+> Owner: **Souhayl Guenichi** — ESPRIT engineering student, Huawei Tunisia internship (Cloud IT / Sales-Solution).
+> Client: **Tunisie Telecom**. Focus: CEM subscriber profiling + OSS+CEM convergence.

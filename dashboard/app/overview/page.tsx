@@ -17,8 +17,9 @@ export default async function OverviewPage() {
         api.vaeAnomalies(),
         api.cemScores(),
         api.ratUnderservice(),
+        api.grangerCausality(),
     ]);
-    const [anomalies, revenue, runs, correlations, vaeSummary, cemSummary, ratSummary] =
+    const [anomalies, revenue, runs, correlations, vaeSummary, cemSummary, ratSummary, granger] =
         results.map((r) => (r.status === 'fulfilled' ? r.value : null)) as any[];
 
     const ossCount = anomalies?.length ?? 0;
@@ -28,6 +29,9 @@ export default async function OverviewPage() {
     const totalRuns = (runs as any[])?.length ?? 0;
     const successRate = totalRuns > 0 ? Math.round((successRuns / totalRuns) * 100) : 0;
     const corrCount = correlations?.length ?? 0;
+    const grangerResults = (granger as any)?.results ?? [];
+    const grangerSig = grangerResults.filter((g: any) => g.significant).length ?? 0;
+    const grangerTotal = grangerResults.length ?? 0;
 
     const ossCritical = anomalies?.filter((a: any) => a.severity > 0.9).length ?? 0;
     const ossWarning = anomalies?.filter((a: any) => a.severity > 0.5 && a.severity <= 0.9).length ?? 0;
@@ -124,7 +128,7 @@ export default async function OverviewPage() {
                 </StaggerItem>
 
                 <StaggerItem>
-                    <Link href="/correlations" className="dash-kpi-card">
+                    <Link href="/granger-causality" className="dash-kpi-card">
                         <div className="dash-kpi-icon dash-kpi-icon-blue">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -132,9 +136,9 @@ export default async function OverviewPage() {
                             </svg>
                         </div>
                         <div className="dash-kpi-content">
-                            <span className="dash-kpi-label">Correlations</span>
-                            <span className="dash-kpi-value">{corrCount}</span>
-                            <span className="dash-kpi-sub">{strongCorrs} strong | OSS{'\u2194'}CEM</span>
+                            <span className="dash-kpi-label">Granger Pairs</span>
+                            <span className="dash-kpi-value">{grangerSig}</span>
+                            <span className="dash-kpi-sub">{grangerTotal} tested | OSS{'\u2192'}CEM</span>
                         </div>
                     </Link>
                 </StaggerItem>

@@ -16,7 +16,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    mem_limit: 1500m
+    mem_limit: 1g
+    memswap_limit: 1g
+    restart: unless-stopped
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docs/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
@@ -38,6 +40,8 @@ services:
     volumes:
       - miniodata:/data
     mem_limit: 512m
+    memswap_limit: 512m
+    restart: unless-stopped
 
   auth-service:
     build: ./services/auth-service
@@ -51,8 +55,8 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:8002/auth/github/callback}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      FRONTEND_RESET_URL: ${FRONTEND_URL:-http://localhost:3000}/reset-password
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      FRONTEND_RESET_URL: ${FRONTEND_URL:-http://localhost:3001}/reset-password
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -70,6 +74,8 @@ services:
       retries: 5
       start_period: 10s
     mem_limit: 256m
+    memswap_limit: 256m
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,6 +127,8 @@ services:
       retries: 5
       start_period: 10s
     mem_limit: 512m
+    memswap_limit: 512m
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -145,7 +153,9 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
-    mem_limit: 2g
+    mem_limit: 1.5g
+    memswap_limit: 1.5g
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -174,13 +184,19 @@ services:
         condition: service_healthy
       ai-service:
         condition: service_healthy
-    mem_limit: 768m
+    mem_limit: 512m
+    memswap_limit: 512m
+    restart: unless-stopped
 
   agent-service:
     build: ./services/agent-service
     environment:
       DATABASE_URL: postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-nexo-internal-dev-key-change-in-prod}
+      # LLM provider: OpenRouter (primary) or Ollama (fallback). OPENROUTER_API_KEY must be in root .env.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemma-4-31b-it:free}
+      OPENROUTER_URL: ${OPENROUTER_URL:-https://openrouter.ai/api/v1/chat/completions}
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen2.5:7b
       API_GATEWAY_URL: http://api-gateway:8000
@@ -196,7 +212,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    mem_limit: 512m
+    mem_limit: 256m
+    memswap_limit: 256m
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -210,6 +228,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: http://api-gateway:8000
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: kimi-k2.5:cloud
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       # /api/model-metrics reads notebooks/models/metrics.json. The container
       # has no `notebooks/` baked in, so we mount it and pin the path
       # explicitly via env to avoid `process.cwd()` ambiguity.
@@ -227,7 +246,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    mem_limit: 1024m
+    mem_limit: 512m
+    memswap_limit: 512m
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       api-gateway:
         condition: service_healthy
@@ -264,6 +287,9 @@ services:
         condition: service_healthy
       ai-service:
         condition: service_started
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/api"]
       interval: 10s
@@ -271,11 +297,17 @@ services:
       retries: 3
       start_period: 30s
 
-  # ── Lightweight Observability Stack (Netdata + Prometheus + Grafana + Jaeger) ──
+  # ── Observability Stack — profile:monitoring (opt-in) ───────────────────────
+  # Skipped on bare `docker compose up` to prevent WSL2 wsl-bootstrap stack
+  # overflow (STATUS_STACK_OVERFLOW / 0xc00000fd) caused by the port-forwarding
+  # storm when 17 containers start simultaneously.
+  # Start with:  docker compose --profile monitoring up -d
+  #              make start-monitoring
   netdata:
     image: netdata/netdata:v1.47
     container_name: netdata
     hostname: netdata
+    profiles: [monitoring]
     ports:
       - "19999:19999"
     environment:
@@ -297,12 +329,14 @@ services:
     security_opt:
       - apparmor:unconfined
     mem_limit: 512m
-    restart: on-failure
+    memswap_limit: 512m
+    restart: on-failure:3
 
   prometheus:
     image: prom/prometheus:v2.55.0
     container_name: prometheus
     hostname: prometheus
+    profiles: [monitoring]
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -317,12 +351,14 @@ services:
       - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     mem_limit: 512m
-    restart: on-failure
+    memswap_limit: 512m
+    restart: on-failure:3
 
   grafana:
     image: grafana/grafana:11.2.0
     container_name: grafana
     hostname: grafana
+    profiles: [monitoring]
     ports:
       - "3000:3000"
     environment:
@@ -334,12 +370,14 @@ services:
       - grafana_data:/var/lib/grafana
       - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     mem_limit: 256m
-    restart: on-failure
+    memswap_limit: 256m
+    restart: on-failure:3
 
   jaeger:
     image: jaegertracing/jaeger:2.17.0
     container_name: jaeger
     hostname: jaeger
+    profiles: [monitoring]
     ports:
       - "16686:16686"   # Jaeger UI
       - "4317:4317"     # OTLP gRPC (receives traces from otel-collector)
@@ -347,12 +385,14 @@ services:
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     mem_limit: 512m
-    restart: on-failure
+    memswap_limit: 512m
+    restart: on-failure:3
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.119.0
     container_name: otel-collector
     hostname: otel-collector
+    profiles: [monitoring]
     command:
       - "--config=/etc/otelcol-contrib/config.yaml"
     ports:
@@ -364,10 +404,14 @@ services:
       - prometheus
       - jaeger
     mem_limit: 256m
-    restart: on-failure
+    memswap_limit: 256m
+    restart: on-failure:3
 
   # ── On-demand ML retrain executor (papermill + FastAPI on port 8004) ──
+  # This service can use >3GB RAM during notebook execution, so it is opt-in.
+  # Start only when needed:  docker compose --profile retrain up -d retrain-service
   retrain-service:
+    profiles: [retrain]
     build:
       context: .
       dockerfile: services/retrain-service/Dockerfile
@@ -402,8 +446,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    mem_limit: 4g
-    restart: on-failure
+    mem_limit: 3g
+    memswap_limit: 3g
+    restart: on-failure:3
 
   # ── One-shot data ingest. Runs every `docker compose up`; idempotency
   # check inside init-db-data.sh exits 0 fast if tables are populated.
@@ -428,7 +473,8 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
-    mem_limit: 1g
+    mem_limit: 512m
+    memswap_limit: 512m
     # Disable inherited Jupyter healthcheck — this is a one-shot container.
     healthcheck:
       disable: true

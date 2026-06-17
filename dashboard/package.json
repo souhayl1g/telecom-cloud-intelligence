@@ -11,14 +11,19 @@
     "dependencies": {
         "@types/d3-geo": "^3.1.0",
         "@types/pg": "^8.20.0",
+        "@types/react-syntax-highlighter": "^15.5.13",
         "d3-geo": "^3.1.1",
         "framer-motion": "^12.38.0",
         "lucide-react": "^1.16.0",
-        "next": "14.2.5",
+        "next": "^14.2.26",
         "pg": "^8.20.0",
+        "postcss": "^8.5.10",
         "react": "18.3.1",
         "react-dom": "18.3.1",
-        "recharts": "2.15.3"
+        "react-markdown": "^10.1.0",
+        "react-syntax-highlighter": "^16.1.1",
+        "recharts": "2.15.3",
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@types/node": "20.12.7",

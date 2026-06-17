@@ -1,0 +1,57 @@
+# WSL2 tuning for Telecom NeXoligence (NeXo)
+# Prevents WSL/Docker crashes caused by memory exhaustion AND by the swap file
+# being placed on a full system drive.
+#
+# INSTALL (copy to your WINDOWS user profile, NOT the WSL home):
+#   cp .wslconfig.example /mnt/c/Users/<WindowsUser>/.wslconfig
+#   # e.g. /mnt/c/Users/s50057139/.wslconfig
+#
+# APPLY:
+#   wsl.exe --shutdown
+#   # wait ~10 seconds
+#   wsl
+#
+# ── IMPORTANT ───────────────────────────────────────────────────────────────
+# 1. swapFile MUST live on a drive with plenty of free space. Putting an 8GB
+#    swap on a near-full C: drive makes the swap VHDX fail to allocate, which
+#    causes "Errors occurred during WSL startup" and the whole VM to die.
+#    Point swapFile at a roomy drive (here: E:). Adjust the path to YOUR machine.
+# 2. memory= must leave enough RAM for Windows + VS Code + Chrome. On a 20GB
+#    host, 10GB for WSL is the stable sweet spot for the NeXo stack (~6.6GB).
+#    On hosts with >24GB RAM you can raise memory= to 16GB.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[wsl2]
+# Cap WSL RAM. Host ~20GB -> 10GB keeps Windows responsive; NeXo core+notebooks ~6.6GB.
+memory=10GB
+
+# Logical processors given to WSL2 (host has 12).
+processors=6
+
+# Virtual swap inside the WSL2 VM. Absorbs container memory spikes.
+swap=8GB
+
+# Swap file location — KEEP THIS ON A DRIVE WITH FREE SPACE (NOT a full C:).
+# Create the folder first:  mkdir E:\WSL\swap
+swapFile=E:\\WSL\\swap\\wslswap.vhdx
+
+# Traditional NAT networking (mirrored mode was unstable on this build).
+networkingMode=NAT
+
+# Let Windows localhost reach WSL services (dashboard:3001, api:8000, etc.).
+localhostForwarding=true
+
+# Network resilience when switching networks (corporate proxy <-> home):
+# DNS follows the Windows host; host HTTP proxy is applied automatically.
+dnsTunneling=true
+autoProxy=true
+
+# Keep GUI apps working.
+guiApplications=true
+
+[experimental]
+# Gradually return unused WSL memory to Windows (reduces host pressure).
+autoMemoryReclaim=gradual
+
+# Allow the WSL/swap VHDX to shrink instead of pinning disk space.
+sparseVhd=true

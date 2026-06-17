@@ -1,0 +1,58 @@
+# docker-compose.override.yml
+# Purpose: prevent Docker Desktop WSL2 stack overflow (0xc00000fd) by reducing
+# the number of host-published ports. Internal container-to-container networking
+# is unaffected; services still talk to each other via service names.
+#
+# Only essential user-facing ports remain exposed:
+#   - 8000  api-gateway  (dashboard + external API calls)
+#   - 3001  dashboard    (Next.js UI in the browser)
+#
+# To temporarily expose a specific service for debugging, comment out its
+# override block below or run: docker compose -f docker-compose.yml up <svc>
+#
+# Apply with: docker compose up -d
+
+services:
+  postgres:
+    ports: []
+
+  minio:
+    ports: []
+
+  auth-service:
+    ports: []
+
+  api-gateway:
+    ports:
+      - "8000:8000"
+
+  ai-service:
+    ports: []
+
+  pipeline-worker:
+    ports: []
+
+  dashboard:
+    ports:
+      - "3001:3001"
+
+  notebooks:
+    ports: []
+
+  netdata:
+    ports: []
+
+  prometheus:
+    ports: []
+
+  grafana:
+    ports: []
+
+  jaeger:
+    ports: []
+
+  otel-collector:
+    ports: []
+
+  retrain-service:
+    ports: []

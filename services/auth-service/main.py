@@ -73,7 +73,9 @@ GITHUB_REDIRECT_URI = os.getenv(
     "GITHUB_REDIRECT_URI", "http://localhost:8002/auth/github/callback"
 )
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# Dashboard is published on host port 3001 — the reset email link is clicked from the
+# user's browser, so it must point at 3001 (port 3000 is Grafana / unused).
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3001")
 
 # ---------------------------------------------------------------------------
 # Password hashing

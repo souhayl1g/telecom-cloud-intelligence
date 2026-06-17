@@ -1,6 +1,6 @@
 # CLAUDE.md — Telecom NeXoligence Platform
 
-> Last updated: 2026-06-02 | **Email delivery verified** + Auth password-reset flow + Pipeline v3.0 daemon hardened · Notebook Enhancement Pass SHIPPED · Actuation Layer shipped · Defense: mid-June → mid-July 2026 · freeze first week June · Methodology: **Hybrid CRISP-DM + MLOps overlay** · HCS portability removed.
+> Last updated: 2026-06-17 | **Liquid-glass UI + 4 fixes** — (1) OpenRouter free model `deepseek-chat-v3-0324:free` delisted → default now `google/gemma-4-31b-it:free` + **multi-model free-fallback loop** in `dashboard/app/api/chat/route.ts` (retries next free slug on 404/429 before first token; `sentAny` guard); ModelSelector + `.env.example` + compose slug updated. (2) **Correlations zero-fix**: OSS `area`=cell-site names (4343) vs BSS `area`=24 governorates intersected on 1 → `compute_correlations` returned `[]`. Added `_canon_gov()` (Python port of `tunisia-areas.ts`) in `worker/analytics/correlations.py`, normalizing BOTH sides → 18 common govs → 13 real rows (verified). (3) **start-defense now starts full monitoring** (`--profile monitoring up -d`, ~+2GB → ≈8.6GB budget). (4) **Auth**: forgot/reset-password added to `ClientLayout.AUTH_PAGES` (navbar gone); reset-email link `FRONTEND_URL` 3000→**3001** (compose+`.env.example`+`auth-service/main.py`) — was pointing at dead port. **Liquid-glass redesign**: token-driven `--glass-*` material + appended "LIQUID GLASS LAYER" in `globals.css` reskins all shared surfaces/buttons/inputs (cards, sidebar, top-header, status-strip, cmd-palette) platform-wide; palette unchanged; faster framer page transitions + snappier `--transition` curve; reduced-motion + mobile-blur guards. Tuned (not maximal) for demo GPU. Prior (2026-06-16): **Host + WSL2 stability hardened for demo** — root cause of whole-WSL crashes was the 8GB swap file sitting on a full C: drive; fixed by moving swap to `E:\WSL\swap`, capping `memory=10GB` (host 20GB), adding `dnsTunneling`/`autoProxy` for network switching; C: freed 7.7GB→16GB (hibernation off + caches); new `make start-demo` (all UIs incl. Jupyter, staged startup + watchdog); NVIDIA Overlay crash = disable overlay in NVIDIA App + update GPU driver (manual). Earlier same-day: `.wslconfig` + 8GB swap + `networkingMode=NAT`; `retrain-service` opt-in; core services `restart: unless-stopped` + `memswap_limit`; L4 Agent switched to **OpenRouter cloud LLM** (Ollama removed); dashboard overview shows **Granger pairs** instead of correlations; OSS sampler fixed to use latest OSS month (was returning 0 records → zero correlations); `scripts/wsl-preflight.sh` + `make start-defense` guard RAM/ports and auto-launch memory watchdog. **Defense prep active** — Speaking guide generated (`docs/DEFENSE-SPEAKING-GUIDE.md`) · 4 new skills installed (pptx, security-review, data-visualization, micro-interactions) · AGENTS-SKILLS.md created for all agents · Dashboard UI overhaul scoped to 5 hero pages · PPTX: 18 slides, hybrid dark/light, Plus Jakarta Sans · Advisor rehearsal next week · **Final defense report built** — LaTeX (`report/main.tex`, xelatex, ~78 pp, vector cover + TikZ diagrams) + Word (`report/NeXo_Report.docx`); **BO/DSO = 4 BO + 4 DSO (DSO1–4) synced across both** · Email delivery verified + Auth password-reset + Pipeline v3.0 daemon hardened · Notebook Enhancement Pass SHIPPED · Actuation Layer shipped · Defense: mid-June → mid-July 2026 · freeze first week June · Methodology: **CRISP-DM (single — MLOps practices = Phase-6 Deployment, NOT a hybrid)** · HCS portability removed.
 >
 > Historical detail lives in [docs/CHANGELOG.md](docs/CHANGELOG.md). **AGENTS.md mirrors this file byte-for-byte — keep them in sync.**
 
@@ -46,6 +46,86 @@ These rules are not suggestions. Violating them once costs hours of jury-defense
 - Frontend changes: start the dashboard, exercise the feature in a browser, watch the network tab + console. Type-check / unit-test pass is **not** proof of feature correctness.
 - Backend changes: restart the relevant container, hit the endpoint via `docker compose exec`, paste the actual response. No "should work" assumptions.
 - Pipeline changes: wait for a real 70-180s cycle, query `pipeline_runs` for `status='succeeded'` + sensible `finished_at - started_at`.
+
+### 7. Read memory + current status FIRST (every session)
+
+- At the start of every session, read the latest status before acting: the auto-memory index (`MEMORY.md` + the relevant memory files) **and** this file's "Last updated" header line. The current state of the project lives there — do not assume from older context.
+- This file and `MEMORY.md` are the source of truth for "where things stand". When they conflict with stale assumptions, they win.
+- After finishing a meaningful change, update this header line (and the relevant memory file) so the next session starts from the truth.
+
+---
+
+## WSL2 / Host Stability — permanent crash fix (updated 2026-06-16)
+
+The stack used to crash WSL2 entirely — "Errors occurred during WSL startup" and the whole VM
+dying, especially after bringing the full stack up. Two **independent** root causes were found
+and fixed. Host (Windows 11, ~20GB RAM, Ryzen 5 5600H, RTX 3050 + Radeon iGPU); Docker runs
+**inside** this WSL distro (not Docker Desktop); WSL distro disk lives on `E:\WSL` (~130GB).
+
+### Root cause #1 — swap file on a full C: drive (host-level)
+`.wslconfig` had `swapFile=%USERPROFILE%\.wslswap.vhdx` (on C:) with `swap=8GB`, but **C: had
+<8GB free** → the swap VHDX could not allocate → WSL failed at startup and the VM died.
+**Fix:** swap moved to `E:\WSL\swap\wslswap.vhdx` (610GB free). The repo `.wslconfig.example`
+was updated to match so this can't be reintroduced.
+
+### Root cause #2 — memory exhaustion
+The default WSL2 cap let the multi-container stack OOM-kill the VM under load.
+**Fix:** WSL capped at `memory=10GB` + working 8GB swap on E:, per-container `mem_limit`/`memswap_limit`, and a memory watchdog.
+
+### Host config — `.wslconfig` (Windows: `C:\Users\<WindowsUser>\.wslconfig`, mirror of `.wslconfig.example`)
+On this 20GB host:
+- `memory=10GB` — leaves ~10GB for Windows + VS Code + Chrome; NeXo core+notebooks ≈6.6GB.
+- `swap=8GB`, `swapFile=E:\WSL\swap\wslswap.vhdx` — swap MUST live on a roomy drive, **never C:**.
+- `processors=6`
+- `networkingMode=NAT` — mirrored mode was unstable on this build.
+- `localhostForwarding=true`
+- `dnsTunneling=true`, `autoProxy=true` — survive switching networks (corporate Huawei proxy ⇄ home) without manual WSL restarts.
+- `[experimental] autoMemoryReclaim=gradual`, `sparseVhd=true`.
+- Previous config backed up as `.wslconfig.bak_<timestamp>`.
+
+### Host disk hygiene (2026-06-16)
+C: was at 7.7GB free (Windows itself gets unstable this low). Freed to **~16GB** via
+`powercfg /h off` (disables hibernation, ~8GB), the Windows Update cache, and Windows Temp.
+Note: `$env:TEMP` on this machine is redirected to `E:\Temp` (not C:).
+
+### NVIDIA Overlay crash-loop (separate from WSL/Docker)
+`NVIDIA Overlay.exe` crash popups (`0xe0000008` / memory-write violation) are unrelated to the
+stack. Orphaned processes were killed and WER dumps cleared, but it respawns from the NVIDIA
+Container service. **Persistent fix (manual GUI):** NVIDIA App → Settings → Features → turn
+**Overlay OFF**, and install the pending GeForce driver update (needs a reboot).
+
+### docker-compose.yml
+- `retrain-service` opt-in (`profiles: [retrain]`, ~3GB) — on-demand only.
+- Observability opt-in (`profiles: [monitoring]`, ~2GB).
+- `notebooks` capped (`mem_limit: 1536m`); **every** service has `memswap_limit == mem_limit`, so a
+  runaway container is OOM-killed by Docker instead of killing the whole WSL VM.
+- Core services `restart: unless-stopped` → auto-recover on WSL boot (systemd + docker.service enabled).
+
+### Ports / startup-storm
+`docker-compose.override.yml` is a low-RAM fallback that hides all ports except 3001/8000 (to
+prevent the wslrelay port-forward storm → `STATUS_STACK_OVERFLOW 0xc00000fd`). It is **not**
+loaded by the Makefile (which passes `-f docker-compose.yml` explicitly), so all UIs stay
+reachable for demos. Storm risk is instead mitigated by `COMPOSE_PARALLEL_LIMIT=4` (.env),
+`depends_on` healthchecks, and **staged startup** in `make start-demo`. For a constrained
+machine, use the fallback with a bare `docker compose up -d` (no `-f`).
+
+### Startup commands
+- **`make start-demo`** — preflight + full core **including notebooks** + staged startup + watchdog;
+  ALL UIs reachable (dashboard:3001, api:8000/docs, minio:9001, jupyter:8888). **Use for the live demo.**
+- `make start-defense` — minimal stack (no notebooks/monitoring/retrain) + watchdog.
+- `make start-safe` — `make start` guarded by the preflight check.
+- `scripts/wsl-preflight.sh` — checks RAM + required ports (5432, 8000-8003, 8888, 9000-9001, 3001); refuses to start if under-provisioned or a port is squatted.
+- `scripts/wsl-watchdog.sh` (`make watchdog-daemon`) — restarts the heaviest non-critical container if available RAM < 512MB.
+- L4 Agent uses **OpenRouter cloud LLM** (no local Ollama RAM).
+
+### Required one-time action (after editing `.wslconfig`)
+```powershell
+wsl --shutdown      # wait ~10s
+wsl
+```
+After restart, `free -h` shows ~10GB total and `swapon --show` shows the 8GB swap on E:.
+WSL does **not** auto-start at Windows boot — open a terminal or VS Code once, then the
+`unless-stopped` containers come back automatically (dashboard healthy ~10s later).
 
 ---
 
@@ -654,36 +734,29 @@ Rules:
 
 ---
 
-## NeXo — Complete Outputs & Deliverables (2026-04-27)
+## Defense Prep Q&A
 
-### 1. Data Layer
-| Deliverable | Description | Status |
-|---|---|---|
-| BSS Subscribers | 968K real (Feb 468K + Mar 500K) + 1.5M simulated (Jan/Apr/May) | ✅ Ready |
-| OSS Cell KPIs | 18.8M real (2G/3G/4G) + 200K simulated (Jan/Feb/May/Jun) | ✅ Ready |
-| Simulated Months | Bootstrap with log-normal perturbation + temporal drift | ✅ Ready |
-| Feature Engineering | subscriber_features + area_network_health for all 6 months | ✅ Ready |
-| Rolling Window Engine | Stratified batch sampler per 2-min cycle | 📋 Planned |
+See `docs/DEFENSE-PREP.md` — priority pillars (P0: Granger/L4/Data-flow · P1: Models/Dashboard/Actuation · P2: MLOps/HCS), full drill questions, scoring workflow (🔴/🟡/🟢).
 
-### 2. Target Database Schema (v3.0)
-| Table | Purpose | Key Columns |
-|---|---|---|
-| `bss_subscribers` | Raw subscriber CEM data | 26 features + month_year |
-| `oss_cells` | Network KPIs per cell | ~10 cols (tbd on OSS arrival) |
-| `cem_scores` | Computed CEM scores | imsi, score, features, timestamp |
-| `experience_anomalies` | AE-detected anomalies | imsi, anomaly_score, timestamp |
-| `churn_trajectory` | LSTM predictions | imsi, churn_prob, trajectory |
-| `rat_underservice` | XGBoost predictions | imsi, underservice_risk, gap |
-| `ob_convergence` | OSS+BSS correlations | area, correlation, p_value |
-| `agent_actions` | L4 action audit trail | status, execution_log JSONB |
+---
 
-### 3. ML Models v3.0 (deployed)
-| Model | Algorithm | Training Data | Key Metric | Status |
-|---|---|---|---|---|
-| CEM Score | LightGBM DART (256 leaves, depth=12) | 2.47M subscribers, 5 months | R²=0.9784, MAE=0.0304 | ✅ Deployed |
-| RAT Underservice | XGBoost (500 trees, depth=8, GPU) | 2.47M subscribers, 5 months | ROC-AUC=0.9203, F1=0.8927 | ✅ Deployed |
-| Experience Anomaly | PyTorch VAE (9→32→16→Latent(8)) | 1M OSS records, mixed real+sim | ROC-AUC=0.9821, PR-AUC=0.9974 | ✅ Deployed |
-| Churn Trajectory | LSTM/GRU (PyTorch) | Rolling window sequences | — | 📋 Planned |
+## Defense Preparation — Active (2026-06-10)
 
-**Achieved metrics:** CEM Score R²=0.9784 ✅ | RAT ROC-AUC=0.9203 ✅ | Anomaly ROC-AUC=0.9821 ✅ | Churn AUC > 0.85 📋
+### Advisor Rehearsal: next week | Final Defense: mid-July 2026
 
+**Speaking guide:** `docs/DEFENSE-SPEAKING-GUIDE.md` — Vinh Giang STAGE methodology + 3-2-1 trick + academic agenda + NeXo 30-second pitch. Read this before every session that involves defense prep.
+
+**PPTX spec (18 slides, 20 min):**
+- Theme: hybrid — dark hero slides (`#0D1117` + `#00B4D8` + `#FF6B35`) + light content slides (`#FAFAFA`)
+- Font: Plus Jakarta Sans
+- Generator: python-pptx via `pptx` skill
+- Academic agenda: Introduction & Context → Objectives → Challenges → Gap Analysis → Architecture → Req. → Tech Stack → CRISP-DM → Implementation → ML Results → Conclusion → Q&A
+
+**Dashboard UI overhaul (5 hero pages — scoped for defense demo):**
+- `/overview`, `/l4-agent`, `/granger-causality`, `/cem-scores`, `/vae-anomalies`
+- Style: glassmorphism cards, animated charts (use `data-visualization` + `micro-interactions` skills)
+- Full 15-page overhaul deferred to post-rehearsal
+
+**Skills:** See `AGENTS-SKILLS.md` (15 skills). Key: `pptx`, `security-review`, `data-visualization`, `micro-interactions`. Security-audit-first before any install.
+
+---

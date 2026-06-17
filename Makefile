@@ -20,6 +20,14 @@ PROJECT_ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 export PROJECT_ROOT
 
 PROJECT_NAME := telecom-cloud-intelligence
+# NOTE: We pass -f docker-compose.yml explicitly, which means docker-compose.override.yml
+# is NOT auto-loaded. This is INTENTIONAL: the override hides all ports except 3001/8000
+# (a low-RAM / anti-port-storm fallback). For demos we want every UI reachable
+# (dashboard:3001, api:8000, minio:9001, jupyter:8888), so we keep all ports published.
+# Startup-storm risk is instead mitigated by staged startup (see start-demo) +
+# COMPOSE_PARALLEL_LIMIT in .env + depends_on healthchecks.
+# To use the low-port fallback on a constrained machine:
+#   docker compose up -d        (no -f — auto-loads the override)
 COMPOSE      := docker compose -f $(PROJECT_ROOT)/docker-compose.yml
 
 BLUE   := \033[0;34m
@@ -57,7 +65,11 @@ help:
 	@echo "$(BOLD)Telecom NeXoligence — Commands$(NC)"
 	@echo ""
 	@echo "$(GREEN)Startup:$(NC)"
-	@echo "  $(YELLOW)make start$(NC)             Start full stack (daemon pipeline + Jupyter)"
+	@echo "  $(YELLOW)make start$(NC)             Start core stack (daemon pipeline + Jupyter, no monitoring)"
+	@echo "  $(YELLOW)make start-safe$(NC)        Same as start, but aborts if WSL RAM/ports are bad"
+	@echo "  $(YELLOW)make start-defense$(NC)     Minimal demo-day stack (no notebooks, no ollama)"
+	@echo "  $(YELLOW)make start-demo$(NC)        Demo stack with ALL UIs (incl. Jupyter), staged + watchdog"
+	@echo "  $(YELLOW)make start-monitoring$(NC)  Add observability stack (netdata/prometheus/grafana/jaeger)"
 	@echo "  $(YELLOW)make start-dev$(NC)         Start stack, no auto-pipeline"
 	@echo ""
 	@echo "$(GREEN)Hot-Rebuild (data-safe):$(NC)"
@@ -84,6 +96,8 @@ help:
 	@echo "  $(YELLOW)make restart$(NC)           Restart all services"
 	@echo "  $(YELLOW)make svc-status$(NC)        Show container status"
 	@echo "  $(YELLOW)make svc-health$(NC)        Health check all services"
+	@echo "  $(YELLOW)make watchdog$(NC)          One-shot memory watchdog check"
+	@echo "  $(YELLOW)make watchdog-daemon$(NC)   Run memory watchdog in background"
 	@echo ""
 	@echo "$(GREEN)Logs:$(NC)"
 	@echo "  $(YELLOW)make logs$(NC)              All logs (follow)"
@@ -118,19 +132,15 @@ help:
 
 .PHONY: start
 start:
-	$(call print_header,STARTING NeXo — FULL STACK) 
-	@echo "Services starting:"
-	@echo "  • postgres + minio + observability stack"
-	@echo "  • api-gateway (8000) · ai-service (8001) · auth-service (8002) · agent-service (8003)"
-	@echo "  • pipeline-worker (daemon, 120s cycles)"
-	@echo "  • notebooks / Jupyter (8888)"
-	@echo "  • dashboard (3001)"
+	$(call print_header,STARTING NeXo — CORE STACK)
+	@echo "Services: postgres · minio · auth · api-gateway · ai-service · agent-service"
+	@echo "          pipeline-worker · notebooks · dashboard · data-init"
+	@echo ""
+	@echo "$(YELLOW)Observability stack (netdata/prometheus/grafana/jaeger) NOT started by default.$(NC)"
+	@echo "$(YELLOW)Use: make start-monitoring  to add it.$(NC)"
+	@echo "$(YELLOW)Retrain-service is on-demand:  docker compose --profile retrain up -d retrain-service$(NC)"
 	@echo ""
 	@$(COMPOSE) up -d
-	@echo ""
-	@echo "$(BOLD)Starting Ollama LLM (background)...$(NC)"
-	@(OLLAMA_MODELS=/mnt/d/ollama-models ollama serve > /dev/null 2>&1 &) || \
-		echo "$(YELLOW)Ollama not available or already running$(NC)"
 	@echo ""
 	@echo "$(BOLD)Opening dashboard...$(NC)"
 	@("/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" http://localhost:3001 2>/dev/null || \
@@ -140,15 +150,92 @@ start:
 	@echo ""
 	@make show-info
 
+.PHONY: start-monitoring
+start-monitoring:
+	$(call print_header,STARTING — Observability Stack)
+	@echo "Services: netdata (19999) · prometheus (9090) · grafana (3000) · jaeger (16686) · otel-collector"
+	@echo ""
+	@$(COMPOSE) --profile monitoring up -d
+	$(call print_ok,Monitoring stack started)
+	@echo "  Grafana:    http://localhost:3000  (admin/admin)"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  Jaeger:     http://localhost:16686"
+	@echo "  Netdata:    http://localhost:19999"
+
 # Alias kept for muscle memory
+.PHONY: start-safe
+start-safe:
+	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
+	@make start
+
+# Defense-day minimal stack: no notebooks, no ollama auto-start.
+# Use this for demos / jury defense to minimize memory and moving parts.
+.PHONY: start-defense
+start-defense:
+	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
+	$(call print_header,STARTING NeXo — DEFENSE MODE)
+	@echo "Services: postgres · minio · auth · api-gateway · ai-service · agent-service"
+	@echo "          pipeline-worker · dashboard · data-init"
+	@echo ""
+	@echo "Monitoring:  netdata (19999) · prometheus (9090) · grafana (3000) · jaeger (16686) · otel-collector"
+	@echo ""
+	@echo "$(YELLOW)NOT started: notebooks, retrain-service$(NC)"
+	@echo "$(YELLOW)L4 Agent uses OpenRouter cloud LLM (fast, no local RAM).$(NC)"
+	@echo "$(YELLOW)Monitoring adds ~2GB — core+monitoring ≈8.6GB of the 10GB WSL budget.$(NC)"
+	@echo ""
+	@$(COMPOSE) up -d postgres minio auth-service api-gateway ai-service agent-service pipeline-worker dashboard data-init
+	@echo "$(YELLOW)Bringing up observability stack...$(NC)"
+	@$(COMPOSE) --profile monitoring up -d netdata prometheus grafana jaeger otel-collector
+	@echo "$(YELLOW)Stopping non-defense services to free RAM...$(NC)"
+	@$(COMPOSE) stop notebooks retrain-service 2>/dev/null || true
+	@bash $(PROJECT_ROOT)/scripts/wsl-watchdog.sh --daemon >/dev/null 2>&1 &
+	$(call print_ok,Defense stack started (with monitoring) — memory watchdog running)
+	@echo "  Grafana:    http://localhost:3000  (admin/admin)"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  Jaeger:     http://localhost:16686"
+	@echo "  Netdata:    http://localhost:19999"
+	@make show-info
+
+# Demo mode: ALL user-facing UIs reachable (dashboard, API docs, MinIO console, Jupyter).
+# Includes notebooks (needed for Jupyter:8888). Excludes monitoring + retrain to stay
+# within the 10GB WSL budget (~6.6GB used). Staged startup (infra first, then the rest)
+# throttles the WSL port-forward storm without hiding any ports. Watchdog guards RAM.
+.PHONY: start-demo
+start-demo:
+	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
+	$(call print_header,STARTING NeXo — DEMO MODE (all UIs))
+	@echo "Services: postgres · minio · auth · api-gateway · ai-service · agent-service"
+	@echo "          pipeline-worker · notebooks · dashboard · data-init"
+	@echo "$(YELLOW)NOT started: retrain-service, monitoring (kept off to save RAM).$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Stage 1/2: bringing up infra (postgres + minio)...$(NC)"
+	@$(COMPOSE) up -d postgres minio
+	@sleep 5
+	@echo "$(YELLOW)Stage 2/2: bringing up application services...$(NC)"
+	@$(COMPOSE) up -d auth-service api-gateway ai-service agent-service pipeline-worker notebooks dashboard data-init
+	@$(COMPOSE) stop retrain-service netdata prometheus grafana jaeger otel-collector 2>/dev/null || true
+	@bash $(PROJECT_ROOT)/scripts/wsl-watchdog.sh --daemon >/dev/null 2>&1 &
+	$(call print_ok,Demo stack started — all UIs up, memory watchdog running)
+	@echo ""
+	@make svc-health
+	@make show-info
+
+.PHONY: watchdog
+watchdog:
+	@bash $(PROJECT_ROOT)/scripts/wsl-watchdog.sh
+
+.PHONY: watchdog-daemon
+watchdog-daemon:
+	@bash $(PROJECT_ROOT)/scripts/wsl-watchdog.sh --daemon
+
 .PHONY: start-NeXo
 start-NeXo: start
 
 .PHONY: start-dev
 start-dev:
-	$(call print_header,STARTING — DEV MODE (no auto-pipeline)) 
+	$(call print_header,STARTING — DEV MODE (no auto-pipeline))
 	@AUTO_PIPELINE=false $(COMPOSE) up -d
-	$(call print_ok,Dev stack started) 
+	$(call print_ok,Dev stack started)
 	@make jupyter-token
 
 # ── Hot-Rebuild (DATA-SAFE — volumes never touched) ──────────────────────────
@@ -494,13 +581,13 @@ show-info:
 	@echo "  $(GREEN)Prometheus$(NC)         http://localhost:9090"
 	@echo "  $(GREEN)Grafana$(NC)            http://localhost:3000  (admin/admin)"
 	@echo "  $(GREEN)Jaeger Traces$(NC)      http://localhost:16686"
-	@echo "  $(GREEN)Ollama LLM$(NC)         http://localhost:11434"
+	@echo "  $(GREEN)L4 Agent LLM$(NC)      OpenRouter cloud (fast, no local RAM)"
 	@echo ""
 	@echo "  $(YELLOW)PostgreSQL$(NC)  telecom / telecom_pw / telecom_intel"
 	@echo "  $(YELLOW)MinIO$(NC)       minio / minio_pw"
 	@echo ""
 	@echo "  Pipeline-worker: daemon, 120s cycle"
-	@echo "  L4 Agent: event-driven (Qwen2.5:7b via Ollama)"
+	@echo "  L4 Agent: event-driven via OpenRouter cloud LLM"
 	@echo "$(BOLD)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
 	@echo ""
 

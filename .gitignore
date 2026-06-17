@@ -241,3 +241,10 @@ graphify-out/
 *.skill
 # NOTE: AGENTS.md / CLAUDE.md (repo root) are intentional project docs — kept
 # tracked, NOT ignored. Only the agent working dirs above are excluded.
+
+# Personal / local-only — never commit (added 2026-06-17)
+souhayl_resume/
+report/
+*.bak
+*.bak_*
+*.ipynb.bak
