@@ -10,6 +10,7 @@ script re-reads the 4G CSV and UPDATES matching (cell_id, timestamp) rows.
 No new data is created. Only a column that was already in the source CSV
 is now landed in the table.
 """
+
 from __future__ import annotations
 
 import csv
@@ -21,11 +22,15 @@ from pathlib import Path
 import psycopg2
 from psycopg2.extras import execute_values
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@postgres:5432/telecom_intel")
-CSV_PATH = Path(os.getenv(
-    "OSS_4G_CSV",
-    "/app/TT_data/OSS/KPI Analysis Result_Query_Result_20260427105212826(KPI Analysis Result).csv",
-))
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://telecom:telecom_pw@postgres:5432/telecom_intel"
+)
+CSV_PATH = Path(
+    os.getenv(
+        "OSS_4G_CSV",
+        "/app/TT_data/OSS/KPI Analysis Result_Query_Result_20260427105212826(KPI Analysis Result).csv",
+    )
+)
 BATCH = int(os.getenv("REFRESH_BATCH", "10000"))
 
 

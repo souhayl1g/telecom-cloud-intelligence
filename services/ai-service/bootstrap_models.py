@@ -29,7 +29,9 @@ def bootstrap():
         return
 
     print(f"[bootstrap] WARNING: v3.0 models missing: {missing}")
-    print("[bootstrap] Please train models via notebooks or run pb-retrain-model playbook.")
+    print(
+        "[bootstrap] Please train models via notebooks or run pb-retrain-model playbook."
+    )
     # We intentionally do NOT create synthetic v2.0 fallback models anymore.
     # The v3 routers in ai-service require the real artifacts.
 

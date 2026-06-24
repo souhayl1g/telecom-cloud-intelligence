@@ -1,4 +1,5 @@
 """Production Granger causality engine for OSS→CEM temporal impact."""
+
 import json
 import warnings
 
@@ -16,11 +17,11 @@ warnings.filterwarnings("ignore")
 # the carrier export, so pairs that depend on them are skipped in production.
 # Documented in CRISP-DM Phase 2 EDA conclusions.
 CAUSALITY_PAIRS = [
-    ("avg_throughput",  "avg_cem_score",   "positive"),
-    ("avg_throughput",  "underserved_pct", "negative"),
-    ("anomaly_count",   "avg_cem_score",   "negative"),
-    ("anomaly_count",   "underserved_pct", "positive"),
-    ("subscriber_count", "avg_cem_score",  "negative"),
+    ("avg_throughput", "avg_cem_score", "positive"),
+    ("avg_throughput", "underserved_pct", "negative"),
+    ("anomaly_count", "avg_cem_score", "negative"),
+    ("anomaly_count", "underserved_pct", "positive"),
+    ("subscriber_count", "avg_cem_score", "negative"),
 ]
 
 MAX_LAG = 2
@@ -44,7 +45,9 @@ def _fetch_area_timeseries() -> pd.DataFrame:
     return df
 
 
-def _run_granger_test(series_x: pd.Series, series_y: pd.Series, max_lag: int = MAX_LAG) -> dict:
+def _run_granger_test(
+    series_x: pd.Series, series_y: pd.Series, max_lag: int = MAX_LAG
+) -> dict:
     """Test: does X Granger-cause Y? Return best lag, p-value, F-stat."""
     data = np.column_stack([series_y.values, series_x.values])
 
@@ -92,17 +95,25 @@ def _persist_results(results: list[dict]) -> None:
             test_summary = EXCLUDED.test_summary,
             created_at = NOW()
     """
-    values = [(
-        str(r["area"]), str(r["oss_variable"]), str(r["cem_variable"]), str(r["direction"]),
-        int(r["max_lag"]),
-        int(r["best_lag"]) if r["best_lag"] is not None else None,
-        float(r["best_pvalue"]), float(r["best_fstat"]),
-        bool(r["significant"]),
-        json.dumps(r.get("test_summary", {}))
-    ) for r in results]
+    values = [
+        (
+            str(r["area"]),
+            str(r["oss_variable"]),
+            str(r["cem_variable"]),
+            str(r["direction"]),
+            int(r["max_lag"]),
+            int(r["best_lag"]) if r["best_lag"] is not None else None,
+            float(r["best_pvalue"]),
+            float(r["best_fstat"]),
+            bool(r["significant"]),
+            json.dumps(r.get("test_summary", {})),
+        )
+        for r in results
+    ]
 
     with get_conn() as conn:
         from psycopg2.extras import execute_values
+
         with conn.cursor() as cur:
             execute_values(cur, sql, values)
         conn.commit()
@@ -138,14 +149,16 @@ def run_granger_causality() -> dict:
             if "error" in gc:
                 continue
 
-            area_results.append({
-                "area": area,
-                "oss_variable": oss_metric,
-                "cem_variable": cem_metric,
-                "direction": f"{oss_metric}→{cem_metric}",
-                "max_lag": MAX_LAG,
-                **gc,
-            })
+            area_results.append(
+                {
+                    "area": area,
+                    "oss_variable": oss_metric,
+                    "cem_variable": cem_metric,
+                    "direction": f"{oss_metric}→{cem_metric}",
+                    "max_lag": MAX_LAG,
+                    **gc,
+                }
+            )
 
         if area_results:
             results_df = pd.DataFrame(area_results)
@@ -153,15 +166,19 @@ def run_granger_causality() -> dict:
             n_total = len(results_df)
             mean_lag = float(results_df["best_lag"].mean())
             mean_p = float(results_df["best_pvalue"].mean())
-            pair_summaries.append({
-                "pair": f"{oss_metric}→{cem_metric}",
-                "areas_tested": n_total,
-                "significant": n_sig,
-                "significant_pct": round(n_sig / n_total * 100, 1) if n_total else 0,
-                "mean_best_lag": round(mean_lag, 2),
-                "mean_pvalue": round(mean_p, 4),
-                "expected_direction": expected_dir,
-            })
+            pair_summaries.append(
+                {
+                    "pair": f"{oss_metric}→{cem_metric}",
+                    "areas_tested": n_total,
+                    "significant": n_sig,
+                    "significant_pct": round(n_sig / n_total * 100, 1)
+                    if n_total
+                    else 0,
+                    "mean_best_lag": round(mean_lag, 2),
+                    "mean_pvalue": round(mean_p, 4),
+                    "expected_direction": expected_dir,
+                }
+            )
             all_results.extend(area_results)
 
     _persist_results(all_results)
@@ -174,10 +191,14 @@ def run_granger_causality() -> dict:
         "pair_summaries": pair_summaries,
     }
 
-    print(f"[granger] {summary['significant_findings']} significant findings "
-          f"across {summary['pairs_tested']} pairs ({summary['areas_with_data']} areas)")
+    print(
+        f"[granger] {summary['significant_findings']} significant findings "
+        f"across {summary['pairs_tested']} pairs ({summary['areas_with_data']} areas)"
+    )
     for ps in pair_summaries:
-        print(f"  {ps['pair']}: {ps['significant']}/{ps['areas_tested']} significant "
-              f"({ps['significant_pct']}%), mean lag={ps['mean_best_lag']}")
+        print(
+            f"  {ps['pair']}: {ps['significant']}/{ps['areas_tested']} significant "
+            f"({ps['significant_pct']}%), mean lag={ps['mean_best_lag']}"
+        )
 
     return summary

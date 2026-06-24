@@ -17,12 +17,10 @@ Month drift:
 NEVER commit output files to git.
 """
 
-import csv
 import os
 import random
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sdv.single_table import GaussianCopulaSynthesizer
 from sdv.metadata import SingleTableMetadata
@@ -39,9 +37,27 @@ REAL_FILES = [
 ]
 
 MONTHS = {
-    "2026-01": {"label": "jan", "dou_factor": 0.88, "5g_factor": 0.65, "silent_shift": -0.03, "churn_shift": -0.02},
-    "2026-04": {"label": "avr", "dou_factor": 1.18, "5g_factor": 1.35, "silent_shift": 0.04, "churn_shift": 0.03},
-    "2026-05": {"label": "mai", "dou_factor": 1.35, "5g_factor": 1.65, "silent_shift": 0.08, "churn_shift": 0.06},
+    "2026-01": {
+        "label": "jan",
+        "dou_factor": 0.88,
+        "5g_factor": 0.65,
+        "silent_shift": -0.03,
+        "churn_shift": -0.02,
+    },
+    "2026-04": {
+        "label": "avr",
+        "dou_factor": 1.18,
+        "5g_factor": 1.35,
+        "silent_shift": 0.04,
+        "churn_shift": 0.03,
+    },
+    "2026-05": {
+        "label": "mai",
+        "dou_factor": 1.35,
+        "5g_factor": 1.65,
+        "silent_shift": 0.08,
+        "churn_shift": 0.06,
+    },
 }
 
 N_RECORDS = 500_000
@@ -103,9 +119,13 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     df["dou_total"] = df["dou_total"].clip(lower=0)
 
     # Traffic drift
-    df["traffic_2g"] = (df["traffic_2g"] * (1.15 if cfg["5g_factor"] < 1.0 else 0.85)).astype(int)
+    df["traffic_2g"] = (
+        df["traffic_2g"] * (1.15 if cfg["5g_factor"] < 1.0 else 0.85)
+    ).astype(int)
     df["traffic_3g"] = (df["traffic_3g"] * 0.95).astype(int)
-    df["traffic_4g"] = (df["traffic_4g"] * (0.9 if cfg["5g_factor"] > 1.0 else 1.05)).astype(int)
+    df["traffic_4g"] = (
+        df["traffic_4g"] * (0.9 if cfg["5g_factor"] > 1.0 else 1.05)
+    ).astype(int)
     df["traffic_5g"] = (df["traffic_5g"] * cfg["5g_factor"]).astype(int)
 
     # Ensure DOU >= traffic sum
@@ -119,14 +139,22 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         mask_4g = df["highest_rat"] == "4G"
         promote_count = int(mask_4g.sum() * 0.12 * (cfg["5g_factor"] - 1.0))
         if promote_count > 0:
-            idx = df[mask_4g].sample(n=min(promote_count, mask_4g.sum()), random_state=42).index
+            idx = (
+                df[mask_4g]
+                .sample(n=min(promote_count, mask_4g.sum()), random_state=42)
+                .index
+            )
             df.loc[idx, "highest_rat"] = "5G"
     else:
         # Demote some 5G → 4G
         mask_5g = df["highest_rat"] == "5G"
         demote_count = int(mask_5g.sum() * 0.08)
         if demote_count > 0:
-            idx = df[mask_5g].sample(n=min(demote_count, mask_5g.sum()), random_state=42).index
+            idx = (
+                df[mask_5g]
+                .sample(n=min(demote_count, mask_5g.sum()), random_state=42)
+                .index
+            )
             df.loc[idx, "highest_rat"] = "4G"
 
     # Usertype drift (silent/churn emergence)
@@ -135,13 +163,21 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         mask_data = df["usertype"] == "Data User"
         n_silent = int(mask_data.sum() * cfg["silent_shift"] * 0.6)
         if n_silent > 0:
-            idx = df[mask_data].sample(n=min(n_silent, mask_data.sum()), random_state=42).index
+            idx = (
+                df[mask_data]
+                .sample(n=min(n_silent, mask_data.sum()), random_state=42)
+                .index
+            )
             df.loc[idx, "usertype"] = "Silent User"
 
         mask_voice = df["usertype"] == "Voice User"
         n_silent_v = int(mask_voice.sum() * cfg["silent_shift"] * 0.4)
         if n_silent_v > 0:
-            idx = df[mask_voice].sample(n=min(n_silent_v, mask_voice.sum()), random_state=42).index
+            idx = (
+                df[mask_voice]
+                .sample(n=min(n_silent_v, mask_voice.sum()), random_state=42)
+                .index
+            )
             df.loc[idx, "usertype"] = "Silent User"
 
     # New IMSI/TAC for every record

@@ -37,7 +37,13 @@ def track_outcomes() -> dict:
 
     Returns a summary dict (counts) for logging by the pipeline.
     """
-    summary = {"checked": 0, "improved": 0, "no_change": 0, "worsened": 0, "still_pending": 0}
+    summary = {
+        "checked": 0,
+        "improved": 0,
+        "no_change": 0,
+        "worsened": 0,
+        "still_pending": 0,
+    }
 
     try:
         with get_conn() as conn:
@@ -57,7 +63,7 @@ def track_outcomes() -> dict:
                 pending = cur.fetchall()
                 summary["checked"] = len(pending)
 
-                for (row_id, intervention_id, imsi_hash, cem_before) in pending:
+                for row_id, intervention_id, imsi_hash, cem_before in pending:
                     cur.execute(
                         """
                         SELECT cem_score

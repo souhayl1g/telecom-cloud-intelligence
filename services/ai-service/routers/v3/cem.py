@@ -18,6 +18,7 @@ class CemRecord(BaseModel):
     default to 0.0 so a partial-feature payload never returns 422 — it
     returns a prediction the model can compute on the columns it has.
     """
+
     model_config = ConfigDict(extra="allow")
 
 

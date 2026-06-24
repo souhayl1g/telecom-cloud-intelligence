@@ -41,6 +41,7 @@ def _action_metadata(action: dict) -> dict:
             return meta
     return {}
 
+
 router = APIRouter()
 
 
@@ -173,7 +174,9 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     raise HTTPException(status_code=404, detail="Action not found")
 
                 if action.get("status") in ("executed",):
-                    raise HTTPException(status_code=409, detail="Action has already been executed")
+                    raise HTTPException(
+                        status_code=409, detail="Action has already been executed"
+                    )
 
                 playbook_id = action.get("playbook_id")
                 execution_log = {"playbook_id": playbook_id, "steps": []}
@@ -182,7 +185,9 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                 if playbook_id == "pb-model-retrain":
                     try:
                         r = requests.post(
-                            f"{AI_SERVICE_URL}/models/reload", timeout=15, headers={"X-Internal-Key": INTERNAL_API_KEY}
+                            f"{AI_SERVICE_URL}/models/reload",
+                            timeout=15,
+                            headers={"X-Internal-Key": INTERNAL_API_KEY},
                         )
                         r.raise_for_status()
                         reload_result = r.json()
@@ -206,9 +211,13 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     )
                     recent = cur.fetchall()
                     critical = [r for r in recent if (r["cell_load_pct"] or 0) > 80]
-                    warning = [r for r in recent if 50 < (r["cell_load_pct"] or 0) <= 80]
+                    warning = [
+                        r for r in recent if 50 < (r["cell_load_pct"] or 0) <= 80
+                    ]
                     low = [r for r in recent if (r["cell_load_pct"] or 0) <= 50]
-                    cells_affected = list({r["cell_id"] for r in critical if r["cell_id"]})
+                    cells_affected = list(
+                        {r["cell_id"] for r in critical if r["cell_id"]}
+                    )
 
                     # Cross-reference with Granger causality for root cause
                     cur.execute(
@@ -241,7 +250,10 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                                 for c in strong_granger
                             ],
                         },
-                        {"step": "Triage complete", "priority": "P1" if critical else "P2"},
+                        {
+                            "step": "Triage complete",
+                            "priority": "P1" if critical else "P2",
+                        },
                     ]
 
                 # ── pb-revenue-protect ────────────────────────────────────
@@ -263,8 +275,12 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                             "subscribers": [
                                 {
                                     "id": r["imsi_hash"],
-                                    "rat_gap_score": float(r["rat_gap_score"]) if r["rat_gap_score"] else None,
-                                    "cem_score": float(r["cem_score"]) if r["cem_score"] else None,
+                                    "rat_gap_score": float(r["rat_gap_score"])
+                                    if r["rat_gap_score"]
+                                    else None,
+                                    "cem_score": float(r["cem_score"])
+                                    if r["cem_score"]
+                                    else None,
                                     "churn_risk": r["churn_risk_flag"],
                                 }
                                 for r in flagged
@@ -273,12 +289,16 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         {
                             "step": "Protection summary",
                             "flagged_count": len(flagged),
-                            "underserved_count": sum(1 for r in flagged if r["rat_gap_score"] and r["rat_gap_score"] > 0.3),
-                            "churn_risk_count": sum(1 for r in flagged if r["churn_risk_flag"]),
+                            "underserved_count": sum(
+                                1
+                                for r in flagged
+                                if r["rat_gap_score"] and r["rat_gap_score"] > 0.3
+                            ),
+                            "churn_risk_count": sum(
+                                1 for r in flagged if r["churn_risk_flag"]
+                            ),
                         },
                     ]
-
-
 
                 # ── pb-capacity-scale ─────────────────────────────────────
                 elif playbook_id == "pb-capacity-scale":
@@ -296,13 +316,58 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     )
                     history = cur.fetchall()
                     if history:
-                        avg_throughput = sum(r["avg_throughput"] for r in history if r["avg_throughput"] is not None) / max(len([r for r in history if r["avg_throughput"] is not None]), 1)
-                        avg_latency = sum(r["avg_latency"] for r in history if r["avg_latency"] is not None) / max(len([r for r in history if r["avg_latency"] is not None]), 1)
-                        avg_users = sum(r["subscriber_count"] for r in history if r["subscriber_count"] is not None) / max(len([r for r in history if r["subscriber_count"] is not None]), 1)
-                        max_throughput = max((r["avg_throughput"] for r in history if r["avg_throughput"] is not None), default=0)
-                        max_users = max((r["subscriber_count"] for r in history if r["subscriber_count"] is not None), default=0)
+                        avg_throughput = sum(
+                            r["avg_throughput"]
+                            for r in history
+                            if r["avg_throughput"] is not None
+                        ) / max(
+                            len(
+                                [r for r in history if r["avg_throughput"] is not None]
+                            ),
+                            1,
+                        )
+                        avg_latency = sum(
+                            r["avg_latency"]
+                            for r in history
+                            if r["avg_latency"] is not None
+                        ) / max(
+                            len([r for r in history if r["avg_latency"] is not None]), 1
+                        )
+                        avg_users = sum(
+                            r["subscriber_count"]
+                            for r in history
+                            if r["subscriber_count"] is not None
+                        ) / max(
+                            len(
+                                [
+                                    r
+                                    for r in history
+                                    if r["subscriber_count"] is not None
+                                ]
+                            ),
+                            1,
+                        )
+                        max_throughput = max(
+                            (
+                                r["avg_throughput"]
+                                for r in history
+                                if r["avg_throughput"] is not None
+                            ),
+                            default=0,
+                        )
+                        max_users = max(
+                            (
+                                r["subscriber_count"]
+                                for r in history
+                                if r["subscriber_count"] is not None
+                            ),
+                            default=0,
+                        )
                         execution_log["steps"] = [
-                            {"step": "Compute capacity from recent runs", "runs_analyzed": len(history)},
+                            {
+                                "step": "Compute capacity from recent runs",
+                                "runs_analyzed": len(history),
+                            },
                             {
                                 "step": "Current averages",
                                 "throughput_mbps": round(avg_throughput, 2),
@@ -316,8 +381,14 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                             },
                             {
                                 "step": "Capacity recommendation",
-                                "throughput_headroom_pct": round((1 - avg_throughput / max(max_throughput * 1.3, 1)) * 100, 1),
-                                "user_headroom_pct": round((1 - avg_users / max(max_users * 1.3, 1)) * 100, 1),
+                                "throughput_headroom_pct": round(
+                                    (1 - avg_throughput / max(max_throughput * 1.3, 1))
+                                    * 100,
+                                    1,
+                                ),
+                                "user_headroom_pct": round(
+                                    (1 - avg_users / max(max_users * 1.3, 1)) * 100, 1
+                                ),
                             },
                         ]
                     else:
@@ -355,7 +426,7 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     body_template = (
                         meta.get("message")
                         or "Tunisie Telecom: we detected service-quality issues in your area. "
-                           "Our team is actively optimizing your network. Expected resolution: 48h."
+                        "Our team is actively optimizing your network. Expected resolution: 48h."
                     )
 
                     send_results = []
@@ -363,7 +434,9 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         rcp = (
                             target_phone
                             or (rec.get("features_json") or {}).get("phone")
-                            or rec["imsi_hash"]  # falls back to imsi as identifier in console mode
+                            or rec[
+                                "imsi_hash"
+                            ]  # falls back to imsi as identifier in console mode
                         )
                         nr = notifier.send_sms(
                             rcp,
@@ -386,16 +459,24 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         {"step": "Send notifications", "results": send_results},
                         {
                             "step": "Summary",
-                            "sent": sum(1 for r in send_results if r["status"] == "sent"),
-                            "logged": sum(1 for r in send_results if r["status"] == "logged"),
-                            "failed": sum(1 for r in send_results if r["status"] == "failed"),
+                            "sent": sum(
+                                1 for r in send_results if r["status"] == "sent"
+                            ),
+                            "logged": sum(
+                                1 for r in send_results if r["status"] == "logged"
+                            ),
+                            "failed": sum(
+                                1 for r in send_results if r["status"] == "failed"
+                            ),
                         },
                     ]
 
                 # ── pb-create-ticket ──────────────────────────────────────
                 elif playbook_id == "pb-create-ticket":
                     meta = _action_metadata(action)
-                    severity = action.get("severity") or meta.get("severity") or "warning"
+                    severity = (
+                        action.get("severity") or meta.get("severity") or "warning"
+                    )
                     ticket = ticketing.create_ticket(
                         title=action.get("title") or "L4 Agent Ticket",
                         description=action.get("description"),
@@ -414,7 +495,9 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     # Critical → also notify on-call (console-log unless SMTP set)
                     notif_results = []
                     if severity == "critical":
-                        oncall_email = os.getenv("ONCALL_EMAIL", "noc-oncall@tunisietelecom.tn")
+                        oncall_email = os.getenv(
+                            "ONCALL_EMAIL", "noc-oncall@tunisietelecom.tn"
+                        )
                         er = notifier.send_email(
                             oncall_email,
                             f"[NeXo CRITICAL] {ticket['ticket_id']} - {action.get('title')}",
@@ -456,7 +539,7 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         (
                             run_id,
                             model_name,
-                            f"notebooks/{ {'cem':'02_cem_score_training.ipynb', 'rat':'04_rat_underservice_training.ipynb', 'vae':'03_oss_vae_anomaly_training.ipynb'}[model_name] }",
+                            f"notebooks/{ {'cem': '02_cem_score_training.ipynb', 'rat': '04_rat_underservice_training.ipynb', 'vae': '03_oss_vae_anomaly_training.ipynb'}[model_name] }",
                             Json(metrics_before),
                             action_id,
                         ),
@@ -485,11 +568,12 @@ def execute_action(action_id: str, user=Depends(require_auth)):
 
                     # Reload models in ai-service if retrain succeeded
                     reload_result: dict = {}
-                    metrics_dump_result: dict = {}
                     if status_out == "succeeded":
                         try:
                             r = requests.post(
-                                f"{AI_SERVICE_URL}/models/reload", timeout=30, headers={"X-Internal-Key": INTERNAL_API_KEY}
+                                f"{AI_SERVICE_URL}/models/reload",
+                                timeout=30,
+                                headers={"X-Internal-Key": INTERNAL_API_KEY},
                             )
                             r.raise_for_status()
                             reload_result = r.json()
@@ -501,17 +585,16 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         # honest numbers without a redeploy.
                         try:
                             import subprocess
-                            proc = subprocess.run(
+
+                            # Side effect only: regenerate notebooks/models/metrics.json.
+                            subprocess.run(
                                 ["python3", "/scripts/dump_model_metrics.py"],
-                                capture_output=True, text=True, timeout=30,
+                                capture_output=True,
+                                text=True,
+                                timeout=30,
                             )
-                            metrics_dump_result = {
-                                "exit_code": proc.returncode,
-                                "stdout_tail": (proc.stdout or "")[-400:],
-                                "stderr_tail": (proc.stderr or "")[-400:],
-                            }
-                        except Exception as e:
-                            metrics_dump_result = {"error": str(e)[:300]}
+                        except Exception:
+                            pass
 
                     # Update retrain_runs
                     cur.execute(
@@ -534,15 +617,24 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         {"step": "Resolve model", "model_name": model_name},
                         {"step": "Snapshot metrics_before", "metrics": metrics_before},
                         {"step": "Run training notebook", "result": retrain_result},
-                        {"step": "Hot-reload models in ai-service", "result": reload_result},
-                        {"step": "Persist retrain_runs row", "run_id": run_id, "status": status_out},
+                        {
+                            "step": "Hot-reload models in ai-service",
+                            "result": reload_result,
+                        },
+                        {
+                            "step": "Persist retrain_runs row",
+                            "run_id": run_id,
+                            "status": status_out,
+                        },
                     ]
 
                 # ── pb-capacity-report ────────────────────────────────────
                 elif playbook_id == "pb-capacity-report":
                     meta = _action_metadata(action)
                     area = meta.get("area", "ALL")
-                    email_to = (meta.get("email_to") or REPORT_RECIPIENT_EMAIL or "").strip()
+                    email_to = (
+                        meta.get("email_to") or REPORT_RECIPIENT_EMAIL or ""
+                    ).strip()
                     try:
                         report = pdf_report.generate_capacity_report(
                             area=area, source_action_id=action_id
@@ -550,7 +642,10 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         steps = [
                             {"step": "Pull KPI history + anomalies", "area": area},
                             {"step": "Render PDF (fpdf2)"},
-                            {"step": "Upload to MinIO", "minio_key": report.get("minio_key")},
+                            {
+                                "step": "Upload to MinIO",
+                                "minio_key": report.get("minio_key"),
+                            },
                             {
                                 "step": "Capacity report ready",
                                 "report_id": report.get("report_id"),
@@ -568,14 +663,21 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                                 )
                                 ms = report.get("metrics_summary") or {}
                                 recs = ms.get("recommendations") or []
-                                rec_lines = "\n".join(f"  - {r}" for r in recs) if recs else "  (none)"
-                                per_rat_lines = "\n".join(
-                                    f"  - {rt.get('rat_type')}: {rt.get('row_count', 0):,} rows, "
-                                    f"{rt.get('anomaly_count', 0):,} anomalies, "
-                                    f"integrity={rt.get('avg_integrity_pct', '—')}%, "
-                                    f"CDR={rt.get('avg_cdr_pct', '—')}%"
-                                    for rt in (ms.get("per_rat") or [])
-                                ) or "  (no per-RAT breakdown)"
+                                rec_lines = (
+                                    "\n".join(f"  - {r}" for r in recs)
+                                    if recs
+                                    else "  (none)"
+                                )
+                                per_rat_lines = (
+                                    "\n".join(
+                                        f"  - {rt.get('rat_type')}: {rt.get('row_count', 0):,} rows, "
+                                        f"{rt.get('anomaly_count', 0):,} anomalies, "
+                                        f"integrity={rt.get('avg_integrity_pct', '—')}%, "
+                                        f"CDR={rt.get('avg_cdr_pct', '—')}%"
+                                        for rt in (ms.get("per_rat") or [])
+                                    )
+                                    or "  (no per-RAT breakdown)"
+                                )
                                 body = (
                                     f"NeXo Capacity Recommendation Report (Real Huawei OSS data)\n"
                                     f"Area: {area}\n"
@@ -603,23 +705,29 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                                     pdf_filename,
                                     source_action_id=action_id,
                                 )
-                                steps.append({
-                                    "step": "Email PDF",
-                                    "to": email_to,
-                                    "provider": nr.provider,
-                                    "status": nr.status,
-                                    "provider_msg_id": nr.provider_msg_id,
-                                    "error": nr.error,
-                                })
+                                steps.append(
+                                    {
+                                        "step": "Email PDF",
+                                        "to": email_to,
+                                        "provider": nr.provider,
+                                        "status": nr.status,
+                                        "provider_msg_id": nr.provider_msg_id,
+                                        "error": nr.error,
+                                    }
+                                )
                             except Exception as mail_err:
-                                steps.append({
-                                    "step": "Email PDF",
-                                    "error": str(mail_err)[:300],
-                                })
+                                steps.append(
+                                    {
+                                        "step": "Email PDF",
+                                        "error": str(mail_err)[:300],
+                                    }
+                                )
 
                         execution_log["steps"] = steps
                     except Exception as e:
-                        execution_log["steps"] = [{"step": "Generate PDF", "error": str(e)[:300]}]
+                        execution_log["steps"] = [
+                            {"step": "Generate PDF", "error": str(e)[:300]}
+                        ]
 
                 # ── pb-cem-degradation ────────────────────────────────────
                 elif playbook_id == "pb-cem-degradation":
@@ -689,11 +797,13 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         if (oa.get("rsrp_dbm") or 0) < -110:
                             causes.append("poor_coverage")
                         if causes:
-                            root_causes.append({
-                                "cell_id": oa["cell_id"],
-                                "area": oa["area"],
-                                "causes": causes,
-                            })
+                            root_causes.append(
+                                {
+                                    "cell_id": oa["cell_id"],
+                                    "area": oa["area"],
+                                    "causes": causes,
+                                }
+                            )
 
                     # 5. Create ticket for worst affected area
                     ticket = None
@@ -707,7 +817,9 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                                 f"- OSS anomalies detected: {len(oss_anomalies)}\n"
                                 f"- VAE anomalies detected: {len(vae_anomalies)}"
                             ),
-                            severity="critical" if (worst_area.get("avg_cem_score") or 1) < 0.2 else "warning",
+                            severity="critical"
+                            if (worst_area.get("avg_cem_score") or 1) < 0.2
+                            else "warning",
                             source_action_id=action_id,
                             area=worst_area["area"],
                             metadata={
@@ -732,16 +844,35 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         )
 
                     execution_log["steps"] = [
-                        {"step": "Identify poor CEM areas", "count": len(poor_areas), "areas": [a["area"] for a in poor_areas]},
-                        {"step": "Correlate OSS anomalies", "count": len(oss_anomalies), "top_cells": [a["cell_id"] for a in oss_anomalies[:5]]},
-                        {"step": "Correlate VAE anomalies", "count": len(vae_anomalies)},
+                        {
+                            "step": "Identify poor CEM areas",
+                            "count": len(poor_areas),
+                            "areas": [a["area"] for a in poor_areas],
+                        },
+                        {
+                            "step": "Correlate OSS anomalies",
+                            "count": len(oss_anomalies),
+                            "top_cells": [a["cell_id"] for a in oss_anomalies[:5]],
+                        },
+                        {
+                            "step": "Correlate VAE anomalies",
+                            "count": len(vae_anomalies),
+                        },
                         {"step": "Root-cause KPIs", "top_causes": root_causes[:5]},
-                        {"step": "Create NOC ticket", "ticket_id": ticket["ticket_id"] if ticket else None},
-                        {"step": "Send alert", "status": notif_result.status if notif_result else None},
+                        {
+                            "step": "Create NOC ticket",
+                            "ticket_id": ticket["ticket_id"] if ticket else None,
+                        },
+                        {
+                            "step": "Send alert",
+                            "status": notif_result.status if notif_result else None,
+                        },
                         {
                             "step": "Summary",
                             "worst_area": worst_area["area"] if worst_area else None,
-                            "avg_cem_score": float(worst_area["avg_cem_score"]) if worst_area and worst_area.get("avg_cem_score") else None,
+                            "avg_cem_score": float(worst_area["avg_cem_score"])
+                            if worst_area and worst_area.get("avg_cem_score")
+                            else None,
                         },
                     ]
 
@@ -781,7 +912,11 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                         else:
                             body_sub = body_template
 
-                        rcp = (sub.get("features_json") or {}).get("phone") or DEMO_SMS_RECIPIENT or sub["imsi_hash"]
+                        rcp = (
+                            (sub.get("features_json") or {}).get("phone")
+                            or DEMO_SMS_RECIPIENT
+                            or sub["imsi_hash"]
+                        )
                         nr = notifier.send_sms(
                             rcp,
                             body_sub,
@@ -806,12 +941,14 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                                 intervention_type,
                                 sub.get("cem_score"),
                                 sub.get("rat_gap_score"),
-                                Json({
-                                    "channel": "sms",
-                                    "message": body_sub,
-                                    "provider": nr.provider,
-                                    "provider_msg_id": nr.provider_msg_id,
-                                }),
+                                Json(
+                                    {
+                                        "channel": "sms",
+                                        "message": body_sub,
+                                        "provider": nr.provider,
+                                        "provider_msg_id": nr.provider_msg_id,
+                                    }
+                                ),
                                 action_id,
                             ),
                         )
@@ -840,13 +977,21 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     est_revenue_protected = len(high_risk) * 20
 
                     execution_log["steps"] = [
-                        {"step": "Query high-risk subscribers", "count": len(high_risk)},
+                        {
+                            "step": "Query high-risk subscribers",
+                            "count": len(high_risk),
+                        },
                         {"step": "Dispatch retention SMS", "sent": sms_count},
                         {"step": "SIM upgrade offers", "count": sim_offer_count},
-                        {"step": "Create interventions", "count": len(intervention_rows)},
+                        {
+                            "step": "Create interventions",
+                            "count": len(intervention_rows),
+                        },
                         {
                             "step": "Open bulk tracking ticket",
-                            "ticket_id": bulk_ticket["ticket_id"] if bulk_ticket else None,
+                            "ticket_id": bulk_ticket["ticket_id"]
+                            if bulk_ticket
+                            else None,
                         },
                         {
                             "step": "Outcome tracking armed",
@@ -856,7 +1001,9 @@ def execute_action(action_id: str, user=Depends(require_auth)):
                     ]
 
                 else:
-                    execution_log["steps"] = [{"step": f"Unknown playbook: {playbook_id}"}]
+                    execution_log["steps"] = [
+                        {"step": f"Unknown playbook: {playbook_id}"}
+                    ]
 
                 # Update action with execution log
                 cur.execute(

@@ -307,7 +307,6 @@ services:
     image: netdata/netdata:v1.47
     container_name: netdata
     hostname: netdata
-    profiles: [monitoring]
     ports:
       - "19999:19999"
     environment:
@@ -336,7 +335,6 @@ services:
     image: prom/prometheus:v2.55.0
     container_name: prometheus
     hostname: prometheus
-    profiles: [monitoring]
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -358,7 +356,6 @@ services:
     image: grafana/grafana:11.2.0
     container_name: grafana
     hostname: grafana
-    profiles: [monitoring]
     ports:
       - "3000:3000"
     environment:
@@ -377,7 +374,6 @@ services:
     image: jaegertracing/jaeger:2.17.0
     container_name: jaeger
     hostname: jaeger
-    profiles: [monitoring]
     ports:
       - "16686:16686"   # Jaeger UI
       - "4317:4317"     # OTLP gRPC (receives traces from otel-collector)
@@ -392,7 +388,6 @@ services:
     image: otel/opentelemetry-collector-contrib:0.119.0
     container_name: otel-collector
     hostname: otel-collector
-    profiles: [monitoring]
     command:
       - "--config=/etc/otelcol-contrib/config.yaml"
     ports:

@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRole } from './RoleContext';
+import { canAccess, ROLE_LABEL } from '../lib/roles';
 
 interface NavItem {
     href: string;
@@ -36,14 +38,22 @@ const navSections: NavSection[] = [
         ],
     },
     {
-        title: 'Convergence',
+        title: 'Converged Data Lake',
         items: [
+            { href: '/data-lake',         label: 'Data Lake', icon: 'lan' },
             { href: '/granger-causality', label: 'Granger', icon: 'account_tree' },
             { href: '/correlations',      label: 'Correlations', icon: 'hub', dim: true },
         ],
     },
     {
-        title: 'ML Models',
+        title: 'Network Data',
+        items: [
+            { href: '/oss-cells',       label: 'OSS Cells',       icon: 'cell_tower' },
+            { href: '/bss-subscribers', label: 'BSS Subscribers', icon: 'group' },
+        ],
+    },
+    {
+        title: 'ML Results',
         items: [
             { href: '/cem-scores',       label: 'CEM Scores',  icon: 'analytics' },
             { href: '/vae-anomalies',    label: 'VAE Anomalies', icon: 'science' },
@@ -60,17 +70,34 @@ const navSections: NavSection[] = [
         ],
     },
     {
+        title: 'Data Science',
+        items: [
+            { href: '/model-evaluation', label: 'Model Evaluation', icon: 'model_training' },
+            { href: '/notebook-lab',     label: 'Notebook Lab',     icon: 'science' },
+            { href: '/data-drift',       label: 'Data Drift',       icon: 'show_chart' },
+            { href: '/data-explorer',    label: 'Data Explorer',    icon: 'table_view' },
+            { href: '/minio',            label: 'Lake Objects',     icon: 'inventory_2' },
+            { href: '/data-warehouse',   label: 'Warehouse',        icon: 'database', dim: true },
+            { href: '/intelligence',     label: 'AI Hub',           icon: 'smart_toy', dim: true },
+        ],
+    },
+    {
+        title: 'Administration',
+        items: [
+            { href: '/admin', label: 'Admin Console', icon: 'admin_panel_settings' },
+        ],
+    },
+    {
         title: 'More',
         collapsible: true,
         defaultCollapsed: true,
         items: [
-            { href: '/predictive',       label: 'Forecast',  icon: 'trending_up' },
-            { href: '/capacity',         label: 'Capacity',  icon: 'storage' },
-            { href: '/intelligence',     label: 'AI Hub',    icon: 'smart_toy' },
-            { href: '/model-evaluation', label: 'Models',    icon: 'model_training' },
-            { href: '/pipeline-runs',    label: 'Pipelines', icon: 'rocket_launch' },
-            { href: '/ops-metrics',      label: 'Health',    icon: 'monitor_heart' },
-            { href: '/data-warehouse',   label: 'Warehouse', icon: 'database' },
+            { href: '/predictive',     label: 'Forecast',  icon: 'trending_up' },
+            { href: '/capacity',       label: 'Capacity',  icon: 'storage' },
+            { href: '/metrics',        label: 'Metrics',   icon: 'monitoring' },
+            { href: '/traces',         label: 'Traces',    icon: 'account_tree' },
+            { href: '/pipeline-runs',  label: 'Pipelines', icon: 'rocket_launch' },
+            { href: '/ops-metrics',    label: 'Health',    icon: 'monitor_heart' },
         ],
     },
 ];
@@ -91,6 +118,12 @@ const itemVariants = {
 export default function Sidebar() {
     const pathname = usePathname();
     const router   = useRouter();
+    const { role } = useRole();
+
+    // Role-filter every section; admin (super-role) sees all. Drop empty sections.
+    const visibleSections = navSections
+        .map((s) => ({ ...s, items: s.items.filter((it) => canAccess(it.href, role)) }))
+        .filter((s) => s.items.length > 0);
     // Default collapsed = pro icon-rail (Linear/Vercel/Stripe style)
     const [collapsed,    setCollapsed]    = useState(true);
     const [hoveredItem,  setHoveredItem]  = useState<string | null>(null);
@@ -160,7 +193,7 @@ export default function Sidebar() {
                                 transition={{ duration: 0.2 }}
                             >
                                 <span className="sidebar-brand">NeXo Intelligence</span>
-                                <span className="sidebar-brand-sub">ADN Operations</span>
+                                <span className="sidebar-brand-sub">{role ? ROLE_LABEL[role] : 'ADN Operations'}</span>
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -203,7 +236,7 @@ export default function Sidebar() {
 
             {/* ── Navigation ───────────────────────────── */}
             <nav className="sidebar-nav">
-                {navSections.map((section) => {
+                {visibleSections.map((section) => {
                     const isOpen = openGroups[section.title] ?? !section.defaultCollapsed;
                     const showItems = !section.collapsible || isOpen || collapsed;
                     return (

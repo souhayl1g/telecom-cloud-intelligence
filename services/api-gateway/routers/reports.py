@@ -47,17 +47,22 @@ def create_capacity_report(body: dict = Body(default={}), user=Depends(require_a
 
     if want_email and email_to and result.get("minio_key"):
         try:
-            pdf_bytes = storage.download_bytes(bucket=REPORTS_BUCKET, key=result["minio_key"])
+            pdf_bytes = storage.download_bytes(
+                bucket=REPORTS_BUCKET, key=result["minio_key"]
+            )
             ms = result.get("metrics_summary") or {}
             recs = ms.get("recommendations") or []
             rec_lines = "\n".join(f"  - {r}" for r in recs) if recs else "  (none)"
-            per_rat_lines = "\n".join(
-                f"  - {rt.get('rat_type')}: {rt.get('row_count', 0):,} rows, "
-                f"{rt.get('anomaly_count', 0):,} anomalies, "
-                f"integrity={rt.get('avg_integrity_pct', '—')}%, "
-                f"CDR={rt.get('avg_cdr_pct', '—')}%"
-                for rt in (ms.get("per_rat") or [])
-            ) or "  (no per-RAT breakdown)"
+            per_rat_lines = (
+                "\n".join(
+                    f"  - {rt.get('rat_type')}: {rt.get('row_count', 0):,} rows, "
+                    f"{rt.get('anomaly_count', 0):,} anomalies, "
+                    f"integrity={rt.get('avg_integrity_pct', '—')}%, "
+                    f"CDR={rt.get('avg_cdr_pct', '—')}%"
+                    for rt in (ms.get("per_rat") or [])
+                )
+                or "  (no per-RAT breakdown)"
+            )
             mail_body = (
                 f"NeXo Capacity Recommendation Report (Real Huawei OSS data)\n"
                 f"Area: {area}\n"
@@ -94,7 +99,11 @@ def create_capacity_report(body: dict = Body(default={}), user=Depends(require_a
                 "error": nr.error,
             }
         except Exception as e:
-            result["email"] = {"to": email_to, "status": "failed", "error": str(e)[:300]}
+            result["email"] = {
+                "to": email_to,
+                "status": "failed",
+                "error": str(e)[:300],
+            }
     elif want_email and not email_to:
         result["email"] = {
             "status": "skipped",

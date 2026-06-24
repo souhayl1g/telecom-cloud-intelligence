@@ -29,7 +29,9 @@ app = FastAPI(title="NeXo Agent Service", version="3.0")
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
 
-    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    Instrumentator().instrument(app).expose(
+        app, endpoint="/metrics", include_in_schema=False
+    )
 except ImportError:
     pass
 
@@ -37,6 +39,7 @@ orchestrator = Orchestrator()
 
 
 # ── request models ───────────────────────────────────────────────────────────
+
 
 class QueryRequest(BaseModel):
     query: str
@@ -49,6 +52,7 @@ class AgentRequest(BaseModel):
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
+
 
 @app.get("/health")
 def health():
@@ -114,14 +118,14 @@ async def agent_action(req: AgentRequest, _=Depends(require_internal_auth)):
 def list_playbooks(_=Depends(require_internal_auth)):
     """List all available playbooks."""
     from agents.action_agent import PLAYBOOKS
-    return {
-        "playbooks": [{"id": k, "description": v} for k, v in PLAYBOOKS.items()]
-    }
+
+    return {"playbooks": [{"id": k, "description": v} for k, v in PLAYBOOKS.items()]}
 
 
 # ── local dev ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.getenv("PORT", "8003"))
     uvicorn.run(app, host="0.0.0.0", port=port)

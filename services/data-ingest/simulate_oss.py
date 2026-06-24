@@ -24,14 +24,36 @@ from psycopg2.extras import execute_values
 
 np.random.seed(42)
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel"
+)
 
 # Tunisia's 24 governorates (as they appear in the data)
 TUNISIAN_AREAS = [
-    "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa", "Jendouba",
-    "Kairouan", "Kasserine", "Kebili", "La Manouba", "Le Kef", "Mahdia",
-    "Medenine", "Monastir", "NABEUL", "Sfax", "Sidi Bouzid", "Siliana",
-    "Sousse", "Tataouine", "Tozeur", "Tunis", "Zaghouan"
+    "Ariana",
+    "Beja",
+    "Ben Arous",
+    "Bizerte",
+    "Gabes",
+    "Gafsa",
+    "Jendouba",
+    "Kairouan",
+    "Kasserine",
+    "Kebili",
+    "La Manouba",
+    "Le Kef",
+    "Mahdia",
+    "Medenine",
+    "Monastir",
+    "NABEUL",
+    "Sfax",
+    "Sidi Bouzid",
+    "Siliana",
+    "Sousse",
+    "Tataouine",
+    "Tozeur",
+    "Tunis",
+    "Zaghouan",
 ]
 
 CELLS_PER_AREA = 10
@@ -95,7 +117,9 @@ def generate_cell_kpis(area: str, cell_idx: int, profile: dict, month_year: str)
     """Generate KPIs for one cell, correlated with area BSS profile."""
     # Seed per (area, cell, month) for reproducibility
     seed_str = f"{area}-{cell_idx}-{month_year}"
-    rng = np.random.default_rng(int(hashlib.sha256(seed_str.encode()).hexdigest(), 16) % (2**31))
+    rng = np.random.default_rng(
+        int(hashlib.sha256(seed_str.encode()).hexdigest(), 16) % (2**31)
+    )
 
     load_factor = profile["sub_count"] / 20000.0  # normalize around ~20K subs per area
     _data_heavy = profile["pct_data"]
@@ -112,16 +136,16 @@ def generate_cell_kpis(area: str, cell_idx: int, profile: dict, month_year: str)
     month_drift = {
         "2026-02": 0.0,
         "2026-03": -0.02,
-        "2026-04": 0.05,   # spring optimization
+        "2026-04": 0.05,  # spring optimization
         "2026-05": -0.08,  # pre-summer strain
         "2026-06": -0.15,  # churn + summer heat strain
     }.get(month_year, 0.0)
 
     # Apply drift
-    base_throughput *= (1 + month_drift)
-    base_latency *= (1 - month_drift)
-    base_packet_loss *= (1 - month_drift)
-    base_jitter *= (1 - month_drift)
+    base_throughput *= 1 + month_drift
+    base_latency *= 1 - month_drift
+    base_packet_loss *= 1 - month_drift
+    base_jitter *= 1 - month_drift
     base_rsrp += month_drift * 10.0
 
     # Fault injection: ~20% of cells per area are degraded
@@ -140,7 +164,9 @@ def generate_cell_kpis(area: str, cell_idx: int, profile: dict, month_year: str)
     latency = max(5.0, min(300.0, base_latency))
     packet_loss = max(0.0, min(20.0, base_packet_loss))
     jitter = max(1.0, min(100.0, base_jitter))
-    active_users = int(max(10, profile["sub_count"] // CELLS_PER_AREA * rng.uniform(0.7, 1.3)))
+    active_users = int(
+        max(10, profile["sub_count"] // CELLS_PER_AREA * rng.uniform(0.7, 1.3))
+    )
     rsrp = max(-130.0, min(-50.0, base_rsrp))
     cell_load = min(100.0, max(10.0, load_factor * 80.0 + rng.normal(0, 10)))
 

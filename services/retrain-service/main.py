@@ -19,7 +19,7 @@ from typing import Optional
 import boto3
 import papermill as pm
 from botocore.client import Config
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from auth import require_internal_auth

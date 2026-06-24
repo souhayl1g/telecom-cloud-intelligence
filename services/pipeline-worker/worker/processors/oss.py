@@ -16,9 +16,12 @@ def build_processed_oss(records: list[dict]) -> list[dict]:
 
         if lat is not None:
             lat_severity = (
-                "critical" if lat > 80
-                else "high" if lat > 50
-                else "medium" if lat > 30
+                "critical"
+                if lat > 80
+                else "high"
+                if lat > 50
+                else "medium"
+                if lat > 30
                 else "normal"
             )
         else:
@@ -35,16 +38,20 @@ def build_processed_oss(records: list[dict]) -> list[dict]:
             load_factor = None
 
         if lat is not None and loss is not None and tput is not None:
-            qos_score = round(max(0.0, 1.0 - (lat / 100) - (loss / 10) + (tput / 200)), 4)
+            qos_score = round(
+                max(0.0, 1.0 - (lat / 100) - (loss / 10) + (tput / 200)), 4
+            )
         else:
             qos_score = None
 
         rec = {k: v for k, v in r.items() if k != "is_fault"}
-        rec.update({
-            "latency_severity": lat_severity,
-            "throughput_category": tput_category,
-            "load_factor": load_factor,
-            "qos_score": qos_score,
-        })
+        rec.update(
+            {
+                "latency_severity": lat_severity,
+                "throughput_category": tput_category,
+                "load_factor": load_factor,
+                "qos_score": qos_score,
+            }
+        )
         processed.append(rec)
     return processed

@@ -1,4 +1,5 @@
 """Tests for synthetic data generators."""
+
 from worker.generators.oss import generate_oss
 from worker.generators.bss import generate_bss
 
@@ -10,8 +11,16 @@ def test_generate_oss_record_count():
 
 def test_generate_oss_required_fields():
     records, _ = generate_oss(n=5, seed=1)
-    required = {"ts", "cell_id", "throughput_mbps", "latency_ms",
-                "packet_loss_pct", "active_users", "signal_rsrp_dbm", "is_fault"}
+    required = {
+        "ts",
+        "cell_id",
+        "throughput_mbps",
+        "latency_ms",
+        "packet_loss_pct",
+        "active_users",
+        "signal_rsrp_dbm",
+        "is_fault",
+    }
     for rec in records:
         assert required.issubset(rec.keys())
 
@@ -38,10 +47,23 @@ def test_generate_bss_record_count():
 
 def test_generate_bss_required_fields():
     rows = generate_bss(n=5, seed=1)
-    required = {"ts", "subscriber_id", "area", "generation", "highest_rat",
-                "dou_total", "duration", "s1_mme_sr", "iu_attach_sr",
-                "gb_attach_sr", "usertype", "usim_bottleneck",
-                "data_intensity", "network_experience_index", "rat_gap_score"}
+    required = {
+        "ts",
+        "subscriber_id",
+        "area",
+        "generation",
+        "highest_rat",
+        "dou_total",
+        "duration",
+        "s1_mme_sr",
+        "iu_attach_sr",
+        "gb_attach_sr",
+        "usertype",
+        "usim_bottleneck",
+        "data_intensity",
+        "network_experience_index",
+        "rat_gap_score",
+    }
     for row in rows:
         assert required.issubset(row.keys())
 

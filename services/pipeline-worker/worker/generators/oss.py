@@ -1,4 +1,5 @@
 """Synthetic OSS KPI record generator with fault injection."""
+
 from datetime import datetime, timezone, timedelta
 import numpy as np
 

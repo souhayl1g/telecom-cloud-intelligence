@@ -88,11 +88,15 @@ def infra_stats(user=Depends(require_auth)):
                 row_counts = cur.fetchone()
 
                 # Total data lake rows from dataset_registry
-                cur.execute("SELECT COALESCE(SUM(row_count), 0) AS total_data_rows FROM dataset_registry;")
+                cur.execute(
+                    "SELECT COALESCE(SUM(row_count), 0) AS total_data_rows FROM dataset_registry;"
+                )
                 data_rows = cur.fetchone()
 
                 # Real DB size
-                cur.execute("SELECT pg_database_size(current_database()) AS db_size_bytes;")
+                cur.execute(
+                    "SELECT pg_database_size(current_database()) AS db_size_bytes;"
+                )
                 db_size = cur.fetchone()
 
                 # Real table sizes
@@ -134,15 +138,25 @@ def infra_stats(user=Depends(require_auth)):
                     "total_rows": total_rows,
                     "total_data_rows": int(data_rows["total_data_rows"]),
                     "db_size_bytes": int(db_size["db_size_bytes"]),
-                    "db_size_mb": round(int(db_size["db_size_bytes"]) / (1024 * 1024), 1),
+                    "db_size_mb": round(
+                        int(db_size["db_size_bytes"]) / (1024 * 1024), 1
+                    ),
                     "table_sizes": {k: int(v) for k, v in table_sizes.items()},
                     "pipeline_timing": {
                         "finished_runs": int(pipeline_timing["finished_runs"]),
-                        "avg_duration_sec": round(float(pipeline_timing["avg_duration_sec"]), 1),
-                        "max_duration_sec": round(float(pipeline_timing["max_duration_sec"]), 1),
+                        "avg_duration_sec": round(
+                            float(pipeline_timing["avg_duration_sec"]), 1
+                        ),
+                        "max_duration_sec": round(
+                            float(pipeline_timing["max_duration_sec"]), 1
+                        ),
                     },
                     "data_lake_layers": [
-                        {"layer": r["layer"], "datasets": int(r["count"]), "rows": int(r["rows"])}
+                        {
+                            "layer": r["layer"],
+                            "datasets": int(r["count"]),
+                            "rows": int(r["rows"]),
+                        }
                         for r in layers
                     ],
                 }

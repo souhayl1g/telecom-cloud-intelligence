@@ -7,6 +7,7 @@ import StatusStrip from '../components/StatusStrip';
 import ThemeProvider from '../components/ThemeProvider';
 import CommandPalette from '../components/CommandPalette';
 import { RefreshProvider } from '../components/RefreshContext';
+import { RoleProvider } from '../components/RoleContext';
 
 const AUTH_PAGES = ['/login', '/signup', '/auth/callback', '/forgot-password', '/reset-password'];
 
@@ -36,6 +37,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     return (
         <ThemeProvider>
+            <RoleProvider>
             <RefreshProvider intervalMs={30000}>
                 <div className="layout-app">
                     <Sidebar />
@@ -60,6 +62,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     <CommandPalette />
                 </div>
             </RefreshProvider>
+            </RoleProvider>
         </ThemeProvider>
     );
 }

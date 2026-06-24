@@ -1,4 +1,5 @@
 """Tests for rolling window sampler — mock DB queries."""
+
 from unittest.mock import patch, MagicMock
 from worker.sampler import sample_bss_records, sample_oss_records
 
@@ -6,10 +7,40 @@ from worker.sampler import sample_bss_records, sample_oss_records
 def _mock_conn_bss():
     mock_cursor = MagicMock()
     mock_cursor.fetchall.return_value = [
-        ("hash001", "Tunis", "4G", "4G", 1500000000, 120.0, 0.95, 0.90, 0.85, "Data User", "2026-03",
-         True, 12500000.0, 0.88, 0.1),
-        ("hash002", "Sfax", "5G", "4G", 3000000000, 200.0, 0.88, 0.92, 0.80, "Data User", "2026-03",
-         False, 15000000.0, 0.85, 0.3),
+        (
+            "hash001",
+            "Tunis",
+            "4G",
+            "4G",
+            1500000000,
+            120.0,
+            0.95,
+            0.90,
+            0.85,
+            "Data User",
+            "2026-03",
+            True,
+            12500000.0,
+            0.88,
+            0.1,
+        ),
+        (
+            "hash002",
+            "Sfax",
+            "5G",
+            "4G",
+            3000000000,
+            200.0,
+            0.88,
+            0.92,
+            0.80,
+            "Data User",
+            "2026-03",
+            False,
+            15000000.0,
+            0.85,
+            0.3,
+        ),
     ]
     mock_conn = MagicMock()
     mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -42,9 +73,21 @@ def test_sample_bss_returns_list():
 def test_sample_bss_required_fields():
     with patch("worker.sampler.get_conn", return_value=_mock_conn_bss()):
         rows = sample_bss_records(n=2)
-    required = {"ts", "subscriber_id", "area", "generation", "highest_rat", "source",
-                "dou_total", "duration", "s1_mme_sr", "usim_bottleneck",
-                "data_intensity", "network_experience_index", "rat_gap_score"}
+    required = {
+        "ts",
+        "subscriber_id",
+        "area",
+        "generation",
+        "highest_rat",
+        "source",
+        "dou_total",
+        "duration",
+        "s1_mme_sr",
+        "usim_bottleneck",
+        "data_intensity",
+        "network_experience_index",
+        "rat_gap_score",
+    }
     for row in rows:
         assert required.issubset(row.keys())
         assert row["source"] == "real"
@@ -59,8 +102,17 @@ def test_sample_oss_returns_list():
 def test_sample_oss_required_fields():
     with patch("worker.sampler.get_conn", return_value=_mock_conn_oss()):
         rows = sample_oss_records(n=2)
-    required = {"ts", "region", "cell_id", "throughput_mbps", "latency_ms", "source",
-                "jitter_ms", "cell_load_pct", "signal_rsrp_dbm"}
+    required = {
+        "ts",
+        "region",
+        "cell_id",
+        "throughput_mbps",
+        "latency_ms",
+        "source",
+        "jitter_ms",
+        "cell_load_pct",
+        "signal_rsrp_dbm",
+    }
     for row in rows:
         assert required.issubset(row.keys())
         assert row["source"] == "real"

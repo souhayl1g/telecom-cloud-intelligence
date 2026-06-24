@@ -1,4 +1,5 @@
 """BSS data processing — raw → processed layer enrichment + curated join."""
+
 import numpy as np
 
 
@@ -13,8 +14,10 @@ def build_processed_bss(records: list[dict]) -> list[dict]:
         rat_gap = r.get("rat_gap_score")
         if rat_gap is not None:
             rec["rat_bucket"] = (
-                "underserved" if rat_gap > 0.5
-                else "matched" if rat_gap < 0.2
+                "underserved"
+                if rat_gap > 0.5
+                else "matched"
+                if rat_gap < 0.2
                 else "watch"
             )
         else:
@@ -24,8 +27,12 @@ def build_processed_bss(records: list[dict]) -> list[dict]:
 
 
 def build_curated_dataset(
-    oss_records, bss_records, vae_result,
-    cem_result, rat_result, correlations,
+    oss_records,
+    bss_records,
+    vae_result,
+    cem_result,
+    rat_result,
+    correlations,
 ) -> dict:
     """Build final curated dataset joining OSS + BSS + v3 AI outputs."""
     area_oss: dict = {}
@@ -60,14 +67,16 @@ def build_curated_dataset(
     for area in sorted(set(list(area_oss.keys()) + list(area_bss.keys()))):
         oss = area_oss.get(area, {})
         bss = area_bss.get(area, {})
-        areas_summary.append({
-            "area": area,
-            "mean_throughput": _safe_mean(oss.get("tput", [])),
-            "mean_latency": _safe_mean(oss.get("lat", [])),
-            "mean_packet_loss": _safe_mean(oss.get("loss", [])),
-            "mean_dou_total": _safe_mean(bss.get("dou", [])),
-            "mean_network_experience_index": _safe_mean(bss.get("nei", [])),
-        })
+        areas_summary.append(
+            {
+                "area": area,
+                "mean_throughput": _safe_mean(oss.get("tput", [])),
+                "mean_latency": _safe_mean(oss.get("lat", [])),
+                "mean_packet_loss": _safe_mean(oss.get("loss", [])),
+                "mean_dou_total": _safe_mean(bss.get("dou", [])),
+                "mean_network_experience_index": _safe_mean(bss.get("nei", [])),
+            }
+        )
 
     return {
         "vae_anomaly_count": vae_result.get("anomalous_count", 0),

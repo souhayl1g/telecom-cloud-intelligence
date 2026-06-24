@@ -16,9 +16,6 @@ Outputs:
 NEVER commit output files to git.
 """
 
-import csv
-import os
-import random
 from pathlib import Path
 
 import numpy as np
@@ -35,13 +32,48 @@ REAL_FILES = [
 ]
 
 MONTHS = {
-    "2026-01": {"label": "jan", "dou_factor": 0.88, "5g_factor": 0.65, "silent_shift": -0.03},
-    "2026-04": {"label": "avr", "dou_factor": 1.18, "5g_factor": 1.35, "silent_shift": 0.04},
-    "2026-05": {"label": "mai", "dou_factor": 1.35, "5g_factor": 1.65, "silent_shift": 0.08},
-    "2026-06": {"label": "jun", "dou_factor": 1.50, "5g_factor": 1.80, "silent_shift": 0.10},
-    "2026-07": {"label": "jul", "dou_factor": 1.65, "5g_factor": 2.00, "silent_shift": 0.12},
-    "2026-08": {"label": "aug", "dou_factor": 1.55, "5g_factor": 1.90, "silent_shift": 0.10},
-    "2026-09": {"label": "sep", "dou_factor": 1.40, "5g_factor": 1.70, "silent_shift": 0.07},
+    "2026-01": {
+        "label": "jan",
+        "dou_factor": 0.88,
+        "5g_factor": 0.65,
+        "silent_shift": -0.03,
+    },
+    "2026-04": {
+        "label": "avr",
+        "dou_factor": 1.18,
+        "5g_factor": 1.35,
+        "silent_shift": 0.04,
+    },
+    "2026-05": {
+        "label": "mai",
+        "dou_factor": 1.35,
+        "5g_factor": 1.65,
+        "silent_shift": 0.08,
+    },
+    "2026-06": {
+        "label": "jun",
+        "dou_factor": 1.50,
+        "5g_factor": 1.80,
+        "silent_shift": 0.10,
+    },
+    "2026-07": {
+        "label": "jul",
+        "dou_factor": 1.65,
+        "5g_factor": 2.00,
+        "silent_shift": 0.12,
+    },
+    "2026-08": {
+        "label": "aug",
+        "dou_factor": 1.55,
+        "5g_factor": 1.90,
+        "silent_shift": 0.10,
+    },
+    "2026-09": {
+        "label": "sep",
+        "dou_factor": 1.40,
+        "5g_factor": 1.70,
+        "silent_shift": 0.07,
+    },
 }
 
 N_RECORDS = 500_000
@@ -73,8 +105,14 @@ def load_real_data() -> pd.DataFrame:
 def perturb_numerical(df: pd.DataFrame) -> pd.DataFrame:
     """Add log-normal noise to numerical columns."""
     num_cols = [
-        "dou_total", "traffic_2g", "traffic_3g", "traffic_4g", "traffic_5g",
-        "duration", "voice_onlinetime_3g", "voice_onlinetime_2g",
+        "dou_total",
+        "traffic_2g",
+        "traffic_3g",
+        "traffic_4g",
+        "traffic_5g",
+        "duration",
+        "voice_onlinetime_3g",
+        "voice_onlinetime_2g",
     ]
     for col in num_cols:
         if col in df.columns:
@@ -93,9 +131,17 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     df["dou_total"] = df["dou_total"].clip(lower=0)
 
     # Traffic drift
-    df["traffic_2g"] = (df["traffic_2g"] * (1.15 if cfg["5g_factor"] < 1.0 else 0.85)).round().astype(int)
+    df["traffic_2g"] = (
+        (df["traffic_2g"] * (1.15 if cfg["5g_factor"] < 1.0 else 0.85))
+        .round()
+        .astype(int)
+    )
     df["traffic_3g"] = (df["traffic_3g"] * 0.95).round().astype(int)
-    df["traffic_4g"] = (df["traffic_4g"] * (0.9 if cfg["5g_factor"] > 1.0 else 1.05)).round().astype(int)
+    df["traffic_4g"] = (
+        (df["traffic_4g"] * (0.9 if cfg["5g_factor"] > 1.0 else 1.05))
+        .round()
+        .astype(int)
+    )
     df["traffic_5g"] = (df["traffic_5g"] * cfg["5g_factor"]).round().astype(int)
     df["traffic_5g"] = df["traffic_5g"].clip(lower=0)
 

@@ -1,4 +1,5 @@
 """Pipeline-worker entry point."""
+
 import signal
 import sys
 import time

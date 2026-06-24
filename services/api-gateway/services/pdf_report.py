@@ -44,7 +44,9 @@ class CapacityPDF(FPDF):
         self.cell(
             0,
             4,
-            _sanitize(f"Area: {self.area}   |   Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"),
+            _sanitize(
+                f"Area: {self.area}   |   Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+            ),
             ln=0,
         )
         self.ln(14)
@@ -56,7 +58,9 @@ class CapacityPDF(FPDF):
         self.cell(
             0,
             6,
-            _sanitize(f"NeXo ADN L4 Operations  -  Tunisie Telecom  -  Page {self.page_no()}/{{nb}}"),
+            _sanitize(
+                f"NeXo ADN L4 Operations  -  Tunisie Telecom  -  Page {self.page_no()}/{{nb}}"
+            ),
             align="C",
         )
 
@@ -67,8 +71,7 @@ def _sanitize(text: str) -> str:
         text = str(text)
     # Math / symbols
     text = (
-        text
-        .replace("\u2014", "-")
+        text.replace("\u2014", "-")
         .replace("\u2013", "-")
         .replace("\u2018", "'")
         .replace("\u2019", "'")
@@ -121,7 +124,18 @@ def _fmt(val, prec: int = 2, na: str = "-") -> str:
 
 def _kpi_table(pdf: FPDF, kpi_history: list[dict]) -> None:
     # Headers: * = derived (deterministic formula). Real columns unmarked.
-    headers = ["Time", "Integ%", "CDR%", "Thrpt", "Lat*", "Loss*", "Load%", "Users", "RSRP", "Anoms"]
+    headers = [
+        "Time",
+        "Integ%",
+        "CDR%",
+        "Thrpt",
+        "Lat*",
+        "Loss*",
+        "Load%",
+        "Users",
+        "RSRP",
+        "Anoms",
+    ]
     widths = [28, 18, 14, 20, 18, 16, 18, 18, 16, 16]
     pdf.set_fill_color(*LIGHT)
     pdf.set_font("Helvetica", "B", 7)
@@ -151,7 +165,21 @@ def _kpi_table(pdf: FPDF, kpi_history: list[dict]) -> None:
 
 
 def _rat_table(pdf: FPDF, rat_breakdown: list[dict]) -> None:
-    headers = ["RAT", "Rows", "Anoms", "Anom%", "Integ%", "CDR%", "Thrpt", "Peak", "Users", "RSRP", "Lat*", "Loss*", "Load%"]
+    headers = [
+        "RAT",
+        "Rows",
+        "Anoms",
+        "Anom%",
+        "Integ%",
+        "CDR%",
+        "Thrpt",
+        "Peak",
+        "Users",
+        "RSRP",
+        "Lat*",
+        "Loss*",
+        "Load%",
+    ]
     widths = [12, 18, 18, 14, 16, 14, 18, 18, 14, 14, 14, 14, 14]
     pdf.set_fill_color(*LIGHT)
     pdf.set_font("Helvetica", "B", 7)
@@ -184,7 +212,19 @@ def _rat_table(pdf: FPDF, rat_breakdown: list[dict]) -> None:
 
 
 def _top_cells_table(pdf: FPDF, top_cells: list[dict]) -> None:
-    headers = ["Cell", "Site", "Area", "RAT", "Integ%", "CDR%", "Thrpt", "RSRP", "Lat*", "Loss*", "Anoms"]
+    headers = [
+        "Cell",
+        "Site",
+        "Area",
+        "RAT",
+        "Integ%",
+        "CDR%",
+        "Thrpt",
+        "RSRP",
+        "Lat*",
+        "Loss*",
+        "Anoms",
+    ]
     widths = [18, 38, 22, 12, 18, 14, 18, 14, 14, 14, 14]
     pdf.set_fill_color(*LIGHT)
     pdf.set_font("Helvetica", "B", 7)
@@ -257,7 +297,11 @@ def _compute_recommendations(
             f"Average call drop rate {avg_cdr:.3f}% exceeds 2% TT contractual SLA. "
             "Trigger physical-layer audit and cell-site KPI review on top offenders."
         )
-    if avg_throughput is not None and peak_throughput and avg_throughput / peak_throughput < 0.5:
+    if (
+        avg_throughput is not None
+        and peak_throughput
+        and avg_throughput / peak_throughput < 0.5
+    ):
         recs.append(
             f"Average throughput ({avg_throughput:.2f} Mbps) is below 50% of peak "
             f"({peak_throughput:.2f} Mbps). Consider load-balancing across sectors "
@@ -287,7 +331,7 @@ def _compute_recommendations(
         anom_r = int(r.get("anomaly_count") or 0)
         if rows_r and anom_r / rows_r > 0.05:
             recs.append(
-                f"{rt}: {anom_r:,}/{rows_r:,} cells flagged ({anom_r/rows_r*100:.1f}%). "
+                f"{rt}: {anom_r:,}/{rows_r:,} cells flagged ({anom_r / rows_r * 100:.1f}%). "
                 f"Open a P2 ticket for {rt} batch triage if not already actioned."
             )
         avg_int = r.get("avg_integrity")
@@ -452,10 +496,10 @@ def generate_capacity_report(
     avg_throughput = _avg("avg_throughput")
     avg_users_4g = _avg("avg_users_4g")
     avg_rsrp = _avg("avg_rsrp")
-    avg_latency = _avg("avg_latency_derived")     # derived
-    avg_loss = _avg("avg_loss_derived")           # derived
-    avg_jitter = _avg("avg_jitter_derived")       # derived
-    avg_load = _avg("avg_load_real")              # real (4G only, requires users_max)
+    avg_latency = _avg("avg_latency_derived")  # derived
+    avg_loss = _avg("avg_loss_derived")  # derived
+    avg_jitter = _avg("avg_jitter_derived")  # derived
+    avg_load = _avg("avg_load_real")  # real (4G only, requires users_max)
     peak_throughput = _max("avg_throughput")
     peak_users_4g = _max("avg_users_4g")
     peak_load = _max("avg_load_real")
@@ -488,10 +532,16 @@ def generate_capacity_report(
         _kv_row(pdf, "Avg call drop rate (%):", _fmt(avg_cdr, prec=3))
         _kv_row(pdf, "Avg throughput 3G+4G (Mbps):", _fmt(avg_throughput, prec=2))
         _kv_row(pdf, "Peak throughput (Mbps):", _fmt(peak_throughput, prec=2))
-        _kv_row(pdf, "Avg active users (4G):",
-                "-" if avg_users_4g is None else _fmt(avg_users_4g, prec=1))
-        _kv_row(pdf, "Peak active users (4G):",
-                "-" if peak_users_4g is None else _fmt(peak_users_4g, prec=1))
+        _kv_row(
+            pdf,
+            "Avg active users (4G):",
+            "-" if avg_users_4g is None else _fmt(avg_users_4g, prec=1),
+        )
+        _kv_row(
+            pdf,
+            "Peak active users (4G):",
+            "-" if peak_users_4g is None else _fmt(peak_users_4g, prec=1),
+        )
         _kv_row(pdf, "Avg RSRP (4G, dBm):", _fmt(avg_rsrp, prec=1))
         _kv_row(pdf, "Avg cell load 4G (%, real avg/max):", _fmt(avg_load, prec=1))
         _kv_row(pdf, "Peak cell load 4G (%):", _fmt(peak_load, prec=1))
@@ -504,11 +554,16 @@ def generate_capacity_report(
         pdf.ln(1)
         pdf.set_font("Helvetica", "I", 8)
         pdf.set_text_color(*GREY)
-        pdf.multi_cell(0, 4,
-            _sanitize("* Latency / loss / jitter are not measured by the Huawei OSS export. "
-            "They are computed by deterministic formulas (3GPP TR 38.913 baselines "
-            "+ Huawei eRAN handbook) from REAL integrity, CDR, and RAT type. "
-            "Same input -> same output, never random."))
+        pdf.multi_cell(
+            0,
+            4,
+            _sanitize(
+                "* Latency / loss / jitter are not measured by the Huawei OSS export. "
+                "They are computed by deterministic formulas (3GPP TR 38.913 baselines "
+                "+ Huawei eRAN handbook) from REAL integrity, CDR, and RAT type. "
+                "Same input -> same output, never random."
+            ),
+        )
         pdf.set_text_color(30, 30, 35)
 
         if rat_breakdown:
@@ -549,7 +604,14 @@ def generate_capacity_report(
         pdf.cell(0, 10, _sanitize("NeXo Capacity Report"), ln=1)
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 8, _sanitize(f"Area: {area}"), ln=1)
-        pdf.cell(0, 8, _sanitize(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"), ln=1)
+        pdf.cell(
+            0,
+            8,
+            _sanitize(
+                f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+            ),
+            ln=1,
+        )
         pdf.ln(5)
         pdf.set_font("Helvetica", "B", 12)
         pdf.cell(0, 8, _sanitize("Key Metrics"), ln=1)
@@ -561,7 +623,13 @@ def generate_capacity_report(
         pdf.ln(5)
         pdf.set_font("Helvetica", "I", 8)
         pdf.set_text_color(*GREY)
-        pdf.multi_cell(0, 4, _sanitize(f"Note: Full report generation failed ({e}). Key metrics shown above."))
+        pdf.multi_cell(
+            0,
+            4,
+            _sanitize(
+                f"Note: Full report generation failed ({e}). Key metrics shown above."
+            ),
+        )
 
     pdf_bytes = bytes(pdf.output(dest="S"))
 
@@ -612,7 +680,9 @@ def generate_capacity_report(
                 "avg_integrity_pct": _r(r.get("avg_integrity")),
                 "avg_cdr_pct": _r(r.get("avg_cdr"), 3),
                 "avg_throughput_mbps": _r(r.get("avg_throughput")),
-                "avg_users": int(r["avg_users"]) if r.get("avg_users") is not None else None,
+                "avg_users": int(r["avg_users"])
+                if r.get("avg_users") is not None
+                else None,
             }
             for r in rat_breakdown
         ],
@@ -675,7 +745,9 @@ def get_report(report_id: str) -> Optional[dict]:
     """Get report; if presigned URL expired, refresh it."""
     with _db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM capacity_reports WHERE report_id = %s;", (report_id,))
+            cur.execute(
+                "SELECT * FROM capacity_reports WHERE report_id = %s;", (report_id,)
+            )
             row = cur.fetchone()
             if not row:
                 return None
@@ -686,8 +758,11 @@ def get_report(report_id: str) -> Optional[dict]:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at is None or expires_at <= now:
                 from services.storage import presign_url, REPORTS_BUCKET
+
                 try:
-                    new_url, new_exp = presign_url(bucket=REPORTS_BUCKET, key=row["minio_key"])
+                    new_url, new_exp = presign_url(
+                        bucket=REPORTS_BUCKET, key=row["minio_key"]
+                    )
                     cur.execute(
                         """
                         UPDATE capacity_reports

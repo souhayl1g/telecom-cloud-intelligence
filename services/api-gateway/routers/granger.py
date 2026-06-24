@@ -248,23 +248,27 @@ def granger_forecast(
                 continue
             projected_y = a + b * latest_x
 
-            projections.append({
-                "area": p["area"],
-                "oss_variable": oss_col,
-                "cem_variable": cem_col,
-                "best_lag": lag,
-                "lead_time_minutes": lag * LAG_WINDOW_MINUTES,
-                "p_value": float(p["best_pvalue"] or 1.0),
-                "direction": p.get("direction"),
-                "n_observations": n,
-                "fit_intercept": float(a),
-                "fit_slope": float(b),
-                "fit_r2": float(r2),
-                "latest_oss": float(latest_x) if latest_x is not None else None,
-                "current_cem": float(latest_y) if latest_y is not None else None,
-                "projected_cem": float(projected_y),
-                "delta_cem": float(projected_y - latest_y) if latest_y is not None else None,
-            })
+            projections.append(
+                {
+                    "area": p["area"],
+                    "oss_variable": oss_col,
+                    "cem_variable": cem_col,
+                    "best_lag": lag,
+                    "lead_time_minutes": lag * LAG_WINDOW_MINUTES,
+                    "p_value": float(p["best_pvalue"] or 1.0),
+                    "direction": p.get("direction"),
+                    "n_observations": n,
+                    "fit_intercept": float(a),
+                    "fit_slope": float(b),
+                    "fit_r2": float(r2),
+                    "latest_oss": float(latest_x) if latest_x is not None else None,
+                    "current_cem": float(latest_y) if latest_y is not None else None,
+                    "projected_cem": float(projected_y),
+                    "delta_cem": float(projected_y - latest_y)
+                    if latest_y is not None
+                    else None,
+                }
+            )
 
         projections.sort(key=lambda r: r["p_value"])
 

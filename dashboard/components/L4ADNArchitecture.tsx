@@ -10,6 +10,9 @@ interface ADNArchitectureProps {
     pendingActions: number;
     autoApprovedCount: number;
     cycleLatencyMs: number;
+    // L4 truth signal: the closed loop is armed, not killed, and has authorised playbooks.
+    // Without this, "autonomy" is just a label — auto-approved actions never self-execute.
+    loopLive?: boolean;
 }
 
 /* ── ADN L4 Architecture Hero ────────────────────────────────────────────────
@@ -28,17 +31,23 @@ interface ADNArchitectureProps {
 export default function L4ADNArchitecture({
     cemAvg, vaeAnomalies, ratRate, grangerSig,
     correlationsCount, pendingActions, autoApprovedCount, cycleLatencyMs,
+    loopLive = false,
 }: ADNArchitectureProps) {
     const [cardOpen, setCardOpen] = useState(false);
 
-    // Autonomy level — score the system's current closed-loop performance
+    // Autonomy level — score the system's current closed-loop performance.
+    // Execution autonomy is earned ONLY when the closed loop is genuinely live
+    // (armed + authorised), not from cosmetic auto-approval labels.
     const autonomyScore = Math.min(100,
-        (autoApprovedCount > 0 ? 25 : 0) +              // execution autonomy
+        (loopLive ? 25 : 0) +                           // execution autonomy (unattended-capable)
         (cycleLatencyMs < 500 ? 25 : cycleLatencyMs < 2000 ? 15 : 5) +  // analysis speed
         (grangerSig >= 5 ? 25 : grangerSig >= 1 ? 15 : 5) +              // causal awareness
         (pendingActions === 0 ? 25 : pendingActions < 5 ? 15 : 5)        // decision quality
     );
-    const autonomyLevel = autonomyScore >= 80 ? 'L4' : autonomyScore >= 60 ? 'L3' : autonomyScore >= 40 ? 'L2' : 'L1';
+    // L4 requires the loop to actually be live; otherwise the system is L3 at most
+    // (conditional autonomy — a human still closes every loop).
+    const autonomyLevel = (loopLive && autonomyScore >= 80) ? 'L4'
+        : autonomyScore >= 60 ? 'L3' : autonomyScore >= 40 ? 'L2' : 'L1';
 
     return (
         <div className="card card-accent-top" style={{ padding: 0, overflow: 'hidden' }}>

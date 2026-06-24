@@ -20,14 +20,36 @@ import re
 
 import psycopg2
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel"
+)
 
 # Tunisia governorates as they appear in BSS data
 GOVERNORATES = [
-    "Ariana", "Beja", "Ben Arous", "Bizerte", "GABES", "GAFSA",
-    "Jendouba", "KAIROUAN", "KASSERINE", "KEBILI", "Kef", "MAHDIA",
-    "Manouba", "MEDENINE", "MONASTIR", "NABEUL", "Sfax", "SIDI_BOUZID",
-    "Siliana", "SOUSSE", "TATAOUINE", "TOZEUR", "Tunis", "Zaghouen",
+    "Ariana",
+    "Beja",
+    "Ben Arous",
+    "Bizerte",
+    "GABES",
+    "GAFSA",
+    "Jendouba",
+    "KAIROUAN",
+    "KASSERINE",
+    "KEBILI",
+    "Kef",
+    "MAHDIA",
+    "Manouba",
+    "MEDENINE",
+    "MONASTIR",
+    "NABEUL",
+    "Sfax",
+    "SIDI_BOUZID",
+    "Siliana",
+    "SOUSSE",
+    "TATAOUINE",
+    "TOZEUR",
+    "Tunis",
+    "Zaghouen",
 ]
 
 # Site_name → governorate mapping (derived from manual analysis)
@@ -56,32 +78,61 @@ CELL_PREFIX_MAP = {
 
 # 3-letter area code → governorate
 AREA_CODE_MAP = {
-    "ZGO": "Zaghouen", "ZGT": "Zaghouen",
-    "SLT": "Siliana", "SLO": "Siliana",
+    "ZGO": "Zaghouen",
+    "ZGT": "Zaghouen",
+    "SLT": "Siliana",
+    "SLO": "Siliana",
     "SFX": "Sfax",
-    "BEJ": "Beja", "BIZ": "Bizerte",
-    "GAF": "GAFSA", "GAB": "GABES",
-    "JEN": "Jendouba", "KAI": "KAIROUAN", "KAS": "KASSERINE",
-    "KEB": "KEBILI", "KEF": "Kef", "MAH": "MAHDIA",
-    "MED": "MEDENINE", "MON": "MONASTIR", "NAB": "NABEUL",
-    "SID": "SIDI_BOUZID", "SIL": "Siliana", "SOU": "SOUSSE",
-    "TAT": "TATAOUINE", "TOZ": "TOZEUR", "TUN": "Tunis",
+    "BEJ": "Beja",
+    "BIZ": "Bizerte",
+    "GAF": "GAFSA",
+    "GAB": "GABES",
+    "JEN": "Jendouba",
+    "KAI": "KAIROUAN",
+    "KAS": "KASSERINE",
+    "KEB": "KEBILI",
+    "KEF": "Kef",
+    "MAH": "MAHDIA",
+    "MED": "MEDENINE",
+    "MON": "MONASTIR",
+    "NAB": "NABEUL",
+    "SID": "SIDI_BOUZID",
+    "SIL": "Siliana",
+    "SOU": "SOUSSE",
+    "TAT": "TATAOUINE",
+    "TOZ": "TOZEUR",
+    "TUN": "Tunis",
     "ZAG": "Zaghouen",
 }
 
 # Neighborhood/city → governorate
 NEIGHBORHOOD_MAP = {
-    "tunis": "Tunis", "bardo": "Tunis", "carthage": "Tunis",
-    "gammarth": "Tunis", "marsa": "Tunis", "lac": "Tunis",
-    "menzah": "Tunis", "ennasr": "Tunis", "ouardia": "Tunis",
-    "medina": "Tunis", "charguia": "Tunis", "kram": "Tunis",
-    "goulette": "Tunis", "essijoumi": "Tunis", "borj": "Tunis",
-    "rades": "Ben Arous", "mourouj": "Ben Arous", "fouchana": "Ben Arous",
-    "mornag": "Ben Arous", "benarous": "Ben Arous",
-    "ariana": "Ariana", "soukra": "Ariana",
+    "tunis": "Tunis",
+    "bardo": "Tunis",
+    "carthage": "Tunis",
+    "gammarth": "Tunis",
+    "marsa": "Tunis",
+    "lac": "Tunis",
+    "menzah": "Tunis",
+    "ennasr": "Tunis",
+    "ouardia": "Tunis",
+    "medina": "Tunis",
+    "charguia": "Tunis",
+    "kram": "Tunis",
+    "goulette": "Tunis",
+    "essijoumi": "Tunis",
+    "borj": "Tunis",
+    "rades": "Ben Arous",
+    "mourouj": "Ben Arous",
+    "fouchana": "Ben Arous",
+    "mornag": "Ben Arous",
+    "benarous": "Ben Arous",
+    "ariana": "Ariana",
+    "soukra": "Ariana",
     "manouba": "Manouba",
     "sfax": "Sfax",
-    "sousse": "SOUSSE", "hammamsousse": "SOUSSE",
+    "sousse": "SOUSSE",
+    "hammamsousse": "SOUSSE",
     "bizerte": "Bizerte",
     "beja": "Beja",
     "gabes": "GABES",
@@ -92,14 +143,17 @@ NEIGHBORHOOD_MAP = {
     "kebili": "KEBILI",
     "kef": "Kef",
     "mahdia": "MAHDIA",
-    "medenine": "MEDENINE", "jerba": "MEDENINE",
+    "medenine": "MEDENINE",
+    "jerba": "MEDENINE",
     "monastir": "MONASTIR",
-    "nabeul": "NABEUL", "hammamet": "NABEUL",
+    "nabeul": "NABEUL",
+    "hammamet": "NABEUL",
     "sidibouzid": "SIDI_BOUZID",
     "siliana": "Siliana",
     "tataouine": "TATAOUINE",
     "tozeur": "TOZEUR",
-    "zaghouen": "Zaghouen", "zaghouan": "Zaghouen",
+    "zaghouen": "Zaghouen",
+    "zaghouan": "Zaghouen",
 }
 
 
@@ -111,7 +165,9 @@ def normalize(name: str) -> str:
     return re.sub(r"[^a-z]", "", name.lower())
 
 
-def map_cell_to_governorate(area: str, site_name: str | None, cell_id: str | None) -> str | None:
+def map_cell_to_governorate(
+    area: str, site_name: str | None, cell_id: str | None
+) -> str | None:
     """Map a cell area name to its governorate."""
     area_norm = normalize(area)
 
@@ -154,7 +210,7 @@ def map_cell_to_governorate(area: str, site_name: str | None, cell_id: str | Non
     # 6. Strip coBTS_/CoBTS_/coBBTS_ prefix and retry
     for prefix in ["cobts", "cobbts"]:
         if area_norm.startswith(prefix):
-            stripped = area_norm[len(prefix):]
+            stripped = area_norm[len(prefix) :]
             for gov in sorted(GOVERNORATES, key=len, reverse=True):
                 if normalize(gov) in stripped:
                     return gov
@@ -205,6 +261,7 @@ def build_mapping():
     print(f"\nMapping saved to {out_path}")
 
     from collections import Counter
+
     dist = Counter(mapping.values())
     print("\nGovernorate distribution:")
     for gov, count in dist.most_common():

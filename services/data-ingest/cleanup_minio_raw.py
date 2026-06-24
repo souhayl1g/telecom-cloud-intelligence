@@ -16,10 +16,10 @@ Run
     # or
     make clean-minio-raw
 """
+
 from __future__ import annotations
 
 import os
-import sys
 
 import boto3
 from botocore.client import Config
@@ -45,7 +45,7 @@ def main():
     try:
         s3.head_bucket(Bucket=BUCKET)
     except ClientError:
-        print(f"raw bucket does not exist; nothing to clean.")
+        print("raw bucket does not exist; nothing to clean.")
         return
 
     paginator = s3.get_paginator("list_objects_v2")
@@ -63,13 +63,17 @@ def main():
         print(f"raw bucket clean — {kept} dataset objects retained.")
         return
 
-    print(f"Found {len(to_delete)} stale objects to delete (keeping {kept} dataset objects).")
+    print(
+        f"Found {len(to_delete)} stale objects to delete (keeping {kept} dataset objects)."
+    )
 
     # S3 delete_objects accepts max 1000 keys per call
     deleted = 0
     for i in range(0, len(to_delete), 1000):
         chunk = to_delete[i : i + 1000]
-        resp = s3.delete_objects(Bucket=BUCKET, Delete={"Objects": chunk, "Quiet": True})
+        resp = s3.delete_objects(
+            Bucket=BUCKET, Delete={"Objects": chunk, "Quiet": True}
+        )
         deleted += len(chunk)
         errors = resp.get("Errors", [])
         if errors:

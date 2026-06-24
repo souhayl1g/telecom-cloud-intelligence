@@ -13,6 +13,7 @@ router = APIRouter()
 class RatRecord(BaseModel):
     """Accepts any extra fields; the router resolves the model's feature
     contract from rat_v3_feature_names.joblib at inference time."""
+
     model_config = ConfigDict(extra="allow")
 
 

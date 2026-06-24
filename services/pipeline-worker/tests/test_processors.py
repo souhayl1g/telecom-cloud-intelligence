@@ -1,4 +1,5 @@
 """Tests for OSS/BSS processors."""
+
 from worker.processors.oss import build_processed_oss
 from worker.processors.bss import build_processed_bss, build_curated_dataset
 
@@ -58,7 +59,14 @@ def test_build_processed_bss_rat_bucket_underserved():
 
 def test_build_curated_dataset_v3():
     oss = [_make_oss_record()]
-    bss = [{"area": "test", "dou_total": 1e9, "duration": 100, "network_experience_index": 0.8}]
+    bss = [
+        {
+            "area": "test",
+            "dou_total": 1e9,
+            "duration": 100,
+            "network_experience_index": 0.8,
+        }
+    ]
     vae = {"anomalous_count": 1, "anomaly_rate": 0.5}
     cem = {"predictions": [{"index": 0, "cem_score": 0.9}]}
     rat = {"underserved_count": 0, "underserved_rate": 0.0}

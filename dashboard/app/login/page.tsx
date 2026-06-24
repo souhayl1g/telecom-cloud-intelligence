@@ -120,7 +120,8 @@ function LoginContent() {
     const [success, setSuccess] = useState(false);
     const router = useRouter();
     const search = useSearchParams();
-    const redirect = search.get('redirect') || '/overview';
+    // Default to root; middleware routes each persona to their own landing page.
+    const redirect = search.get('redirect') || '/';
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();

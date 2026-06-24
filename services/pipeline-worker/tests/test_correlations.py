@@ -1,4 +1,5 @@
 """Tests for correlation analytics."""
+
 from worker.analytics.correlations import compute_correlations
 
 
@@ -8,47 +9,59 @@ def _make_correlated_records(n=10):
     bss = []
     for i in range(n):
         # CELL-001: high latency → low NEI
-        oss.append({
-            "cell_id": "CELL-001",
-            "area": "CELL-001",
-            "latency_ms": 80.0 + i,
-            "throughput_mbps": 20.0,
-            "packet_loss_pct": 3.0,
-        })
-        bss.append({
-            "area": "CELL-001",
-            "dou_total": 1e9,
-            "network_experience_index": 0.3,
-            "s1_mme_sr": 0.60,
-        })
+        oss.append(
+            {
+                "cell_id": "CELL-001",
+                "area": "CELL-001",
+                "latency_ms": 80.0 + i,
+                "throughput_mbps": 20.0,
+                "packet_loss_pct": 3.0,
+            }
+        )
+        bss.append(
+            {
+                "area": "CELL-001",
+                "dou_total": 1e9,
+                "network_experience_index": 0.3,
+                "s1_mme_sr": 0.60,
+            }
+        )
         # CELL-002: low latency → high NEI
-        oss.append({
-            "cell_id": "CELL-002",
-            "area": "CELL-002",
-            "latency_ms": 20.0 + i * 0.1,
-            "throughput_mbps": 80.0,
-            "packet_loss_pct": 0.2,
-        })
-        bss.append({
-            "area": "CELL-002",
-            "dou_total": 5e9,
-            "network_experience_index": 0.9,
-            "s1_mme_sr": 0.98,
-        })
+        oss.append(
+            {
+                "cell_id": "CELL-002",
+                "area": "CELL-002",
+                "latency_ms": 20.0 + i * 0.1,
+                "throughput_mbps": 80.0,
+                "packet_loss_pct": 0.2,
+            }
+        )
+        bss.append(
+            {
+                "area": "CELL-002",
+                "dou_total": 5e9,
+                "network_experience_index": 0.9,
+                "s1_mme_sr": 0.98,
+            }
+        )
         # CELL-003: medium latency → medium NEI (ensures 3+ cells)
-        oss.append({
-            "cell_id": "CELL-003",
-            "area": "CELL-003",
-            "latency_ms": 50.0 + i * 0.2,
-            "throughput_mbps": 50.0,
-            "packet_loss_pct": 1.5,
-        })
-        bss.append({
-            "area": "CELL-003",
-            "dou_total": 3e9,
-            "network_experience_index": 0.6,
-            "s1_mme_sr": 0.80,
-        })
+        oss.append(
+            {
+                "cell_id": "CELL-003",
+                "area": "CELL-003",
+                "latency_ms": 50.0 + i * 0.2,
+                "throughput_mbps": 50.0,
+                "packet_loss_pct": 1.5,
+            }
+        )
+        bss.append(
+            {
+                "area": "CELL-003",
+                "dou_total": 3e9,
+                "network_experience_index": 0.6,
+                "s1_mme_sr": 0.80,
+            }
+        )
     return oss, bss
 
 
@@ -68,8 +81,23 @@ def test_compute_correlations_methods_present():
 
 def test_compute_correlations_requires_min_3_cells():
     # Only 1 common cell — should return empty
-    oss = [{"cell_id": "A", "area": "A", "latency_ms": 20, "throughput_mbps": 80, "packet_loss_pct": 0.1}]
-    bss = [{"area": "A", "dou_total": 1e9, "network_experience_index": 0.8, "s1_mme_sr": 0.95}]
+    oss = [
+        {
+            "cell_id": "A",
+            "area": "A",
+            "latency_ms": 20,
+            "throughput_mbps": 80,
+            "packet_loss_pct": 0.1,
+        }
+    ]
+    bss = [
+        {
+            "area": "A",
+            "dou_total": 1e9,
+            "network_experience_index": 0.8,
+            "s1_mme_sr": 0.95,
+        }
+    ]
     result = compute_correlations(oss, bss)
     assert result == []
 

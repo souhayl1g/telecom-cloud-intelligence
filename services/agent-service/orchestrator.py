@@ -26,7 +26,9 @@ from agents.action_agent import ActionAgent
 # Set OPENROUTER_API_KEY to enable cloud mode. If absent, falls back to Ollama.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "qwen/qwen-2.5-7b-instruct")
-OPENROUTER_URL = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
+OPENROUTER_URL = os.getenv(
+    "OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions"
+)
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
@@ -191,13 +193,18 @@ def _rule_classify(query: str) -> dict:
 
             # Try to extract an imsi-like hash (32 hex chars)
             import re
+
             hashes = re.findall(r"[a-f0-9]{{32}}", q)
             if hashes:
                 params["imsi_hash"] = hashes[0]
 
             return {"agent": agent, "action": action, "params": params}
 
-    return {"agent": "CEMAgent", "action": "area_cem_summary", "params": {"area": "Tunis", "month_year": "2026-03"}}
+    return {
+        "agent": "CEMAgent",
+        "action": "area_cem_summary",
+        "params": {"area": "Tunis", "month_year": "2026-03"},
+    }
 
 
 class Orchestrator:
@@ -246,7 +253,9 @@ class Orchestrator:
     def _synthesize(self, query: str, classification: dict, result: AgentResult) -> str:
         """Create a natural language response from agent result."""
         if not result.success:
-            return f"I couldn't complete that request. {result.error or 'Unknown error.'}"
+            return (
+                f"I couldn't complete that request. {result.error or 'Unknown error.'}"
+            )
 
         agent_name = result.agent_name
         summary = result.summary
@@ -259,9 +268,13 @@ class Orchestrator:
             if score > 0.7:
                 extras.append("This subscriber has a good experience profile.")
             elif score > 0.4:
-                extras.append("There is room for improvement in this subscriber's experience.")
+                extras.append(
+                    "There is room for improvement in this subscriber's experience."
+                )
             else:
-                extras.append("This subscriber is experiencing significant service degradation.")
+                extras.append(
+                    "This subscriber is experiencing significant service degradation."
+                )
 
             if data.get("usim_bottleneck"):
                 extras.append("A SIM upgrade to USIM would unlock better RAT access.")

@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRefresh } from '../../components/RefreshContext';
 import L4ADNArchitecture from '../../components/L4ADNArchitecture';
+import ClosedLoopControl, { type AutonomyConfig, type AutoRunResult } from '../../components/ClosedLoopControl';
 import { formatTunisTime } from '../../lib/time';
 import ChatMessage from '../../components/chat/ChatMessage';
 import ChatInput from '../../components/chat/ChatInput';
@@ -342,6 +343,10 @@ export default function L4AgentPage() {
     // Track action IDs we've already shown a toast for — prevents toast spam on every 30s cycle
     const toastedActionIdsRef = useRef<Set<string>>(new Set());
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    // L4 closed-loop autonomy envelope (server-enforced) + last unattended tick result
+    const [autonomy, setAutonomy] = useState<AutonomyConfig | null>(null);
+    const [lastAutoRun, setLastAutoRun] = useState<AutoRunResult | null>(null);
+    const [autonomyBusy, setAutonomyBusy] = useState(false);
 
     // Push notification
     let _notifCounter = 0;
@@ -444,6 +449,7 @@ export default function L4AgentPage() {
                 areas: data.areas ?? [],
             };
             setPlatformCtx(ctx);
+            setAutonomy(data.autonomyConfig ?? null);
 
             // CEM-avg history (replaces legacy SLA history) — sparkline of subscriber experience
             const cemAvgNow = ctx.cemSummary?.avg_score ?? 0;
@@ -524,6 +530,34 @@ export default function L4AgentPage() {
             }
 
             setAgentSpeed(Math.round(performance.now() - t0));
+
+            // ── L4 closed-loop tick ────────────────────────────────────────
+            // When the envelope is armed (and not killed) the poll itself drives
+            // unattended execution. Guardrails are enforced server-side; we just
+            // fire the tick and reflect what the machine decided.
+            const cfg = data.autonomyConfig;
+            if (cfg?.armed && !cfg?.kill_switch && (cfg?.playbook_whitelist?.length ?? 0) > 0) {
+                try {
+                    const arRes = await fetch('/api/platform-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ _action: 'auto-run' }),
+                    });
+                    const ar: AutoRunResult = await arRes.json();
+                    setLastAutoRun(ar);
+                    if (ar.executed && ar.executed.length > 0) {
+                        const execIds = new Set(ar.executed.map(e => e.action_id));
+                        setActions(prev => prev.map(a =>
+                            execIds.has(a.id) ? { ...a, status: 'executed' } : a
+                        ));
+                        pushNotification({
+                            title: `Closed loop executed ${ar.executed.length} action${ar.executed.length > 1 ? 's' : ''}`,
+                            message: ar.executed.map(e => e.title ?? e.action_id).slice(0, 3).join(', '),
+                            type: 'success',
+                        });
+                    }
+                } catch { /* tick best-effort */ }
+            }
         } catch { /* silent */ }
         finally { setLoading(false); }
     }, [pushNotification]);
@@ -585,6 +619,58 @@ export default function L4AgentPage() {
         }
         if (selectedAction?.id === action.id) setSelectedAction(null);
     };
+
+    // ── L4 envelope edits + manual closed-loop tick ─────────────────────────
+    // Optimistic UI: reflect the patch immediately, then reconcile with the
+    // server's validated config (it may clamp/reject fields).
+    const patchAutonomy = useCallback(async (patch: Partial<AutonomyConfig>) => {
+        setAutonomy(prev => (prev ? { ...prev, ...patch } : prev));
+        setAutonomyBusy(true);
+        try {
+            const res = await fetch('/api/platform-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _action: 'set-autonomy', ...patch }),
+            });
+            const cfg = await res.json();
+            if (cfg && !cfg.error) setAutonomy(cfg);
+            pushNotification({
+                title: 'Autonomy envelope updated',
+                message: Object.keys(patch).join(', '),
+                type: 'info',
+            });
+        } catch {
+            pushNotification({ title: 'Envelope update failed', message: 'Could not reach autonomy config', type: 'danger' });
+        } finally {
+            setAutonomyBusy(false);
+        }
+    }, [pushNotification]);
+
+    const runClosedLoop = useCallback(async () => {
+        setAutonomyBusy(true);
+        try {
+            const res = await fetch('/api/platform-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _action: 'auto-run' }),
+            });
+            const ar: AutoRunResult = await res.json();
+            setLastAutoRun(ar);
+            if (ar.executed && ar.executed.length > 0) {
+                const execIds = new Set(ar.executed.map(e => e.action_id));
+                setActions(prev => prev.map(a => execIds.has(a.id) ? { ...a, status: 'executed' } : a));
+            }
+            pushNotification({
+                title: 'Closed-loop tick fired',
+                message: ar.reason ?? `${ar.executed?.length ?? 0} executed · ${ar.skipped?.length ?? 0} skipped`,
+                type: (ar.executed?.length ?? 0) > 0 ? 'success' : 'info',
+            });
+        } catch {
+            pushNotification({ title: 'Closed-loop tick failed', message: 'Could not reach autonomy engine', type: 'danger' });
+        } finally {
+            setAutonomyBusy(false);
+        }
+    }, [pushNotification]);
 
     // Handle paste to block images
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -834,8 +920,17 @@ export default function L4AgentPage() {
                 pendingActions={pendingActions.length}
                 autoApprovedCount={autoApprovedCount}
                 cycleLatencyMs={agentSpeed}
+                loopLive={!!autonomy?.armed && !autonomy?.kill_switch && (autonomy?.playbook_whitelist?.length ?? 0) > 0}
             />
 
+            {/* L4 closed-loop control — arm the envelope; the poll drives unattended execution */}
+            <ClosedLoopControl
+                config={autonomy}
+                lastRun={lastAutoRun}
+                busy={autonomyBusy}
+                onPatch={patchAutonomy}
+                onRunNow={runClosedLoop}
+            />
 
             {/* Compact agent status strip (replaces old duplicate header) */}
             <div className="card card-compact" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>

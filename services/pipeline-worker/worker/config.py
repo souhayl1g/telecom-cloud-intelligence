@@ -1,4 +1,5 @@
 """Central config for pipeline-worker — reads all env vars in one place."""
+
 import os
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "")

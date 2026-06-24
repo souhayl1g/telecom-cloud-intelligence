@@ -185,7 +185,7 @@ start-defense:
 	@echo ""
 	@$(COMPOSE) up -d postgres minio auth-service api-gateway ai-service agent-service pipeline-worker dashboard data-init
 	@echo "$(YELLOW)Bringing up observability stack...$(NC)"
-	@$(COMPOSE) --profile monitoring up -d netdata prometheus grafana jaeger otel-collector
+	@$(COMPOSE) up -d netdata prometheus grafana jaeger otel-collector
 	@echo "$(YELLOW)Stopping non-defense services to free RAM...$(NC)"
 	@$(COMPOSE) stop notebooks retrain-service 2>/dev/null || true
 	@bash $(PROJECT_ROOT)/scripts/wsl-watchdog.sh --daemon >/dev/null 2>&1 &

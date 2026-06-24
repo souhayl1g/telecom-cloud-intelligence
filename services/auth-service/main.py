@@ -29,12 +29,16 @@ def _setup_tracing() -> None:
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if not endpoint:
         return
-    resource = Resource.create({
-        "service.name": os.getenv("OTEL_SERVICE_NAME", "auth-service"),
-        "service.version": "1.0",
-    })
+    resource = Resource.create(
+        {
+            "service.name": os.getenv("OTEL_SERVICE_NAME", "auth-service"),
+            "service.version": "1.0",
+        }
+    )
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
+    )
     trace.set_tracer_provider(provider)
 
 
@@ -49,7 +53,9 @@ FastAPIInstrumentor.instrument_app(app)
 # Prometheus /metrics endpoint — scraped per prometheus.yml.
 from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+Instrumentator().instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)
 
 # ---------------------------------------------------------------------------
 # Configuration (env vars)
@@ -119,7 +125,7 @@ def _ensure_tables():
                     avatar_url    TEXT,
                     provider      TEXT NOT NULL DEFAULT 'local',
                     provider_id   TEXT,
-                    role          TEXT NOT NULL DEFAULT 'viewer',
+                    role          TEXT NOT NULL DEFAULT 'engineer',
                     is_active     BOOLEAN NOT NULL DEFAULT TRUE,
                     reset_token   TEXT,
                     reset_token_expires_at TIMESTAMPTZ,
@@ -298,6 +304,102 @@ def get_current_user(request: Request):
     if not user["is_active"]:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
+    return _user_to_dict(user)
+
+
+# ---------------------------------------------------------------------------
+# Admin: user & role management (admin-role guarded)
+# ---------------------------------------------------------------------------
+
+VALID_ROLES = {"engineer", "data_scientist", "admin"}
+
+
+def _require_admin(request: Request) -> dict:
+    """Decode the bearer token and require role == admin. 403 otherwise."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    payload = verify_token(auth_header.split(" ", 1)[1])
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return payload
+
+
+class RoleUpdate(BaseModel):
+    role: str
+
+
+class ActiveUpdate(BaseModel):
+    is_active: bool
+
+
+class AdminCreateUser(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str = Field(min_length=1, max_length=200)
+    role: str = "engineer"
+
+
+@app.get("/auth/users")
+def list_users(request: Request):
+    _require_admin(request)
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM users ORDER BY created_at DESC")
+            return [_user_to_dict(r) for r in cur.fetchall()]
+
+
+@app.post("/auth/users", response_model=UserResponse)
+def admin_create_user(body: AdminCreateUser, request: Request):
+    _require_admin(request)
+    if body.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}")
+    hashed = pwd_context.hash(body.password)
+    try:
+        with _db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """INSERT INTO users (email, password_hash, full_name, provider, role)
+                       VALUES (%s, %s, %s, 'local', %s) RETURNING *""",
+                    (body.email, hashed, body.full_name, body.role),
+                )
+                user = cur.fetchone()
+    except psycopg2.errors.UniqueViolation:
+        raise HTTPException(status_code=409, detail="Email already registered")
+    return _user_to_dict(user)
+
+
+@app.patch("/auth/users/{user_id}/role", response_model=UserResponse)
+def update_user_role(user_id: int, body: RoleUpdate, request: Request):
+    _require_admin(request)
+    if body.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}")
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "UPDATE users SET role = %s, updated_at = now() WHERE id = %s RETURNING *",
+                (body.role, user_id),
+            )
+            user = cur.fetchone()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _user_to_dict(user)
+
+
+@app.patch("/auth/users/{user_id}/active", response_model=UserResponse)
+def update_user_active(user_id: int, body: ActiveUpdate, request: Request):
+    admin = _require_admin(request)
+    if str(user_id) == str(admin.get("sub")) and not body.is_active:
+        raise HTTPException(status_code=400, detail="An admin cannot deactivate their own account")
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "UPDATE users SET is_active = %s, updated_at = now() WHERE id = %s RETURNING *",
+                (body.is_active, user_id),
+            )
+            user = cur.fetchone()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     return _user_to_dict(user)
 
 
@@ -583,12 +685,18 @@ SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "").strip()
 SMTP_PASS = os.getenv("SMTP_PASS", "").strip().replace(" ", "")
-SMTP_FROM = os.getenv("SMTP_FROM", "NeXo Telecom Intelligence <nexo-noreply@tunisietelecom.tn>").strip()
+SMTP_FROM = os.getenv(
+    "SMTP_FROM", "NeXo Telecom Intelligence <nexo-noreply@tunisietelecom.tn>"
+).strip()
 FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", f"{FRONTEND_URL}/reset-password")
 
 # Dev-mode: include reset link in API response when SMTP fails so the UI can
 # display it.  Safe for local development / defense demos — never true in prod.
-DEV_SHOW_FALLBACK_LINK = os.getenv("DEV_SHOW_FALLBACK_LINK", "false").lower() in ("1", "true", "yes")
+DEV_SHOW_FALLBACK_LINK = os.getenv("DEV_SHOW_FALLBACK_LINK", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _send_reset_email(to_email: str, token: str) -> dict:
@@ -617,11 +725,11 @@ def _send_reset_email(to_email: str, token: str) -> dict:
     body_html = (
         f'<html><body style="font-family:system-ui,sans-serif;max-width:480px;margin:24px auto;color:#1a1a2e">'
         f'<h2 style="color:#00D4FF">NeXo Password Reset</h2>'
-        f'<p>You requested a password reset for your NeXo account.</p>'
+        f"<p>You requested a password reset for your NeXo account.</p>"
         f'<p><a href="{reset_link}" style="display:inline-block;padding:12px 24px;background:#00D4FF;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Reset Password</a></p>'
         f'<p style="color:#666;font-size:13px">Or copy this link:<br><code style="background:#f4f4f8;padding:4px 8px;border-radius:4px">{reset_link}</code></p>'
         f'<p style="color:#666;font-size:13px">This link expires in 15 minutes. If you did not request this, ignore this email.</p>'
-        f'<p>— NeXo Security Team</p>'
+        f"<p>— NeXo Security Team</p>"
         f"</body></html>"
     )
 
@@ -668,9 +776,15 @@ def forgot_password(req: ForgotPasswordRequest):
             user = cur.fetchone()
             if not user:
                 # Don't reveal whether email exists
-                return {"ok": True, "detail": "If an account exists, a reset link has been sent."}
+                return {
+                    "ok": True,
+                    "detail": "If an account exists, a reset link has been sent.",
+                }
             if user.get("provider") != "local" or not user.get("password_hash"):
-                raise HTTPException(status_code=400, detail="Password reset is only available for local accounts")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Password reset is only available for local accounts",
+                )
             cur.execute(
                 "UPDATE users SET reset_token = %s, reset_token_expires_at = %s WHERE id = %s",
                 (token, expires, user["id"]),
@@ -696,7 +810,9 @@ def reset_password(req: ResetPasswordRequest):
             )
             user = cur.fetchone()
             if not user:
-                raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+                raise HTTPException(
+                    status_code=400, detail="Invalid or expired reset token"
+                )
             cur.execute(
                 "UPDATE users SET password_hash = %s, reset_token = NULL, reset_token_expires_at = NULL, updated_at = now() WHERE id = %s RETURNING *",
                 (hashed, user["id"]),

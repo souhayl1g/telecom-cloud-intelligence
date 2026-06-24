@@ -11,23 +11,39 @@ Much smaller than real data (~18M) but sufficient for pipeline sampling.
 """
 
 import os
-import random
 from datetime import datetime, timedelta
 
 import numpy as np
 import psycopg2
 from psycopg2.extras import execute_values
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel"
+)
 
 MONTHS = ["2026-01", "2026-02", "2026-05", "2026-06"]
 CELLS_PER_AREA = 12
 DAYS_IN_MONTH = {"2026-01": 31, "2026-02": 28, "2026-05": 31, "2026-06": 30}
 
 RAT_WEIGHTS = {
-    "2G": {"throughput": (0.1, 1.0), "latency": (80, 300), "rsrp": (-105, -85), "users": (5, 30)},
-    "3G": {"throughput": (1.0, 8.0), "latency": (40, 120), "rsrp": (-100, -80), "users": (10, 80)},
-    "4G": {"throughput": (5.0, 80.0), "latency": (15, 60), "rsrp": (-95, -70), "users": (20, 300)},
+    "2G": {
+        "throughput": (0.1, 1.0),
+        "latency": (80, 300),
+        "rsrp": (-105, -85),
+        "users": (5, 30),
+    },
+    "3G": {
+        "throughput": (1.0, 8.0),
+        "latency": (40, 120),
+        "rsrp": (-100, -80),
+        "users": (10, 80),
+    },
+    "4G": {
+        "throughput": (5.0, 80.0),
+        "latency": (15, 60),
+        "rsrp": (-95, -70),
+        "users": (20, 300),
+    },
 }
 
 
@@ -39,13 +55,16 @@ def fetch_area_ne(month_year: str) -> dict[str, float]:
     """Fetch average network_experience_index per area via bss_subscribers join."""
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT b.area, AVG(s.network_experience_index) AS ne
                 FROM bss_subscribers b
                 JOIN subscriber_features s ON b.imsi_hash = s.imsi_hash AND b.month_year = s.month_year
                 WHERE b.month_year = %s AND b.area IS NOT NULL
                 GROUP BY b.area
-            """, (month_year,))
+            """,
+                (month_year,),
+            )
             return {row[0]: float(row[1]) if row[1] else 0.5 for row in cur.fetchall()}
 
 
@@ -53,12 +72,15 @@ def fetch_area_rat_dist(month_year: str) -> dict[str, dict[str, float]]:
     """Fetch RAT distribution per area from BSS."""
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT area, highest_rat, COUNT(*)::float
                 FROM bss_subscribers
                 WHERE month_year = %s AND area IS NOT NULL AND highest_rat IS NOT NULL
                 GROUP BY area, highest_rat
-            """, (month_year,))
+            """,
+                (month_year,),
+            )
             dist: dict[str, dict[str, float]] = {}
             for area, rat, cnt in cur.fetchall():
                 dist.setdefault(area, {})[rat] = cnt
@@ -102,10 +124,14 @@ def generate_kpis(rat: str, ne_index: float) -> dict:
     ne_factor = max(0.1, min(1.0, ne_index))
     noise = rng.normal(0, 0.15)
 
-    throughput = w["throughput"][0] + (w["throughput"][1] - w["throughput"][0]) * (ne_factor + noise)
+    throughput = w["throughput"][0] + (w["throughput"][1] - w["throughput"][0]) * (
+        ne_factor + noise
+    )
     throughput = max(0.05, throughput)
 
-    latency = w["latency"][1] - (w["latency"][1] - w["latency"][0]) * (ne_factor + noise)
+    latency = w["latency"][1] - (w["latency"][1] - w["latency"][0]) * (
+        ne_factor + noise
+    )
     latency = max(5.0, latency)
 
     rsrp = w["rsrp"][1] - (w["rsrp"][1] - w["rsrp"][0]) * (1 - ne_factor - noise)
@@ -168,25 +194,27 @@ def simulate_month(month_year: str) -> list[tuple]:
                 cell_id = f"{area[:3].upper()}{rat}{cell_idx:03d}"
                 site_name = f"SITE-{area[:3].upper()}-{cell_idx:02d}"
 
-                rows.append((
-                    cell_id,
-                    area,
-                    month_year,
-                    kpis["throughput_mbps"],
-                    kpis["latency_ms"],
-                    kpis["packet_loss_rate"],
-                    kpis["jitter_ms"],
-                    kpis["active_users"],
-                    kpis["rsrp_dbm"],
-                    kpis["cell_load_pct"],
-                    kpis["anomaly_flag"],
-                    rat,
-                    kpis["integrity"],
-                    kpis["call_drop_rate"],
-                    ts.isoformat(),
-                    site_name,
-                    "simulated",
-                ))
+                rows.append(
+                    (
+                        cell_id,
+                        area,
+                        month_year,
+                        kpis["throughput_mbps"],
+                        kpis["latency_ms"],
+                        kpis["packet_loss_rate"],
+                        kpis["jitter_ms"],
+                        kpis["active_users"],
+                        kpis["rsrp_dbm"],
+                        kpis["cell_load_pct"],
+                        kpis["anomaly_flag"],
+                        rat,
+                        kpis["integrity"],
+                        kpis["call_drop_rate"],
+                        ts.isoformat(),
+                        site_name,
+                        "simulated",
+                    )
+                )
 
     print(f"  ... {len(rows):,} rows generated")
     return rows

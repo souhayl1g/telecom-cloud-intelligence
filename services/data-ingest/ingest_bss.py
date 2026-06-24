@@ -29,12 +29,32 @@ BATCH_SIZE = 5000
 
 # Columns in order (both CSV and pipe-delimited use same schema)
 COLUMNS = [
-    "imsi", "tac", "model", "brand", "tertype", "generation", "sim_slot",
-    "volte_flag", "usim_flag", "area", "area_delegation", "usertype",
-    "dou_total", "traffic_2g", "traffic_3g", "traffic_4g", "traffic_5g",
-    "duration", "voice_onlinetime_3g", "voice_onlinetime_2g",
-    "s1_mme_sr", "iu_attach_sr", "gb_attach_sr",
-    "session_flag", "highest_rat", "month_year",
+    "imsi",
+    "tac",
+    "model",
+    "brand",
+    "tertype",
+    "generation",
+    "sim_slot",
+    "volte_flag",
+    "usim_flag",
+    "area",
+    "area_delegation",
+    "usertype",
+    "dou_total",
+    "traffic_2g",
+    "traffic_3g",
+    "traffic_4g",
+    "traffic_5g",
+    "duration",
+    "voice_onlinetime_3g",
+    "voice_onlinetime_2g",
+    "s1_mme_sr",
+    "iu_attach_sr",
+    "gb_attach_sr",
+    "session_flag",
+    "highest_rat",
+    "month_year",
 ]
 
 DB_COLS = COLUMNS.copy()

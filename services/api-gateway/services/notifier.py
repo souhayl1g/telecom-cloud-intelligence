@@ -46,8 +46,8 @@ SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "").strip()
 _from_display, _from_addr = parseaddr(SMTP_FROM_RAW)
 if not _from_addr:
     _from_addr = SMTP_FROM_RAW  # last-resort fallback
-SMTP_FROM_ADDR = _from_addr                          # envelope sender (sendmail)
-SMTP_FROM_HEADER = formataddr(                       # human-friendly From: header
+SMTP_FROM_ADDR = _from_addr  # envelope sender (sendmail)
+SMTP_FROM_HEADER = formataddr(  # human-friendly From: header
     (SMTP_FROM_NAME or _from_display or "", _from_addr)
 )
 
@@ -57,7 +57,7 @@ class NotificationResult:
     channel: str
     recipient: str
     provider: str
-    status: str           # 'sent' | 'failed' | 'logged'
+    status: str  # 'sent' | 'failed' | 'logged'
     provider_msg_id: Optional[str] = None
     error: Optional[str] = None
 

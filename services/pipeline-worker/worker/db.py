@@ -1,4 +1,5 @@
 """Database connection helper for pipeline-worker."""
+
 import psycopg2
 from worker.config import DATABASE_URL
 

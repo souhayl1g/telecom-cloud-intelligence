@@ -1,7 +1,7 @@
 """20-step pipeline orchestration (v3.0 only)."""
+
 import hashlib
 import json
-import os
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -15,7 +15,11 @@ from worker.processors.bss import build_processed_bss, build_curated_dataset
 from worker.analytics.features import compute_oss_features, compute_bss_features
 from worker.analytics.correlations import compute_correlations
 from worker.analytics.granger import run_granger_causality
-from worker.inference.v3_client import infer_cem, infer_vae_anomaly, infer_rat_underservice
+from worker.inference.v3_client import (
+    infer_cem,
+    infer_vae_anomaly,
+    infer_rat_underservice,
+)
 from worker.sampler import USE_REAL_DATA, sample_bss_records, sample_oss_records
 from worker.intervention_tracker import track_outcomes
 
@@ -73,7 +77,9 @@ def _enrich_bss_for_v3(bss_records: list[dict], _oss_records: list[dict]) -> lis
             record["avg_throughput"] = health["avg_throughput"]
             record["avg_latency"] = health["avg_latency"]
             record["avg_packet_loss"] = health["avg_packet_loss"]
-            record["anomaly_rate"] = health["anomaly_count"] / max(health.get("subscriber_count", 1), 1)
+            record["anomaly_rate"] = health["anomaly_count"] / max(
+                health.get("subscriber_count", 1), 1
+            )
             record["avg_throughput_area"] = health["avg_throughput"]
             record["avg_latency_area"] = health["avg_latency"]
             record["avg_loss_area"] = health["avg_packet_loss"]
@@ -153,14 +159,18 @@ def _run_pipeline_steps(
         print(f"  {len(bss_records)} BSS records sampled")
     else:
         print("[3/20] Generating synthetic OSS data (with fault injection) ...")
-        oss_records, fault_info = generate_oss(SYNTHETIC_N_RECORDS, region, seed=run_seed)
+        oss_records, fault_info = generate_oss(
+            SYNTHETIC_N_RECORDS, region, seed=run_seed
+        )
         print(
             f"  {len(oss_records)} OSS records — "
             f"faults: {fault_info['fault_records']} records on cells {fault_info['fault_cells']}"
         )
 
         print("[4/20] Generating synthetic BSS data (with correlated dips) ...")
-        bss_records = generate_bss(SYNTHETIC_N_RECORDS, region, seed=run_seed + 1, fault_info=fault_info)
+        bss_records = generate_bss(
+            SYNTHETIC_N_RECORDS, region, seed=run_seed + 1, fault_info=fault_info
+        )
         print(f"  {len(bss_records)} BSS records generated")
 
     # ── 5–6. Upload raw layer ────────────────────────────────────────────
@@ -176,7 +186,6 @@ def _run_pipeline_steps(
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-
             # ── 7. dataset_registry (raw) ─────────────────────────────────
             print("[7/20] Registering raw datasets ...")
             for ds_type, key, count in [
@@ -243,7 +252,7 @@ def _run_pipeline_steps(
             print(
                 f"  CEM: {len(cem_scores)} predictions  "
                 f"model={cem_result.get('model_version')}  "
-                f"mean={sum(cem_scores)/len(cem_scores):.4f}"
+                f"mean={sum(cem_scores) / len(cem_scores):.4f}"
             )
         else:
             print("  CEM: no predictions")
@@ -252,7 +261,13 @@ def _run_pipeline_steps(
         print(f"  CEM: FAILED — {e}")
 
     # ── 13. RAT underservice inference ─────────────────────────────────
-    rat_result: dict = {"predictions": [], "underserved_count": 0, "total": 0, "underserved_rate": 0.0, "model_version": "v3.0"}
+    rat_result: dict = {
+        "predictions": [],
+        "underserved_count": 0,
+        "total": 0,
+        "underserved_rate": 0.0,
+        "model_version": "v3.0",
+    }
     print("[13/20] Calling AI service /infer/rat-underservice ...")
     try:
         rat_result = infer_rat_underservice(run_id, region, bss_enriched)
@@ -266,7 +281,13 @@ def _run_pipeline_steps(
         print(f"  RAT: FAILED — {e}")
 
     # ── 14. VAE anomaly inference ──────────────────────────────────────
-    vae_result: dict = {"records": [], "anomalous_count": 0, "total": 0, "anomaly_rate": 0.0, "model_version": "v3.0"}
+    vae_result: dict = {
+        "records": [],
+        "anomalous_count": 0,
+        "total": 0,
+        "anomaly_rate": 0.0,
+        "model_version": "v3.0",
+    }
     print("[14/20] Calling AI service /infer/vae-anomaly ...")
     try:
         vae_result = infer_vae_anomaly(run_id, region, oss_records)
@@ -283,7 +304,7 @@ def _run_pipeline_steps(
     print("[15/20] Computing OSS↔CEM correlations ...")
     correlations = compute_correlations(oss_records, bss_records)
     for c in correlations:
-        p_str = f"{c['p_value']:.4f}" if c['p_value'] is not None else "N/A"
+        p_str = f"{c['p_value']:.4f}" if c["p_value"] is not None else "N/A"
         print(
             f"  {c['method']:>8s}  {c['metric_x']:<28s} ↔ {c['metric_y']:<22s}  "
             f"r={c['corr_value']:+.4f}  p={p_str}"
@@ -323,7 +344,6 @@ def _run_pipeline_steps(
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-
             # ── 17. Curated dataset ──────────────────────────────────────
             print("[17/20] Building curated dataset → curated layer ...")
             curated = build_curated_dataset(
@@ -472,10 +492,16 @@ def _run_pipeline_steps(
 
     print(f"\n[pipeline] ✓ run {run_id} succeeded")
     print(f"  CEM predictions: {len(cem_result.get('predictions', []))}")
-    print(f"  RAT underserved: {rat_result.get('underserved_count')}/{rat_result.get('total')}")
-    print(f"  VAE anomalies:   {vae_result.get('anomalous_count')}/{vae_result.get('total')}")
+    print(
+        f"  RAT underserved: {rat_result.get('underserved_count')}/{rat_result.get('total')}"
+    )
+    print(
+        f"  VAE anomalies:   {vae_result.get('anomalous_count')}/{vae_result.get('total')}"
+    )
     print(f"  Correlations:    {len(correlations)} computed")
-    print(f"  Granger:         {granger_summary.get('significant_findings', 0)} significant")
+    print(
+        f"  Granger:         {granger_summary.get('significant_findings', 0)} significant"
+    )
     print(
         f"  Fault injection: {fault_info['fault_records']} records on {fault_info['fault_cells']}"
     )

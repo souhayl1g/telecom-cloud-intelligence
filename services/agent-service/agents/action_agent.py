@@ -48,9 +48,15 @@ class ActionAgent(BaseAgent):
         params = intent.params
 
         if action == "execute_playbook":
-            return self._execute_playbook(params.get("playbook_id"), params.get("context", {}))
+            return self._execute_playbook(
+                params.get("playbook_id"), params.get("context", {})
+            )
         elif action == "auto_remediate":
-            return self._auto_remediate(params.get("severity"), params.get("action_type"), params.get("confidence", 0.5))
+            return self._auto_remediate(
+                params.get("severity"),
+                params.get("action_type"),
+                params.get("confidence", 0.5),
+            )
         elif action == "escalate":
             return self._escalate(params)
         elif action == "list_playbooks":
@@ -60,18 +66,28 @@ class ActionAgent(BaseAgent):
         elif action == "reject_action":
             return self._reject_action(params.get("action_id"))
         else:
-            return AgentResult(agent_name=self.name, success=False, error=f"Unknown action: {action}")
+            return AgentResult(
+                agent_name=self.name, success=False, error=f"Unknown action: {action}"
+            )
 
     def _execute_playbook(self, playbook_id: str, context: dict) -> AgentResult:
         if playbook_id not in PLAYBOOKS:
-            return AgentResult(agent_name=self.name, success=False, error=f"Unknown playbook: {playbook_id}")
+            return AgentResult(
+                agent_name=self.name,
+                success=False,
+                error=f"Unknown playbook: {playbook_id}",
+            )
 
         # For pb-cem-refresh, trigger local recompute
         if playbook_id == "pb-cem-refresh":
             return AgentResult(
                 agent_name=self.name,
                 success=True,
-                data={"playbook_id": playbook_id, "status": "triggered", "note": "Run compute_features.py to refresh CEM scores"},
+                data={
+                    "playbook_id": playbook_id,
+                    "status": "triggered",
+                    "note": "Run compute_features.py to refresh CEM scores",
+                },
                 summary="Triggered CEM refresh playbook.",
             )
 
@@ -89,20 +105,25 @@ class ActionAgent(BaseAgent):
             summary=f"Executed playbook '{playbook_id}': {PLAYBOOKS[playbook_id]}",
         )
 
-    def _auto_remediate(self, severity: str, action_type: str, confidence: float) -> AgentResult:
+    def _auto_remediate(
+        self, severity: str, action_type: str, confidence: float
+    ) -> AgentResult:
         # Reuse L4 classifyAction logic
         needs_human = False
         if action_type == "remediation" and severity in ("critical", "warning"):
             needs_human = True
 
         decision = "auto_approved" if not needs_human else "needs_human_approval"
-        summary = (
-            f"Action '{action_type}' with severity '{severity}' (confidence {confidence:.2f}) → {decision}"
-        )
+        summary = f"Action '{action_type}' with severity '{severity}' (confidence {confidence:.2f}) → {decision}"
         return AgentResult(
             agent_name=self.name,
             success=True,
-            data={"decision": decision, "severity": severity, "action_type": action_type, "confidence": confidence},
+            data={
+                "decision": decision,
+                "severity": severity,
+                "action_type": action_type,
+                "confidence": confidence,
+            },
             summary=summary,
         )
 
@@ -115,11 +136,23 @@ class ActionAgent(BaseAgent):
         action_id = f"esc-{os.urandom(4).hex()}"
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO agent_actions (action_id, type, title, description, severity, status, source, confidence)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (action_id) DO NOTHING
-                """, (action_id, action_type, title, description, severity, "pending", "ActionAgent", params.get("confidence", 0.5)))
+                """,
+                    (
+                        action_id,
+                        action_type,
+                        title,
+                        description,
+                        severity,
+                        "pending",
+                        "ActionAgent",
+                        params.get("confidence", 0.5),
+                    ),
+                )
             conn.commit()
 
         return AgentResult(
@@ -133,34 +166,56 @@ class ActionAgent(BaseAgent):
         return AgentResult(
             agent_name=self.name,
             success=True,
-            data={"playbooks": [{"id": k, "description": v} for k, v in PLAYBOOKS.items()]},
+            data={
+                "playbooks": [{"id": k, "description": v} for k, v in PLAYBOOKS.items()]
+            },
             summary=f"{len(PLAYBOOKS)} playbooks available.",
         )
 
     def _approve_action(self, action_id: str) -> AgentResult:
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     UPDATE agent_actions SET status = 'approved', resolved_at = now()
                     WHERE action_id = %s RETURNING id
-                """, (action_id,))
+                """,
+                    (action_id,),
+                )
                 updated = cur.fetchone()
             conn.commit()
 
         if not updated:
-            return AgentResult(agent_name=self.name, success=False, error="Action not found")
-        return AgentResult(agent_name=self.name, success=True, data={"action_id": action_id, "status": "approved"}, summary=f"Action {action_id} approved.")
+            return AgentResult(
+                agent_name=self.name, success=False, error="Action not found"
+            )
+        return AgentResult(
+            agent_name=self.name,
+            success=True,
+            data={"action_id": action_id, "status": "approved"},
+            summary=f"Action {action_id} approved.",
+        )
 
     def _reject_action(self, action_id: str) -> AgentResult:
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     UPDATE agent_actions SET status = 'rejected', resolved_at = now()
                     WHERE action_id = %s RETURNING id
-                """, (action_id,))
+                """,
+                    (action_id,),
+                )
                 updated = cur.fetchone()
             conn.commit()
 
         if not updated:
-            return AgentResult(agent_name=self.name, success=False, error="Action not found")
-        return AgentResult(agent_name=self.name, success=True, data={"action_id": action_id, "status": "rejected"}, summary=f"Action {action_id} rejected.")
+            return AgentResult(
+                agent_name=self.name, success=False, error="Action not found"
+            )
+        return AgentResult(
+            agent_name=self.name,
+            success=True,
+            data={"action_id": action_id, "status": "rejected"},
+            summary=f"Action {action_id} rejected.",
+        )

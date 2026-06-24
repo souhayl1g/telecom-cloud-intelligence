@@ -19,7 +19,9 @@ import os
 import psycopg2
 from psycopg2.extras import execute_values, Json
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel"
+)
 
 # Load cell-to-governorate mapping (OSS cell tower names → BSS governorate names)
 _MAPPING_PATH = os.path.join(os.path.dirname(__file__), "cell_governorate_map.json")
@@ -74,19 +76,23 @@ def compute_features_for_month(month_year: str):
     # Fetch all subscribers for this month
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT id, imsi_hash, generation, highest_rat, usim_flag,
                        dou_total, duration, s1_mme_sr, iu_attach_sr, gb_attach_sr,
                        usertype, area, churned
                 FROM bss_subscribers
                 WHERE month_year = %s
-            """, (month_year,))
+            """,
+                (month_year,),
+            )
             subs = cur.fetchall()
 
     # Fetch area-level OSS aggregates for this month
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT area,
                        AVG(throughput_mbps) AS avg_tp,
                        AVG(latency_ms) AS avg_lat,
@@ -96,18 +102,32 @@ def compute_features_for_month(month_year: str):
                 FROM oss_cell_kpis
                 WHERE month_year = %s
                 GROUP BY area
-            """, (month_year,))
+            """,
+                (month_year,),
+            )
             raw_oss = {row[0]: row[1:] for row in cur.fetchall()}
 
     # Remap OSS aggregates from cell tower names → governorates
     oss_agg = {}
-    for cell_area, (avg_tp, avg_lat, avg_pl, avg_rsrp, anomaly_count) in raw_oss.items():
+    for cell_area, (
+        avg_tp,
+        avg_lat,
+        avg_pl,
+        avg_rsrp,
+        anomaly_count,
+    ) in raw_oss.items():
         gov = CELL_GOVERNORATE_MAP.get(cell_area)
         if not gov:
             continue
         if gov not in oss_agg:
-            oss_agg[gov] = {"tp_sum": 0.0, "lat_sum": 0.0, "pl_sum": 0.0,
-                            "rsrp_sum": 0.0, "anomaly_count": 0, "cell_count": 0}
+            oss_agg[gov] = {
+                "tp_sum": 0.0,
+                "lat_sum": 0.0,
+                "pl_sum": 0.0,
+                "rsrp_sum": 0.0,
+                "anomaly_count": 0,
+                "cell_count": 0,
+            }
         # Weighted average by cell count (each area aggregate is from one cell area)
         oss_agg[gov]["tp_sum"] += avg_tp or 0
         oss_agg[gov]["lat_sum"] += avg_lat or 0
@@ -131,9 +151,21 @@ def compute_features_for_month(month_year: str):
     area_stats = {}
 
     for sub in subs:
-        (_id, imsi_hash, generation, highest_rat, usim_flag,
-         dou_total, duration, s1_mme_sr, iu_attach_sr, gb_attach_sr,
-         usertype, area, churned) = sub
+        (
+            _id,
+            imsi_hash,
+            generation,
+            highest_rat,
+            usim_flag,
+            dou_total,
+            duration,
+            s1_mme_sr,
+            iu_attach_sr,
+            gb_attach_sr,
+            usertype,
+            area,
+            churned,
+        ) = sub
         churned = churned if churned is not None else False
 
         dou_total = dou_total or 0
@@ -148,7 +180,7 @@ def compute_features_for_month(month_year: str):
 
         # Network experience index: weighted average of attach SRs
         # LTE attach is most important, then 3G, then 2G
-        ne_index = (s1 * 0.5 + iu * 0.3 + gb * 0.2)
+        ne_index = s1 * 0.5 + iu * 0.3 + gb * 0.2
 
         # CEM score target: composite of usage, quality, device gap
         # Normalize dou_total to ~0-1 (mean ~17GB = 1.7e10 bytes)
@@ -167,21 +199,32 @@ def compute_features_for_month(month_year: str):
             "gap_penalty": round(gap_penalty, 4),
         }
 
-        feature_rows.append((
-            imsi_hash, month_year,
-            round(rat_gap, 4), usim_bottleneck,
-            round(data_intensity, 2), round(ne_index, 4),
-            round(cem_target, 4), round(cem_target, 4),  # cem_score = target for now
-            churn_risk, churned, Json(features_json)
-        ))
+        feature_rows.append(
+            (
+                imsi_hash,
+                month_year,
+                round(rat_gap, 4),
+                usim_bottleneck,
+                round(data_intensity, 2),
+                round(ne_index, 4),
+                round(cem_target, 4),
+                round(cem_target, 4),  # cem_score = target for now
+                churn_risk,
+                churned,
+                Json(features_json),
+            )
+        )
 
         # Accumulate area stats (skip null areas)
         if not area:
             continue
         if area not in area_stats:
             area_stats[area] = {
-                "count": 0, "cem_sum": 0.0, "underserved": 0,
-                "usim_bottleneck": 0, "anomaly_count": 0,
+                "count": 0,
+                "cem_sum": 0.0,
+                "underserved": 0,
+                "usim_bottleneck": 0,
+                "anomaly_count": 0,
             }
         area_stats[area]["count"] += 1
         area_stats[area]["cem_sum"] += cem_target
@@ -220,16 +263,21 @@ def compute_features_for_month(month_year: str):
     area_rows = []
     for area, stats in area_stats.items():
         oss = oss_agg.get(area, (None, None, None, None, 0))
-        area_rows.append((
-            area, month_year,
-            round(oss[0] or 0, 2), round(oss[1] or 0, 2),
-            round(oss[2] or 0, 4), stats["anomaly_count"],
-            stats["count"],
-            round(stats["cem_sum"] / max(stats["count"], 1), 4),
-            round(stats["underserved"] / max(stats["count"], 1) * 100, 2),
-            round(stats["usim_bottleneck"] / max(stats["count"], 1) * 100, 2),
-            Json({"avg_rsrp": round(oss[3] or 0, 1)}),
-        ))
+        area_rows.append(
+            (
+                area,
+                month_year,
+                round(oss[0] or 0, 2),
+                round(oss[1] or 0, 2),
+                round(oss[2] or 0, 4),
+                stats["anomaly_count"],
+                stats["count"],
+                round(stats["cem_sum"] / max(stats["count"], 1), 4),
+                round(stats["underserved"] / max(stats["count"], 1) * 100, 2),
+                round(stats["usim_bottleneck"] / max(stats["count"], 1) * 100, 2),
+                Json({"avg_rsrp": round(oss[3] or 0, 1)}),
+            )
+        )
 
     if area_rows:
         sql = """
@@ -257,7 +305,17 @@ def compute_features_for_month(month_year: str):
 
 
 def main():
-    months = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
+    months = [
+        "2026-01",
+        "2026-02",
+        "2026-03",
+        "2026-04",
+        "2026-05",
+        "2026-06",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+    ]
     for month in months:
         compute_features_for_month(month)
     print("\n[done] Feature computation complete for all months")

@@ -28,7 +28,9 @@ from scipy import stats
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel")
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://telecom:telecom_pw@localhost:5432/telecom_intel"
+)
 
 # Minimum time points required for Granger causality
 MIN_TIME_POINTS = 5
@@ -101,31 +103,31 @@ def run_granger_test(series_x, series_y, max_lag=MAX_LAG):
     best_pvalue = 1.0
     best_corr = 0.0
     all_lags = {}
-    
+
     for lag in range(1, max_lag + 1):
         if len(series_x) <= lag + 2:
             continue
-        
+
         # X shifted forward by lag, Y aligned
         x_lagged = series_x.iloc[:-lag].values
         y_aligned = series_y.iloc[lag:].values
-        
+
         # Check for constant arrays
         if np.std(x_lagged) == 0 or np.std(y_aligned) == 0:
             continue
-        
+
         # Pearson correlation
         corr, p_value = stats.pearsonr(x_lagged, y_aligned)
         all_lags[lag] = {"corr": float(corr), "p_value": float(p_value)}
-        
+
         if p_value < best_pvalue:
             best_pvalue = p_value
             best_corr = abs(corr)
             best_lag = lag
-    
+
     if best_lag is None:
         return {"error": "No valid lag could be tested"}
-    
+
     return {
         "best_lag": best_lag,
         "best_pvalue": float(best_pvalue),
@@ -138,41 +140,50 @@ def run_all_tests():
     """Run Granger causality tests for all areas and variable pairs."""
     df = fetch_time_series()
     create_results_table()
-    
+
     results = []
-    
+
     # Group by area
     for area, group in df.groupby("area"):
         if len(group) < MIN_TIME_POINTS:
-            print(f"  [skip] {area}: only {len(group)} time points (need {MIN_TIME_POINTS})")
+            print(
+                f"  [skip] {area}: only {len(group)} time points (need {MIN_TIME_POINTS})"
+            )
             continue
-        
+
         # Sort by month
         group = group.sort_values("month_year")
-        
+
         for oss_var, cem_var, direction in TEST_PAIRS:
             if direction == "oss→bss":
                 cause_var, effect_var = oss_var, cem_var
             else:
                 cause_var, effect_var = cem_var, oss_var
-            
+
             # Check for non-zero variance
             cause_std = group[cause_var].std()
             effect_std = group[effect_var].std()
-            
-            if pd.isna(cause_std) or pd.isna(effect_std) or cause_std == 0 or effect_std == 0:
-                print(f"  [skip] {area} {direction} ({cause_var}→{effect_var}): zero variance")
+
+            if (
+                pd.isna(cause_std)
+                or pd.isna(effect_std)
+                or cause_std == 0
+                or effect_std == 0
+            ):
+                print(
+                    f"  [skip] {area} {direction} ({cause_var}→{effect_var}): zero variance"
+                )
                 continue
-            
+
             # Run test
             test_result = run_granger_test(group[cause_var], group[effect_var])
-            
+
             if "error" in test_result:
                 print(f"  [error] {area} {direction}: {test_result['error']}")
                 continue
-            
+
             significant = test_result["best_pvalue"] < PVALUE_THRESHOLD
-            
+
             result_row = {
                 "area": area,
                 "oss_variable": oss_var,
@@ -186,12 +197,14 @@ def run_all_tests():
                 "test_summary": json.dumps(test_result["all_lags"]),
             }
             results.append(result_row)
-            
+
             sig_marker = "***" if significant else ""
-            print(f"  {area} {direction} ({cause_var}→{effect_var}): "
-                  f"lag={test_result['best_lag']}, p={test_result['best_pvalue']:.4f}, "
-                  f"r={test_result.get('best_corr', 0.0):.2f} {sig_marker}")
-    
+            print(
+                f"  {area} {direction} ({cause_var}→{effect_var}): "
+                f"lag={test_result['best_lag']}, p={test_result['best_pvalue']:.4f}, "
+                f"r={test_result.get('best_corr', 0.0):.2f} {sig_marker}"
+            )
+
     # Insert results into DB
     if results:
         sql = """
@@ -208,18 +221,29 @@ def run_all_tests():
                 test_summary = EXCLUDED.test_summary,
                 created_at = NOW()
         """
-        values = [(
-            r["area"], r["oss_variable"], r["cem_variable"], r["direction"],
-            r["max_lag"], r["best_lag"], r["best_pvalue"], r["best_fstat"],
-            r["significant"], r["test_summary"]
-        ) for r in results]
-        
+        values = [
+            (
+                r["area"],
+                r["oss_variable"],
+                r["cem_variable"],
+                r["direction"],
+                r["max_lag"],
+                r["best_lag"],
+                r["best_pvalue"],
+                r["best_fstat"],
+                r["significant"],
+                r["test_summary"],
+            )
+            for r in results
+        ]
+
         with get_conn() as conn:
             from psycopg2.extras import execute_values
+
             with conn.cursor() as cur:
                 execute_values(cur, sql, values)
             conn.commit()
-        
+
         print(f"\n[done] {len(results)} Granger causality results inserted/updated")
     else:
         print("\n[done] No valid Granger causality results")
@@ -236,17 +260,19 @@ def print_summary():
     """
     with get_conn() as conn:
         df = pd.read_sql(sql, conn)
-    
+
     if df.empty:
         print("\nNo significant Granger causality relationships found.")
         return
-    
-    print(f"\n{'='*60}")
+
+    print(f"\n{'=' * 60}")
     print(f"Significant Granger Causality Results ({len(df)} total)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for _, row in df.iterrows():
-        print(f"  {row['area']}: {row['direction']} ({row['oss_variable']} ↔ {row['cem_variable']}) "
-              f"— lag={row['best_lag']}, p={row['best_pvalue']:.4f}, r={row['best_fstat']:.2f}")
+        print(
+            f"  {row['area']}: {row['direction']} ({row['oss_variable']} ↔ {row['cem_variable']}) "
+            f"— lag={row['best_lag']}, p={row['best_pvalue']:.4f}, r={row['best_fstat']:.2f}"
+        )
 
 
 if __name__ == "__main__":

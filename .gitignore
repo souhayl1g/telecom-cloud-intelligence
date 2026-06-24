@@ -248,3 +248,6 @@ report/
 *.bak
 *.bak_*
 *.ipynb.bak
+
+# Windows download artifacts
+*:Zone.Identifier

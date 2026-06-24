@@ -21,7 +21,7 @@ REPORTS_BUCKET = os.getenv("REPORTS_BUCKET", "reports")
 REPORTS_URL_TTL_SECONDS = int(os.getenv("REPORTS_URL_TTL_SECONDS", str(7 * 24 * 3600)))
 PUBLIC_S3_ENDPOINT = os.getenv("PUBLIC_S3_ENDPOINT", "http://localhost:9000")
 
-_client = None          # internal client (uploads/list/get over docker network)
+_client = None  # internal client (uploads/list/get over docker network)
 _presign_client = None  # signing client bound to PUBLIC_S3_ENDPOINT
 
 
@@ -86,7 +86,9 @@ def upload_bytes(
     return key
 
 
-def presign_url(*, bucket: str, key: str, ttl_seconds: int = REPORTS_URL_TTL_SECONDS) -> tuple[str, datetime]:
+def presign_url(
+    *, bucket: str, key: str, ttl_seconds: int = REPORTS_URL_TTL_SECONDS
+) -> tuple[str, datetime]:
     """Generate a presigned GET URL signed against PUBLIC_S3_ENDPOINT.
 
     Returns (url, expires_at). The signing client's endpoint matches what the

@@ -167,26 +167,28 @@ def _write_row(writer, row, rat_type: str) -> bool:
         if not cell_id or not area:
             return False
 
-        writer.writerow([
-            cell_id,
-            area,
-            my,
-            tput,
-            "",  # latency_ms — not in source, derived by vw_oss_cell_derived
-            "",  # packet_loss_rate — not in source, derived
-            "",  # jitter_ms — not in source, derived
-            users,
-            rsrp,
-            "",  # cell_load_pct — derived in view from active_users / users_max
-            is_anomaly(integrity, cdr),
-            rat_type,
-            integrity,
-            cdr,
-            ts,
-            site_name,
-            "real",
-            users_max,  # REAL — L.Traffic.User.Max (4G only)
-        ])
+        writer.writerow(
+            [
+                cell_id,
+                area,
+                my,
+                tput,
+                "",  # latency_ms — not in source, derived by vw_oss_cell_derived
+                "",  # packet_loss_rate — not in source, derived
+                "",  # jitter_ms — not in source, derived
+                users,
+                rsrp,
+                "",  # cell_load_pct — derived in view from active_users / users_max
+                is_anomaly(integrity, cdr),
+                rat_type,
+                integrity,
+                cdr,
+                ts,
+                site_name,
+                "real",
+                users_max,  # REAL — L.Traffic.User.Max (4G only)
+            ]
+        )
         return True
 
     except Exception:
@@ -269,9 +271,17 @@ def delete_rat(conn, rat_type: str) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ingest real OSS KPI CSVs into PostgreSQL")
-    parser.add_argument("rats", nargs="*", help="RAT types to ingest (2G, 3G, 4G). Default: all")
-    parser.add_argument("--force", action="store_true", help="Delete existing data for selected RATs before ingest")
+    parser = argparse.ArgumentParser(
+        description="Ingest real OSS KPI CSVs into PostgreSQL"
+    )
+    parser.add_argument(
+        "rats", nargs="*", help="RAT types to ingest (2G, 3G, 4G). Default: all"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Delete existing data for selected RATs before ingest",
+    )
     args = parser.parse_args()
 
     target_rats = set(args.rats) if args.rats else {"2G", "3G", "4G"}
@@ -300,11 +310,15 @@ def main():
 
         if existing.get(rat_type, 0) > 0:
             if args.force:
-                print(f"[ingest-oss] Deleting existing {rat_type} data ({existing[rat_type]:,} rows) ...")
+                print(
+                    f"[ingest-oss] Deleting existing {rat_type} data ({existing[rat_type]:,} rows) ..."
+                )
                 deleted = delete_rat(conn, rat_type)
                 print(f"  Deleted {deleted:,} rows")
             else:
-                print(f"[ingest-oss] Skipping {rat_type}: already has {existing[rat_type]:,} rows (use --force to overwrite)")
+                print(
+                    f"[ingest-oss] Skipping {rat_type}: already has {existing[rat_type]:,} rows (use --force to overwrite)"
+                )
                 continue
 
         grand_total += ingest_file(conn, filepath, rat_type)

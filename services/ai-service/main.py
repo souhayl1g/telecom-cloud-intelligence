@@ -30,12 +30,16 @@ def _setup_tracing() -> None:
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if not endpoint:
         return
-    resource = Resource.create({
-        "service.name": os.getenv("OTEL_SERVICE_NAME", "ai-service"),
-        "service.version": "3.0",
-    })
+    resource = Resource.create(
+        {
+            "service.name": os.getenv("OTEL_SERVICE_NAME", "ai-service"),
+            "service.version": "3.0",
+        }
+    )
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
+    )
     trace.set_tracer_provider(provider)
 
 
@@ -47,7 +51,9 @@ FastAPIInstrumentor.instrument_app(app)
 # Prometheus /metrics endpoint — scraped per prometheus.yml.
 from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+Instrumentator().instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)
 
 # Initialize model cache at startup
 print("[ai-service] initializing model cache...")

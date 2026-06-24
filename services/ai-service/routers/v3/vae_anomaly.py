@@ -27,6 +27,7 @@ router = APIRouter()
 class VaeRecord(BaseModel):
     """Accept any extra fields; the router resolves the model's feature
     contract from the checkpoint at inference time."""
+
     model_config = ConfigDict(extra="allow")
 
 

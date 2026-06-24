@@ -77,7 +77,9 @@ def load_models(force: bool = False):
             # feature set never causes a shape-mismatch 422 at inference time.
             if CEM_FEATURE_NAMES_PATH.exists():
                 _cache["cem_features"] = list(joblib.load(CEM_FEATURE_NAMES_PATH))
-                print(f"  [ml]   CEM feature contract: {len(_cache['cem_features'])} cols")
+                print(
+                    f"  [ml]   CEM feature contract: {len(_cache['cem_features'])} cols"
+                )
         else:
             print(f"  [ml] warning: CEM v3 model not found at {CEM_MODEL_PATH}")
     except Exception as e:
@@ -90,7 +92,9 @@ def load_models(force: bool = False):
             print(f"  [ml] loaded RAT v3 model from {RAT_MODEL_PATH}")
             if RAT_FEATURE_NAMES_PATH.exists():
                 _cache["rat_features"] = list(joblib.load(RAT_FEATURE_NAMES_PATH))
-                print(f"  [ml]   RAT feature contract: {len(_cache['rat_features'])} cols")
+                print(
+                    f"  [ml]   RAT feature contract: {len(_cache['rat_features'])} cols"
+                )
         else:
             print(f"  [ml] warning: RAT v3 model not found at {RAT_MODEL_PATH}")
     except Exception as e:
@@ -99,7 +103,9 @@ def load_models(force: bool = False):
     # --- v3.0 VAE (PyTorch) ---
     try:
         if VAE_MODEL_PATH.exists() and VAE_SCALER_PATH.exists():
-            checkpoint = torch.load(VAE_MODEL_PATH, map_location="cpu", weights_only=True)
+            checkpoint = torch.load(
+                VAE_MODEL_PATH, map_location="cpu", weights_only=True
+            )
             input_dim = checkpoint.get("input_dim", 9)
             latent_dim = checkpoint.get("latent_dim", 8)
             hidden_dim = checkpoint.get("hidden_dim", 32)
@@ -122,7 +128,9 @@ def load_models(force: bool = False):
                     _cache["vae_feature_names"] = ckpt_names
                     _cache["vae_features"] = ckpt_names
                     _cache["vae_scaler"] = joblib.load(VAE_SCALER_PATH)
-                    print(f"  [ml] loaded VAE v3 model ({arch_class.__name__}) from {VAE_MODEL_PATH}")
+                    print(
+                        f"  [ml] loaded VAE v3 model ({arch_class.__name__}) from {VAE_MODEL_PATH}"
+                    )
                     break
                 except RuntimeError:
                     continue

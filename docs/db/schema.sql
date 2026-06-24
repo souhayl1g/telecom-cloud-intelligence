@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url    TEXT,
     provider      TEXT NOT NULL DEFAULT 'local',  -- 'local' | 'google' | 'github'
     provider_id   TEXT,                    -- OAuth provider's user ID
-    role          TEXT NOT NULL DEFAULT 'viewer',  -- 'viewer' | 'analyst' | 'admin'
+    role          TEXT NOT NULL DEFAULT 'engineer',  -- 'engineer' | 'data_scientist' | 'admin' (see migration 006)
     is_active     BOOLEAN NOT NULL DEFAULT TRUE,
     reset_token   TEXT,
     reset_token_expires_at TIMESTAMPTZ,
@@ -137,6 +137,25 @@ CREATE TABLE IF NOT EXISTS agent_actions (
 
 CREATE INDEX IF NOT EXISTS idx_agent_actions_status ON agent_actions(status);
 CREATE INDEX IF NOT EXISTS idx_agent_actions_created ON agent_actions(created_at DESC);
+
+-- L4 closed-loop autonomy (mirror of migration 005_l4_autonomy.sql)
+ALTER TABLE agent_actions
+  ADD COLUMN IF NOT EXISTS decided_by TEXT;          -- 'L4-autonomous' | NULL (human/manual)
+CREATE INDEX IF NOT EXISTS idx_agent_actions_decided_resolved
+  ON agent_actions(decided_by, resolved_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_autonomy_config (
+  id                  INT PRIMARY KEY DEFAULT 1,
+  armed               BOOLEAN NOT NULL DEFAULT FALSE,
+  confidence_threshold DOUBLE PRECISION NOT NULL DEFAULT 0.85,
+  playbook_whitelist  TEXT[] NOT NULL DEFAULT '{}',
+  max_actions_per_hour INT NOT NULL DEFAULT 10,
+  kill_switch         BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by          TEXT,
+  CONSTRAINT agent_autonomy_config_singleton CHECK (id = 1)
+);
+INSERT INTO agent_autonomy_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- ───────────────────────────────────────────────────────────────
 -- Phase 3.5: Real BSS Subscriber Data + Multi-Month Simulation
@@ -351,4 +370,12 @@ CREATE TABLE IF NOT EXISTS granger_causality_results (
 
 CREATE INDEX IF NOT EXISTS idx_granger_area ON granger_causality_results(area);
 CREATE INDEX IF NOT EXISTS idx_granger_significant ON granger_causality_results(significant);
+
+-- Admin-managed dashboard settings (KV, JSONB values). See migration 007.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        TEXT PRIMARY KEY,
+  value      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by TEXT
+);
 

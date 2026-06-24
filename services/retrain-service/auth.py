@@ -1,4 +1,5 @@
 """Internal auth — shared API key for service-to-service calls."""
+
 import os
 from fastapi import Header, HTTPException
 

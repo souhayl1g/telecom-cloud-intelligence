@@ -172,22 +172,21 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
     # Traffic drift
     df["traffic_2g"] = (
-        df["traffic_2g"] * (1.15 if cfg["5g_factor"] < 1.0 else 0.85)
-    ).round().astype(int)
+        (df["traffic_2g"] * (1.15 if cfg["5g_factor"] < 1.0 else 0.85))
+        .round()
+        .astype(int)
+    )
     df["traffic_3g"] = (df["traffic_3g"] * 0.95).round().astype(int)
     df["traffic_4g"] = (
-        df["traffic_4g"] * (0.9 if cfg["5g_factor"] > 1.0 else 1.05)
-    ).round().astype(int)
+        (df["traffic_4g"] * (0.9 if cfg["5g_factor"] > 1.0 else 1.05))
+        .round()
+        .astype(int)
+    )
     df["traffic_5g"] = (df["traffic_5g"] * cfg["5g_factor"]).round().astype(int)
     df["traffic_5g"] = df["traffic_5g"].clip(lower=0)
 
     # Ensure DOU >= traffic sum (cap at 1.5x)
-    tsum = (
-        df["traffic_2g"]
-        + df["traffic_3g"]
-        + df["traffic_4g"]
-        + df["traffic_5g"]
-    )
+    tsum = df["traffic_2g"] + df["traffic_3g"] + df["traffic_4g"] + df["traffic_5g"]
     mask = tsum > df["dou_total"] * 1.5
     df.loc[mask, "dou_total"] = tsum[mask]
 
@@ -196,21 +195,13 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         mask_4g = df["highest_rat"] == "4G"
         n = int(mask_4g.sum() * cfg["promote_4g_pct"])
         if n > 0:
-            idx = (
-                df[mask_4g]
-                .sample(n=min(n, mask_4g.sum()), random_state=42)
-                .index
-            )
+            idx = df[mask_4g].sample(n=min(n, mask_4g.sum()), random_state=42).index
             df.loc[idx, "highest_rat"] = "5G"
     elif cfg.get("demote_5g_pct", 0) > 0:
         mask_5g = df["highest_rat"] == "5G"
         n = int(mask_5g.sum() * cfg["demote_5g_pct"])
         if n > 0:
-            idx = (
-                df[mask_5g]
-                .sample(n=min(n, mask_5g.sum()), random_state=42)
-                .index
-            )
+            idx = df[mask_5g].sample(n=min(n, mask_5g.sum()), random_state=42).index
             df.loc[idx, "highest_rat"] = "4G"
 
     # Silent user drift
@@ -220,31 +211,19 @@ def apply_month_drift(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         mask_d = df["usertype"] == "Data User"
         n = int(mask_d.sum() * silent_shift * 0.6)
         if n > 0:
-            idx = (
-                df[mask_d]
-                .sample(n=min(n, mask_d.sum()), random_state=43)
-                .index
-            )
+            idx = df[mask_d].sample(n=min(n, mask_d.sum()), random_state=43).index
             df.loc[idx, "usertype"] = "Silent User"
         mask_v = df["usertype"] == "Voice User"
         n = int(mask_v.sum() * silent_shift * 0.4)
         if n > 0:
-            idx = (
-                df[mask_v]
-                .sample(n=min(n, mask_v.sum()), random_state=44)
-                .index
-            )
+            idx = df[mask_v].sample(n=min(n, mask_v.sum()), random_state=44).index
             df.loc[idx, "usertype"] = "Silent User"
     elif silent_shift < 0:
         # Silent -> Data/Voice (reverse drift)
         mask_s = df["usertype"] == "Silent User"
         n = int(mask_s.sum() * abs(silent_shift))
         if n > 0:
-            idx = (
-                df[mask_s]
-                .sample(n=min(n, mask_s.sum()), random_state=45)
-                .index
-            )
+            idx = df[mask_s].sample(n=min(n, mask_s.sum()), random_state=45).index
             split = int(len(idx) * 0.6)
             df.loc[idx[:split], "usertype"] = "Data User"
             df.loc[idx[split:], "usertype"] = "Voice User"
@@ -267,9 +246,9 @@ def generate_month(source_df: pd.DataFrame, month_key: str) -> pd.DataFrame:
     )
 
     # Sample with replacement from source (required when source < 500K)
-    sampled = source_df.sample(
-        n=N_RECORDS, replace=True, random_state=42
-    ).reset_index(drop=True)
+    sampled = source_df.sample(n=N_RECORDS, replace=True, random_state=42).reset_index(
+        drop=True
+    )
 
     # Apply perturbations
     sampled = perturb_numerical(sampled.copy())
@@ -345,7 +324,9 @@ def ensure_churned_column():
                 """
             )
         conn.commit()
-    print("[db] Ensured churned column exists in bss_subscribers and subscriber_features")
+    print(
+        "[db] Ensured churned column exists in bss_subscribers and subscriber_features"
+    )
 
 
 def delete_old_simulated_bss() -> int:
@@ -482,7 +463,15 @@ def recompute_features():
         sys.path.insert(0, ingest_dir)
     import compute_features as cf
 
-    for month in ["2026-01", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]:
+    for month in [
+        "2026-01",
+        "2026-04",
+        "2026-05",
+        "2026-06",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+    ]:
         cf.compute_features_for_month(month)
     print("\n[done] Feature recomputation complete")
 
@@ -519,8 +508,15 @@ def main():
     # Insert new consistent data
     print("\n[db] Inserting consistent simulated BSS data...")
     total_inserted = 0
-    for df, label in [(jan_df, "jan"), (apr_df, "avr"), (may_df, "mai"),
-                        (jun_df, "jun"), (jul_df, "jul"), (aug_df, "aou"), (sep_df, "sep")]:
+    for df, label in [
+        (jan_df, "jan"),
+        (apr_df, "avr"),
+        (may_df, "mai"),
+        (jun_df, "jun"),
+        (jul_df, "jul"),
+        (aug_df, "aou"),
+        (sep_df, "sep"),
+    ]:
         print(f"  Inserting {label} ...")
         total_inserted += insert_bss_df(df)
 

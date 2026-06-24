@@ -1,4 +1,5 @@
 """MinIO/S3 helpers for pipeline-worker."""
+
 import json
 from io import BytesIO
 
@@ -29,4 +30,6 @@ def ensure_buckets(s3, buckets: list[str]) -> None:
 def upload_json(s3, bucket: str, key: str, records: list[dict]) -> None:
     body = json.dumps(records, indent=2).encode()
     s3.put_object(Bucket=bucket, Key=key, Body=BytesIO(body), ContentLength=len(body))
-    print(f"  uploaded s3://{bucket}/{key}  ({len(records)} records, {len(body):,} bytes)")
+    print(
+        f"  uploaded s3://{bucket}/{key}  ({len(records)} records, {len(body):,} bytes)"
+    )

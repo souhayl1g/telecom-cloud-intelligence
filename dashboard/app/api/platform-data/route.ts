@@ -80,6 +80,7 @@ export async function GET(_req: NextRequest) {
         ticketsStats,
         notificationsStats,
         interventionsStats,
+        autonomyConfig,      // L4 closed-loop safety envelope (armed/threshold/whitelist/...)
     ] = await Promise.all([
         safeFetch("/correlation", token),
         safeFetch("/pipeline-runs", token),
@@ -143,6 +144,7 @@ export async function GET(_req: NextRequest) {
         safeFetch("/tickets/stats", token),
         safeFetch("/notifications/stats", token),
         safeFetch("/interventions/stats", token),
+        safeFetch("/autonomy/config", token),
     ]);
 
     return NextResponse.json({
@@ -166,6 +168,7 @@ export async function GET(_req: NextRequest) {
         ticketsStats: ticketsStats ?? {},
         notificationsStats: notificationsStats ?? {},
         interventionsStats: interventionsStats ?? {},
+        autonomyConfig: autonomyConfig ?? null,
     });
 }
 
@@ -182,6 +185,16 @@ export async function POST(req: NextRequest) {
     if (_action === "execute") {
         const result = await safePost(`/actions/${payload.action_id}/execute`, {}, token);
         return NextResponse.json(result ?? { error: "Failed to execute action" });
+    }
+    if (_action === "auto-run") {
+        // Fire the L4 closed-loop tick — server enforces the envelope (armed/threshold/whitelist/rate/kill).
+        const result = await safePost("/autonomy/auto-run", {}, token);
+        return NextResponse.json(result ?? { error: "Failed to run closed loop" });
+    }
+    if (_action === "set-autonomy") {
+        // Arm/disarm + tune the envelope. Validation happens server-side in PATCH /autonomy/config.
+        const result = await safePatch("/autonomy/config", payload, token);
+        return NextResponse.json(result ?? { error: "Failed to update autonomy config" });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

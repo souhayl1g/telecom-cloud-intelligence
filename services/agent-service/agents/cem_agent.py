@@ -38,22 +38,37 @@ class CEMAgent(BaseAgent):
         params = intent.params
 
         if action == "analyze_subscriber":
-            return self._analyze_subscriber(params.get("imsi_hash"), params.get("month_year", "2026-03"))
+            return self._analyze_subscriber(
+                params.get("imsi_hash"), params.get("month_year", "2026-03")
+            )
         elif action == "score_experience":
-            return self._score_experience(params.get("imsi_hash"), params.get("month_year", "2026-03"))
+            return self._score_experience(
+                params.get("imsi_hash"), params.get("month_year", "2026-03")
+            )
         elif action == "find_underserved":
-            return self._find_underserved(params.get("area"), params.get("month_year", "2026-03"), params.get("limit", 20))
+            return self._find_underserved(
+                params.get("area"),
+                params.get("month_year", "2026-03"),
+                params.get("limit", 20),
+            )
         elif action == "predict_nps":
-            return self._predict_nps(params.get("imsi_hash"), params.get("month_year", "2026-03"))
+            return self._predict_nps(
+                params.get("imsi_hash"), params.get("month_year", "2026-03")
+            )
         elif action == "area_cem_summary":
-            return self._area_cem_summary(params.get("area"), params.get("month_year", "2026-03"))
+            return self._area_cem_summary(
+                params.get("area"), params.get("month_year", "2026-03")
+            )
         else:
-            return AgentResult(agent_name=self.name, success=False, error=f"Unknown action: {action}")
+            return AgentResult(
+                agent_name=self.name, success=False, error=f"Unknown action: {action}"
+            )
 
     def _analyze_subscriber(self, imsi_hash: str, month_year: str) -> AgentResult:
         with get_conn() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT s.*, f.rat_gap_score, f.usim_bottleneck, f.data_intensity,
                            f.network_experience_index, f.cem_score, f.churn_risk_flag,
                            f.features_json
@@ -61,11 +76,15 @@ class CEMAgent(BaseAgent):
                     LEFT JOIN subscriber_features f ON s.imsi_hash = f.imsi_hash AND s.month_year = f.month_year
                     WHERE s.imsi_hash = %s AND s.month_year = %s
                     LIMIT 1
-                """, (imsi_hash, month_year))
+                """,
+                    (imsi_hash, month_year),
+                )
                 row = cur.fetchone()
 
         if not row:
-            return AgentResult(agent_name=self.name, success=False, error="Subscriber not found")
+            return AgentResult(
+                agent_name=self.name, success=False, error="Subscriber not found"
+            )
 
         # Build narrative
         rat_gap = row["rat_gap_score"] or 0.0
@@ -75,7 +94,9 @@ class CEMAgent(BaseAgent):
 
         drivers = []
         if rat_gap > 0.3:
-            drivers.append(f"RAT gap = {rat_gap:.2f} (device {row['generation']} but using {row['highest_rat']})")
+            drivers.append(
+                f"RAT gap = {rat_gap:.2f} (device {row['generation']} but using {row['highest_rat']})"
+            )
         if usim_block:
             drivers.append("USIM bottleneck: 4G-capable device with legacy 2G SIM")
         if ne_idx < 0.5:
@@ -115,15 +136,20 @@ class CEMAgent(BaseAgent):
     def _score_experience(self, imsi_hash: str, month_year: str) -> AgentResult:
         with get_conn() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT cem_score, rat_gap_score, network_experience_index
                     FROM subscriber_features
                     WHERE imsi_hash = %s AND month_year = %s
-                """, (imsi_hash, month_year))
+                """,
+                    (imsi_hash, month_year),
+                )
                 row = cur.fetchone()
 
         if not row:
-            return AgentResult(agent_name=self.name, success=False, error="No feature record found")
+            return AgentResult(
+                agent_name=self.name, success=False, error="No feature record found"
+            )
 
         return AgentResult(
             agent_name=self.name,
@@ -132,7 +158,9 @@ class CEMAgent(BaseAgent):
                 "imsi_hash": imsi_hash,
                 "cem_score": round(row["cem_score"] or 0, 4),
                 "rat_gap_score": round(row["rat_gap_score"] or 0, 4),
-                "network_experience_index": round(row["network_experience_index"] or 0, 4),
+                "network_experience_index": round(
+                    row["network_experience_index"] or 0, 4
+                ),
             },
             summary=f"CEM Score for {imsi_hash}: {row['cem_score']:.2f}",
         )
@@ -140,7 +168,8 @@ class CEMAgent(BaseAgent):
     def _find_underserved(self, area: str, month_year: str, limit: int) -> AgentResult:
         with get_conn() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT s.imsi_hash, s.generation, s.highest_rat, s.usertype,
                            f.rat_gap_score, f.cem_score, f.usim_bottleneck
                     FROM bss_subscribers s
@@ -148,7 +177,9 @@ class CEMAgent(BaseAgent):
                     WHERE s.area = %s AND s.month_year = %s AND f.rat_gap_score > 0.3
                     ORDER BY f.rat_gap_score DESC
                     LIMIT %s
-                """, (area, month_year, limit))
+                """,
+                    (area, month_year, limit),
+                )
                 rows = cur.fetchall()
 
         data = [
@@ -164,8 +195,15 @@ class CEMAgent(BaseAgent):
             for r in rows
         ]
 
-        summary = f"Found {len(data)} underserved subscribers in {area} for {month_year}"
-        return AgentResult(agent_name=self.name, success=True, data={"subscribers": data}, summary=summary)
+        summary = (
+            f"Found {len(data)} underserved subscribers in {area} for {month_year}"
+        )
+        return AgentResult(
+            agent_name=self.name,
+            success=True,
+            data={"subscribers": data},
+            summary=summary,
+        )
 
     def _predict_nps(self, imsi_hash: str, month_year: str) -> AgentResult:
         # Rough heuristic: CEM score 0-1 mapped to NPS -100 to +100
@@ -180,21 +218,31 @@ class CEMAgent(BaseAgent):
         return AgentResult(
             agent_name=self.name,
             success=True,
-            data={"imsi_hash": imsi_hash, "predicted_nps": nps, "category": category, "cem_score": cem},
+            data={
+                "imsi_hash": imsi_hash,
+                "predicted_nps": nps,
+                "category": category,
+                "cem_score": cem,
+            },
             summary=f"Predicted NPS for {imsi_hash}: {nps} ({category})",
         )
 
     def _area_cem_summary(self, area: str, month_year: str) -> AgentResult:
         with get_conn() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT * FROM area_network_health
                     WHERE area = %s AND month_year = %s
-                """, (area, month_year))
+                """,
+                    (area, month_year),
+                )
                 row = cur.fetchone()
 
         if not row:
-            return AgentResult(agent_name=self.name, success=False, error="Area not found")
+            return AgentResult(
+                agent_name=self.name, success=False, error="Area not found"
+            )
 
         return AgentResult(
             agent_name=self.name,
