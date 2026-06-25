@@ -19,11 +19,11 @@ decided_by='L4-autonomous' for audit.
 Guardrails are enforced HERE, server-side — never trusting the client.
 """
 
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from psycopg2.extras import RealDictCursor
 
+from auth import require_role
 from db import _db
-from auth import require_auth
 from routers.actions import execute_action
 
 router = APIRouter()
@@ -73,8 +73,8 @@ def _l4_eligible(action: dict, cfg: dict) -> tuple[bool, str]:
 
 
 @router.get("/autonomy/config")
-def get_autonomy_config(user=Depends(require_auth)):
-    """Return the current L4 safety envelope."""
+def get_autonomy_config(user=Depends(require_role("engineer", "data_scientist"))):
+    """Return the current L4 safety envelope (read-only; engineer + data_scientist)."""
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -84,8 +84,11 @@ def get_autonomy_config(user=Depends(require_auth)):
 
 
 @router.patch("/autonomy/config")
-def update_autonomy_config(body: dict = Body(...), user=Depends(require_auth)):
-    """Arm/disarm the closed loop and tune the envelope.
+def update_autonomy_config(body: dict = Body(...), user=Depends(require_role("admin"))):
+    """Arm/disarm the closed loop and tune the envelope (admin only).
+
+    Arming the L4 envelope and managing the whitelist is a governance decision —
+    only administrators may change what the system does autonomously.
 
     Accepts any subset of: armed, confidence_threshold, playbook_whitelist,
     max_actions_per_hour, kill_switch. Validates each so a bad client payload
@@ -148,12 +151,12 @@ def update_autonomy_config(body: dict = Body(...), user=Depends(require_auth)):
 
 
 @router.post("/autonomy/auto-run")
-def auto_run(user=Depends(require_auth)):
-    """The closed-loop tick.
+def auto_run(user=Depends(require_role("engineer", "data_scientist"))):
+    """The closed-loop tick (engineer + data_scientist).
 
     Finds runnable actions that pass the envelope and executes them unattended,
-    stamping each decided_by='L4-autonomous'. Returns per-action verdicts so the
-    UI can show exactly what the machine did and what it refused (and why).
+    stamping each decided_by='L4-autonomous'. The caller's identity is recorded
+    as triggered_by so the audit log distinguishes daemon ticks from manual runs.
 
     Refuses entirely when disarmed or the kill-switch is engaged — those checks
     live here, server-side, so a client cannot bypass them.
@@ -217,13 +220,15 @@ def auto_run(user=Depends(require_auth)):
                 continue
             # Reuse the full playbook engine; mark the decision as autonomous.
             try:
+                triggered_by = user.get("sub", "unknown")
                 execute_action(aid, user={"sub": "L4-autonomous"})
                 with _db() as conn:
                     with conn.cursor() as cur:
                         cur.execute(
-                            "UPDATE agent_actions SET decided_by = 'L4-autonomous' "
+                            "UPDATE agent_actions "
+                            "SET decided_by = 'L4-autonomous', resolved_by = %s "
                             "WHERE action_id = %s;",
-                            (aid,),
+                            (triggered_by, aid),
                         )
                 budget -= 1
                 executed.append(
@@ -231,6 +236,7 @@ def auto_run(user=Depends(require_auth)):
                         "action_id": aid,
                         "playbook_id": action.get("playbook_id"),
                         "title": action.get("title"),
+                        "triggered_by": triggered_by,
                     }
                 )
             except HTTPException as he:
