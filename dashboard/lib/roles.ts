@@ -32,6 +32,7 @@ const ACCESS: Rule[] = [
     { prefix: "/notebook-lab", roles: ["data_scientist"] },
     { prefix: "/intelligence", roles: ["data_scientist"] },
     { prefix: "/minio", roles: ["data_scientist"] },
+    { prefix: "/mlflow", roles: ["data_scientist"] },
 
     // Telecom Engineer surfaces (results, ops, automation, observability)
     { prefix: "/cem-scores", roles: ["engineer"] },

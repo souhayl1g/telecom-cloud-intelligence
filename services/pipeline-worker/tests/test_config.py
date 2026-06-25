@@ -6,7 +6,7 @@ import importlib
 def test_config_defaults():
     import worker.config as cfg
 
-    assert cfg.CYCLE_SECONDS == 30
+    assert cfg.CYCLE_SECONDS == 120
     assert cfg.SYNTHETIC_N_RECORDS == 200
     assert cfg.BUCKETS == ["raw", "processed", "curated"]
 

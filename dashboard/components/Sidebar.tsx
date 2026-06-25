@@ -77,6 +77,7 @@ const navSections: NavSection[] = [
             { href: '/data-drift',       label: 'Data Drift',       icon: 'show_chart' },
             { href: '/data-explorer',    label: 'Data Explorer',    icon: 'table_view' },
             { href: '/minio',            label: 'Lake Objects',     icon: 'inventory_2' },
+            { href: '/mlflow',           label: 'MLflow Tracking',  icon: 'track_changes' },
             { href: '/data-warehouse',   label: 'Warehouse',        icon: 'database', dim: true },
             { href: '/intelligence',     label: 'AI Hub',           icon: 'smart_toy', dim: true },
         ],

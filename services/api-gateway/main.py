@@ -29,6 +29,7 @@ from routers import (
     explorer,
     browse,
     admin,
+    mlflow_proxy,
 )
 
 
@@ -83,3 +84,4 @@ app.include_router(notebooks.router)
 app.include_router(explorer.router)
 app.include_router(browse.router)
 app.include_router(admin.router)
+app.include_router(mlflow_proxy.router)
