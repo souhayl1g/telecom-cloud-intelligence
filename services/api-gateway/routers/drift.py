@@ -131,14 +131,16 @@ def _feature_drift(cur, column: str, table: str, baseline: str) -> dict:
     for m in sorted(by_month.keys()):
         vals = by_month[m]
         if not edges or p_base is None or len(vals) < _N_BINS * 2:
-            months.append({"month": m, "psi": None, "ks": None,
-                           "n": len(vals), "verdict": None})
+            months.append(
+                {"month": m, "psi": None, "ks": None, "n": len(vals), "verdict": None}
+            )
             continue
         p_cur = _bucketize(vals, edges)
         psi = round(_psi(p_base, p_cur), 4)
         ks = round(_ks_binned(p_base, p_cur), 4)
-        months.append({"month": m, "psi": psi, "ks": ks,
-                       "n": len(vals), "verdict": _verdict(psi)})
+        months.append(
+            {"month": m, "psi": psi, "ks": ks, "n": len(vals), "verdict": _verdict(psi)}
+        )
     return {"feature": column, "months": months, "n_baseline": len(base_vals)}
 
 

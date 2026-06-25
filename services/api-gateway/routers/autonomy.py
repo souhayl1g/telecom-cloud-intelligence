@@ -115,7 +115,9 @@ def update_autonomy_config(body: dict = Body(...), user=Depends(require_auth)):
                 if val < 0:
                     raise ValueError("max_actions_per_hour must be >= 0")
             elif caster is list:
-                if not isinstance(val, list) or not all(isinstance(x, str) for x in val):
+                if not isinstance(val, list) or not all(
+                    isinstance(x, str) for x in val
+                ):
                     raise ValueError("playbook_whitelist must be a list of strings")
         except (TypeError, ValueError) as e:
             raise HTTPException(status_code=400, detail=f"{key}: {e}")
@@ -162,11 +164,21 @@ def auto_run(user=Depends(require_auth)):
                 cfg = _load_config(cur)
 
                 if cfg.get("kill_switch"):
-                    return {"armed": cfg.get("armed"), "kill_switch": True,
-                            "executed": [], "skipped": [], "reason": "kill-switch engaged"}
+                    return {
+                        "armed": cfg.get("armed"),
+                        "kill_switch": True,
+                        "executed": [],
+                        "skipped": [],
+                        "reason": "kill-switch engaged",
+                    }
                 if not cfg.get("armed"):
-                    return {"armed": False, "kill_switch": False,
-                            "executed": [], "skipped": [], "reason": "closed loop disarmed"}
+                    return {
+                        "armed": False,
+                        "kill_switch": False,
+                        "executed": [],
+                        "skipped": [],
+                        "reason": "closed loop disarmed",
+                    }
 
                 # Rate limit: how many autonomous executions in the trailing hour?
                 cur.execute(
@@ -199,7 +211,9 @@ def auto_run(user=Depends(require_auth)):
                 skipped.append({"action_id": aid, "reason": reason})
                 continue
             if budget <= 0:
-                skipped.append({"action_id": aid, "reason": "hourly rate limit reached"})
+                skipped.append(
+                    {"action_id": aid, "reason": "hourly rate limit reached"}
+                )
                 continue
             # Reuse the full playbook engine; mark the decision as autonomous.
             try:
@@ -212,16 +226,27 @@ def auto_run(user=Depends(require_auth)):
                             (aid,),
                         )
                 budget -= 1
-                executed.append({"action_id": aid, "playbook_id": action.get("playbook_id"),
-                                 "title": action.get("title")})
+                executed.append(
+                    {
+                        "action_id": aid,
+                        "playbook_id": action.get("playbook_id"),
+                        "title": action.get("title"),
+                    }
+                )
             except HTTPException as he:
-                skipped.append({"action_id": aid, "reason": f"execute failed: {he.detail}"})
+                skipped.append(
+                    {"action_id": aid, "reason": f"execute failed: {he.detail}"}
+                )
             except Exception as e:
                 skipped.append({"action_id": aid, "reason": f"execute error: {e}"})
 
-        return {"armed": True, "kill_switch": False,
-                "executed": executed, "skipped": skipped,
-                "rate_limit_remaining": budget}
+        return {
+            "armed": True,
+            "kill_switch": False,
+            "executed": executed,
+            "skipped": skipped,
+            "rate_limit_remaining": budget,
+        }
     except HTTPException:
         raise
     except Exception as e:

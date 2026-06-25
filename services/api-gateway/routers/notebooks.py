@@ -18,18 +18,36 @@ MODELS_DIR = os.getenv("MODELS_DIR", "/notebooks/models")
 
 # Static catalogue of the 6 notebooks (purpose only — the heavy outputs are the cards).
 _NOTEBOOKS = [
-    {"name": "00_data_understanding_eda", "title": "Data Understanding & EDA",
-     "purpose": "Geo choropleths, topology, missingness, KDE/IQR/violin, z-score outliers."},
-    {"name": "01_etl_feature_engineering", "title": "ETL & Feature Engineering",
-     "purpose": "Clean → type → dedupe → engineer the curated CEM feature tables."},
-    {"name": "02_cem_score_training", "title": "CEM Score — LightGBM (DART)",
-     "purpose": "Experience score regressor; SHAP, calibration, CV honesty checks."},
-    {"name": "03_oss_vae_anomaly_training", "title": "OSS Experience Anomaly — VAE",
-     "purpose": "PyTorch VAE on normal-only OSS; ROC/PR, latent PCA, threshold sweep."},
-    {"name": "04_rat_underservice_training", "title": "RAT Underservice — XGBoost",
-     "purpose": "Per-subscriber RAT-gap classifier; leakage fix, F1 sweep, GPU."},
-    {"name": "10_granger_feature_selection", "title": "Granger Feature Gate",
-     "purpose": "ADF/KPSS stationarity + Granger F-test → offline feature gate."},
+    {
+        "name": "00_data_understanding_eda",
+        "title": "Data Understanding & EDA",
+        "purpose": "Geo choropleths, topology, missingness, KDE/IQR/violin, z-score outliers.",
+    },
+    {
+        "name": "01_etl_feature_engineering",
+        "title": "ETL & Feature Engineering",
+        "purpose": "Clean → type → dedupe → engineer the curated CEM feature tables.",
+    },
+    {
+        "name": "02_cem_score_training",
+        "title": "CEM Score — LightGBM (DART)",
+        "purpose": "Experience score regressor; SHAP, calibration, CV honesty checks.",
+    },
+    {
+        "name": "03_oss_vae_anomaly_training",
+        "title": "OSS Experience Anomaly — VAE",
+        "purpose": "PyTorch VAE on normal-only OSS; ROC/PR, latent PCA, threshold sweep.",
+    },
+    {
+        "name": "04_rat_underservice_training",
+        "title": "RAT Underservice — XGBoost",
+        "purpose": "Per-subscriber RAT-gap classifier; leakage fix, F1 sweep, GPU.",
+    },
+    {
+        "name": "10_granger_feature_selection",
+        "title": "Granger Feature Gate",
+        "purpose": "ADF/KPSS stationarity + Granger F-test → offline feature gate.",
+    },
 ]
 
 
@@ -50,7 +68,9 @@ def notebook_lab(user=Depends(require_role("data_scientist"))):
             if fname.endswith("_model_card.md"):
                 md = _read(os.path.join(MODELS_DIR, fname))
                 if md:
-                    cards.append({"model": fname.replace("_model_card.md", ""), "markdown": md})
+                    cards.append(
+                        {"model": fname.replace("_model_card.md", ""), "markdown": md}
+                    )
     except Exception:
         pass
 

@@ -226,6 +226,7 @@ CREATE TABLE IF NOT EXISTS oss_cell_kpis (
 CREATE INDEX IF NOT EXISTS idx_oss_cell_area ON oss_cell_kpis(area);
 CREATE INDEX IF NOT EXISTS idx_oss_cell_month ON oss_cell_kpis(month_year);
 CREATE INDEX IF NOT EXISTS idx_oss_cell_id ON oss_cell_kpis(cell_id);
+CREATE INDEX IF NOT EXISTS idx_oss_cell_anomaly_ts ON oss_cell_kpis(anomaly_flag DESC NULLS LAST, timestamp DESC NULLS LAST);
 
 -- ───────────────────────────────────────────────────────────────
 -- Subscriber Derived Features / CEM Scores
@@ -249,6 +250,7 @@ CREATE TABLE IF NOT EXISTS subscriber_features (
 
 CREATE INDEX IF NOT EXISTS idx_sub_feat_imsi ON subscriber_features(imsi_hash);
 CREATE INDEX IF NOT EXISTS idx_sub_feat_month ON subscriber_features(month_year);
+CREATE INDEX IF NOT EXISTS idx_sub_feat_cem   ON subscriber_features(cem_score ASC NULLS LAST);
 
 -- ───────────────────────────────────────────────────────────────
 -- Area-Level Network Health + CEM Aggregation

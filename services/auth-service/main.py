@@ -353,7 +353,9 @@ def list_users(request: Request):
 def admin_create_user(body: AdminCreateUser, request: Request):
     _require_admin(request)
     if body.role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}")
+        raise HTTPException(
+            status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}"
+        )
     hashed = pwd_context.hash(body.password)
     try:
         with _db() as conn:
@@ -373,7 +375,9 @@ def admin_create_user(body: AdminCreateUser, request: Request):
 def update_user_role(user_id: int, body: RoleUpdate, request: Request):
     _require_admin(request)
     if body.role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}")
+        raise HTTPException(
+            status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}"
+        )
     with _db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -390,7 +394,9 @@ def update_user_role(user_id: int, body: RoleUpdate, request: Request):
 def update_user_active(user_id: int, body: ActiveUpdate, request: Request):
     admin = _require_admin(request)
     if str(user_id) == str(admin.get("sub")) and not body.is_active:
-        raise HTTPException(status_code=400, detail="An admin cannot deactivate their own account")
+        raise HTTPException(
+            status_code=400, detail="An admin cannot deactivate their own account"
+        )
     with _db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(

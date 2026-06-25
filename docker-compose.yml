@@ -474,6 +474,47 @@ services:
     healthcheck:
       disable: true
 
+  # ── MLflow — experiment tracking + model registry (MLOps layer)
+  # Backend: existing PostgreSQL (MLflow auto-creates its own tables).
+  # Artifacts: MinIO s3://mlflow/ (same S3 protocol used by the data lake).
+  # UI: http://localhost:5000 — shows all training runs, metrics, model versions.
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.15.1
+    container_name: nexo-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minio
+      - AWS_SECRET_ACCESS_KEY=minio_pw
+      - MLFLOW_TRACKING_URI=http://localhost:5000
+    command: >
+      sh -c "python3 -c \"
+import boto3, botocore
+s3=boto3.client('s3',endpoint_url='http://minio:9000',
+  aws_access_key_id='minio',aws_secret_access_key='minio_pw')
+try: s3.create_bucket(Bucket='mlflow')
+except botocore.exceptions.ClientError as e:
+  pass
+\" && mlflow server
+--backend-store-uri postgresql://telecom:telecom_pw@postgres:5432/telecom_intel
+--default-artifact-root s3://mlflow/artifacts
+--host 0.0.0.0 --port 5000 --serve-artifacts"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: 384m
+    memswap_limit: 384m
+
 volumes:
   pgdata:
   miniodata:

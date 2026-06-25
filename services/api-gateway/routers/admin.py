@@ -27,7 +27,9 @@ AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:8001")
 def get_settings(user=Depends(require_role("admin"))):
     with _db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT key, value, updated_at, updated_by FROM app_settings ORDER BY key")
+            cur.execute(
+                "SELECT key, value, updated_at, updated_by FROM app_settings ORDER BY key"
+            )
             return {"settings": cur.fetchall()}
 
 
@@ -46,7 +48,9 @@ def update_settings(body: dict = Body(...), user=Depends(require_role("admin")))
                          SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()""",
                     (key, json.dumps(value), user.get("sub", "admin")),
                 )
-            cur.execute("SELECT key, value, updated_at, updated_by FROM app_settings ORDER BY key")
+            cur.execute(
+                "SELECT key, value, updated_at, updated_by FROM app_settings ORDER BY key"
+            )
             return {"settings": cur.fetchall()}
 
 

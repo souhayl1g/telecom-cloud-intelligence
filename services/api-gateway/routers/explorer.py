@@ -20,12 +20,22 @@ router = APIRouter()
 _SOURCES = {
     "bss": {
         "table": "subscriber_features",
-        "columns": ["cem_score", "rat_gap_score", "network_experience_index", "data_intensity"],
+        "columns": [
+            "cem_score",
+            "rat_gap_score",
+            "network_experience_index",
+            "data_intensity",
+        ],
     },
     "oss": {
         "table": "vw_oss_cell_derived",
-        "columns": ["throughput_mbps", "latency_ms_derived", "packet_loss_pct_derived",
-                    "cell_load_pct_real", "call_drop_rate"],
+        "columns": [
+            "throughput_mbps",
+            "latency_ms_derived",
+            "packet_loss_pct_derived",
+            "cell_load_pct_real",
+            "call_drop_rate",
+        ],
     },
 }
 
@@ -50,7 +60,13 @@ def _profile(cur, table: str, col: str) -> dict:
         """
     )
     stat = cur.fetchone()
-    if not stat or stat["n"] is None or stat["n"] == 0 or stat["lo"] is None or stat["hi"] == stat["lo"]:
+    if (
+        not stat
+        or stat["n"] is None
+        or stat["n"] == 0
+        or stat["lo"] is None
+        or stat["hi"] == stat["lo"]
+    ):
         return {"column": col, "stats": stat and dict(stat) or None, "histogram": None}
 
     cur.execute(
@@ -68,7 +84,9 @@ def _profile(cur, table: str, col: str) -> dict:
     hist = [rows.get(i, 0) for i in range(1, _BINS + 1)]
     return {
         "column": col,
-        "stats": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in stat.items()},
+        "stats": {
+            k: (round(v, 4) if isinstance(v, float) else v) for k, v in stat.items()
+        },
         "histogram": hist,
         "bin_lo": round(stat["lo"], 4),
         "bin_hi": round(stat["hi"], 4),
@@ -97,7 +115,12 @@ def explorer_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    out = {"source": source, "table": cfg["table"], "bins": _BINS,
-           "features": features, "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    out = {
+        "source": source,
+        "table": cfg["table"],
+        "bins": _BINS,
+        "features": features,
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
     _CACHE[key] = {"ts": now, "data": out}
     return out

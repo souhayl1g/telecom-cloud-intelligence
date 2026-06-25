@@ -36,11 +36,13 @@ def list_buckets(user=Depends(require_role("data_scientist"))):
                     total += obj.get("Size", 0)
         except Exception:
             ok = False
-        out.append({
-            "name": name,
-            "objects": objects if ok else None,
-            "bytes": total if ok else None,
-        })
+        out.append(
+            {
+                "name": name,
+                "objects": objects if ok else None,
+                "bytes": total if ok else None,
+            }
+        )
     return {"buckets": out}
 
 
@@ -63,7 +65,9 @@ def list_objects(
         {
             "key": o["Key"],
             "size": o.get("Size", 0),
-            "last_modified": o["LastModified"].isoformat() if o.get("LastModified") else None,
+            "last_modified": o["LastModified"].isoformat()
+            if o.get("LastModified")
+            else None,
         }
         for o in resp.get("Contents", [])
     ]

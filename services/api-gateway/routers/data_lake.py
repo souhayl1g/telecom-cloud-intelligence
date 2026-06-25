@@ -27,15 +27,33 @@ router = APIRouter()
 _LAYERS = ["raw", "processed", "curated"]
 
 _CACHE: dict = {"ts": 0.0, "data": None}
-_CACHE_TTL = 30  # seconds
+_CACHE_TTL = 120  # seconds — counts change slowly; 2-min cache cuts cold-start penalty
 
 
 def _scalar(cur, sql: str):
-    """Run a count query, returning the integer or None on any failure."""
+    """Run a query returning a single value, or None on failure."""
     try:
         cur.execute(sql)
         row = cur.fetchone()
         return list(row.values())[0] if row else None
+    except Exception:
+        return None
+
+
+def _approx_count(cur, table: str) -> int | None:
+    """O(1) row estimate from pg_class statistics (updated by autovacuum).
+
+    Avoids full COUNT(*) scans on 18M-row tables. Returns None when stats
+    have not yet been collected (reltuples <= 0), which renders as '—'.
+    """
+    try:
+        cur.execute(
+            "SELECT reltuples::bigint FROM pg_class WHERE relname = %s",
+            (table,),
+        )
+        row = cur.fetchone()
+        v = list(row.values())[0] if row else None
+        return int(v) if v is not None and int(v) > 0 else None
     except Exception:
         return None
 
@@ -71,12 +89,12 @@ def data_lake_summary(user=Depends(require_auth)):
     try:
         with _db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Use pg_class statistics for the two huge tables (18M + 2.4M rows).
+                # DISTINCT counts below are small-cardinality and use their indexes.
                 sources = {
-                    "oss_cell_kpis": _scalar(cur, "SELECT count(*) FROM oss_cell_kpis;"),
-                    "bss_subscribers": _scalar(cur, "SELECT count(*) FROM bss_subscribers;"),
-                    "subscriber_features": _scalar(
-                        cur, "SELECT count(*) FROM subscriber_features;"
-                    ),
+                    "oss_cell_kpis": _approx_count(cur, "oss_cell_kpis"),
+                    "bss_subscribers": _approx_count(cur, "bss_subscribers"),
+                    "subscriber_features": _approx_count(cur, "subscriber_features"),
                 }
                 last_ingest = {
                     "oss": _scalar(cur, "SELECT max(created_at) FROM oss_cell_kpis;"),

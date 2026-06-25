@@ -6,15 +6,38 @@ Filterable, paginated views the engineer acts on:
 
 Read-only, capped (LIMIT) and parameterised (no SQL injection). imsi_hash is the
 already-hashed identifier; no clear-text subscriber data is exposed.
+
+Performance: both endpoints carry a 15-second in-memory cache keyed on their
+query params. The indexes added in migration 008 (idx_sub_feat_cem,
+idx_oss_cell_anomaly_ts) allow PG to satisfy ORDER BY ... LIMIT N via an index
+scan instead of a full sort on millions of rows.
 """
+
+import hashlib
+import json
+import time
 
 from fastapi import APIRouter, Depends, Query
 from psycopg2.extras import RealDictCursor
 
-from db import _db
 from auth import require_role
+from db import _db
 
 router = APIRouter()
+
+_BROWSE_CACHE: dict[str, tuple[float, dict]] = {}
+_BROWSE_TTL = 15  # seconds
+
+
+def _cache_get(key: str) -> dict | None:
+    entry = _BROWSE_CACHE.get(key)
+    if entry and (time.time() - entry[0]) < _BROWSE_TTL:
+        return entry[1]
+    return None
+
+
+def _cache_set(key: str, value: dict) -> None:
+    _BROWSE_CACHE[key] = (time.time(), value)
 
 
 @router.get("/oss-cells")
@@ -26,6 +49,17 @@ def oss_cells(
     user=Depends(require_role("engineer")),
 ):
     """Recent OSS cell KPIs with optional area / RAT / anomaly filters."""
+    cache_key = (
+        "oss:"
+        + hashlib.md5(
+            json.dumps(
+                {"area": area, "rat": rat, "anomaly": anomaly, "limit": limit}
+            ).encode()
+        ).hexdigest()
+    )
+    if cached := _cache_get(cache_key):
+        return cached
+
     where, params = ["1=1"], []
     if area:
         where.append("area = %s")
@@ -45,7 +79,7 @@ def oss_cells(
                integrity, call_drop_rate, rsrp_dbm, active_users,
                anomaly_flag, month_year, timestamp AS ts
           FROM vw_oss_cell_derived
-         WHERE {' AND '.join(where)}
+         WHERE {" AND ".join(where)}
          ORDER BY anomaly_flag DESC, timestamp DESC
          LIMIT %s
     """
@@ -53,7 +87,9 @@ def oss_cells(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params)
             rows = cur.fetchall()
-    return {"rows": rows, "count": len(rows)}
+    result = {"rows": rows, "count": len(rows)}
+    _cache_set(cache_key, result)
+    return result
 
 
 @router.get("/bss-subscribers")
@@ -66,6 +102,23 @@ def bss_subscribers(
     user=Depends(require_role("engineer")),
 ):
     """Subscriber experience rows (CEM/RAT-gap/churn) + area via a bounded join."""
+    cache_key = (
+        "bss:"
+        + hashlib.md5(
+            json.dumps(
+                {
+                    "month": month,
+                    "min_cem": min_cem,
+                    "max_cem": max_cem,
+                    "churn": churn,
+                    "limit": limit,
+                }
+            ).encode()
+        ).hexdigest()
+    )
+    if cached := _cache_get(cache_key):
+        return cached
+
     where, params = ["1=1"], []
     if month:
         where.append("f.month_year = %s")
@@ -80,13 +133,13 @@ def bss_subscribers(
         where.append("f.churn_risk_flag = %s")
         params.append(churn)
     params.append(limit)
-    # Pre-limit on the feature table, THEN join for area/usertype — keeps it fast.
+    # Pre-limit on the feature table (uses idx_sub_feat_cem), THEN join.
     sql = f"""
         SELECT f.imsi_hash, f.cem_score, f.rat_gap_score, f.network_experience_index,
                f.churn_risk_flag, f.month_year, b.area, b.usertype, b.highest_rat
           FROM (
               SELECT * FROM subscriber_features f
-               WHERE {' AND '.join(where)}
+               WHERE {" AND ".join(where)}
                ORDER BY cem_score ASC
                LIMIT %s
           ) f
@@ -97,4 +150,6 @@ def bss_subscribers(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params)
             rows = cur.fetchall()
-    return {"rows": rows, "count": len(rows)}
+    result = {"rows": rows, "count": len(rows)}
+    _cache_set(cache_key, result)
+    return result
