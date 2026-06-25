@@ -480,7 +480,7 @@ services:
   # Artifacts: MinIO s3://mlflow/ (same S3 protocol used by the data lake).
   # UI: http://localhost:5000 — shows all training runs, metrics, model versions.
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.15.1
+    build: ./services/mlflow
     container_name: nexo-mlflow
     ports:
       - "5000:5000"
@@ -504,8 +504,8 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
-    mem_limit: 384m
-    memswap_limit: 384m
+    mem_limit: 512m
+    memswap_limit: 512m
 
 volumes:
   pgdata:

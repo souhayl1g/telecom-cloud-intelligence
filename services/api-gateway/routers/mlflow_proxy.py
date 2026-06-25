@@ -20,10 +20,16 @@ MLFLOW_URL = os.getenv("MLFLOW_URL", "http://mlflow:5000")
 _BASE = f"{MLFLOW_URL}/api/2.0/mlflow"
 
 
-def _mlflow_get(path: str) -> dict:
-    """GET from MLflow REST API; returns {} on any network/parse failure."""
+def _mlflow_post(path: str, body: dict) -> dict:
+    """POST to MLflow REST API; returns {} on any network/parse failure."""
     try:
-        with urllib.request.urlopen(f"{_BASE}{path}", timeout=5) as r:
+        req = urllib.request.Request(
+            f"{_BASE}{path}",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
             return json.loads(r.read())
     except Exception:
         return {}
@@ -32,24 +38,15 @@ def _mlflow_get(path: str) -> dict:
 @router.get("/mlflow/summary")
 def mlflow_summary(user=Depends(require_role("data_scientist"))):
     """Experiments + recent runs + registered models (single dashboard request)."""
-    experiments = _mlflow_get("/experiments/list").get("experiments", [])
+    # MLflow 2.x uses /search (POST) — /list was removed in v2.
+    experiments = _mlflow_post("/experiments/search", {"max_results": 100}).get(
+        "experiments", []
+    )
 
     # Most recent 20 runs across all experiments, ordered by start time.
-    runs_payload = {
-        "max_results": 20,
-        "order_by": ["start_time DESC"],
-    }
-    try:
-        req = urllib.request.Request(
-            f"{_BASE}/runs/search",
-            data=json.dumps(runs_payload).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=5) as r:
-            runs_raw = json.loads(r.read()).get("runs", [])
-    except Exception:
-        runs_raw = []
+    runs_raw = _mlflow_post(
+        "/runs/search", {"max_results": 20, "order_by": ["start_time DESC"]}
+    ).get("runs", [])
 
     # Flatten runs to a simple list the UI can render.
     runs = []
@@ -68,7 +65,10 @@ def mlflow_summary(user=Depends(require_role("data_scientist"))):
             }
         )
 
-    models = _mlflow_get("/registered-models/list").get("registered_models", [])
+    # MLflow 2.x: registered-models/search replaces /list.
+    models = _mlflow_post("/registered-models/search", {"max_results": 100}).get(
+        "registered_models", []
+    )
     model_summary = [
         {
             "name": m.get("name"),

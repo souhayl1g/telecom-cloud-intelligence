@@ -1,7 +1,4 @@
 #!/bin/sh
-# Install backend driver + S3 client (not bundled in ghcr.io/mlflow/mlflow).
-pip install --quiet psycopg2-binary boto3
-
 # Create the mlflow bucket in MinIO before starting the server.
 # Swallows BucketAlreadyOwnedByYou — idempotent on every restart.
 python3 - <<'PY'
