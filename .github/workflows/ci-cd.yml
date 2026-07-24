@@ -34,7 +34,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install linting tools
-        run: pip install ruff
+        # Pin ruff — an unpinned `pip install ruff` floats to the latest release, so a
+        # new ruff version can add/enable rules (e.g. isort I001) and turn CI red on an
+        # unchanged codebase. Pinned = deterministic, matches the version used locally.
+        run: pip install ruff==0.15.9
 
       - name: Run ruff linter
         run: ruff check services/${{ matrix.service }}/

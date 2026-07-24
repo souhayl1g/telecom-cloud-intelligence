@@ -80,7 +80,7 @@ def oss_cells(
                anomaly_flag, month_year, timestamp AS ts
           FROM vw_oss_cell_derived
          WHERE {" AND ".join(where)}
-         ORDER BY anomaly_flag DESC, timestamp DESC
+         ORDER BY anomaly_flag DESC NULLS LAST, timestamp DESC NULLS LAST
          LIMIT %s
     """
     with _db() as conn:
@@ -132,15 +132,21 @@ def bss_subscribers(
     if churn is not None:
         where.append("f.churn_risk_flag = %s")
         params.append(churn)
+    # Exclude the ~728K unscored placeholder rows (cem_score=0 with every feature 0):
+    # they are not real low-experience subscribers, so surfacing them as 0.000 would
+    # mislead. Only rows carrying a real computed CEM score are browsable.
+    where.append("f.cem_score > 0")
     params.append(limit)
-    # Pre-limit on the feature table (uses idx_sub_feat_cem), THEN join.
+    # Pre-limit on the feature table (newest rows via the pkey), THEN join. Ordering
+    # by id (not cem_score) gives a natural spread of scores instead of piling on the
+    # 0.700 cap; the cem_score>0 filter still drops unscored placeholder rows.
     sql = f"""
         SELECT f.imsi_hash, f.cem_score, f.rat_gap_score, f.network_experience_index,
                f.churn_risk_flag, f.month_year, b.area, b.usertype, b.highest_rat
           FROM (
               SELECT * FROM subscriber_features f
                WHERE {" AND ".join(where)}
-               ORDER BY cem_score ASC
+               ORDER BY id DESC
                LIMIT %s
           ) f
           LEFT JOIN bss_subscribers b

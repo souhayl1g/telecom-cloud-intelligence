@@ -21,14 +21,23 @@ export default function BssSubscribersPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [month, setMonth] = useState("");
-    const [maxCem, setMaxCem] = useState("");
+    const [cemScore, setCemScore] = useState("");
     const [churnOnly, setChurnOnly] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true); setError(null);
         const p = new URLSearchParams({ limit: "150" });
         if (month) p.set("month", month);
-        if (maxCem) p.set("max_cem", maxCem);
+        // Exact-ish CEM match: treat the typed precision as a rounding band, so
+        // "0.7" -> [0.65,0.75), "0.70" -> [0.695,0.705). Sends min_cem+max_cem
+        // (both already supported by the gateway) instead of an open-ended max.
+        const v = parseFloat(cemScore);
+        if (cemScore.trim() && !Number.isNaN(v)) {
+            const decimals = Math.max((cemScore.split(".")[1] || "").length, 1);
+            const half = 0.5 * Math.pow(10, -decimals);
+            p.set("min_cem", Math.max(0, v - half).toFixed(4));
+            p.set("max_cem", (v + half).toFixed(4));
+        }
         if (churnOnly) p.set("churn", "true");
         try {
             const r = await fetch(`/api/bss-subscribers?${p.toString()}`, { cache: "no-store" });
@@ -37,7 +46,7 @@ export default function BssSubscribersPage() {
             setRows(d.rows ?? []);
         } catch (e: any) { setError(String(e?.message ?? e)); }
         finally { setLoading(false); }
-    }, [month, maxCem, churnOnly]);
+    }, [month, cemScore, churnOnly]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -46,14 +55,14 @@ export default function BssSubscribersPage() {
             <SectionHeader
                 icon={Users}
                 title="BSS Subscribers"
-                subtitle="Operational browser over subscriber experience (CEM, RAT-gap, churn). Lowest CEM first. imsi is hashed; aggregates only."
+                subtitle="Operational browser over subscriber experience (CEM, RAT-gap, churn). Newest first; unscored rows hidden. Type a CEM score to filter. imsi is hashed; aggregates only."
                 tone="default"
                 action={<button className="l4-btn" onClick={load} disabled={loading}><RefreshCw size={14} strokeWidth={2.2} /></button>}
             />
 
             <div className="card card-compact" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <input placeholder="month (e.g. 2026-03)" value={month} onChange={(e) => setMonth(e.target.value)} style={inp} onKeyDown={(e) => e.key === "Enter" && load()} />
-                <input placeholder="max CEM (0-1)" value={maxCem} onChange={(e) => setMaxCem(e.target.value)} style={inp} onKeyDown={(e) => e.key === "Enter" && load()} />
+                <input placeholder="CEM score (e.g. 0.7)" value={cemScore} onChange={(e) => setCemScore(e.target.value)} style={inp} onKeyDown={(e) => e.key === "Enter" && load()} />
                 <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
                     <input type="checkbox" checked={churnOnly} onChange={(e) => setChurnOnly(e.target.checked)} /> churn-risk only
                 </label>
