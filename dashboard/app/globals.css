@@ -6562,7 +6562,7 @@ a {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: 1.1fr 1fr;
+    grid-template-columns: 1.25fr 1fr;
     height: 100vh;
     max-height: 100vh;
     overflow: hidden;
@@ -6599,12 +6599,18 @@ a {
     flex-direction: column;
     justify-content: space-between;
     gap: 16px;
-    padding: 4vh 4vw 4vh 5vw;
+    padding: 5vh 4vw 5vh 5vw;
     height: 100vh;
     max-height: 100vh;
     overflow: hidden;
-    background: linear-gradient(160deg, rgba(0, 184, 212, 0.05) 0%, rgba(0, 102, 255, 0.03) 60%, transparent 100%);
-    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    /* Solid, edge-to-edge brand panel (no fade to page bg) — reads as a real
+       branded half like pro SaaS logins, kept light enough for dark text. */
+    background:
+        radial-gradient(120% 80% at 15% 12%, rgba(0, 229, 255, 0.16) 0%, transparent 55%),
+        radial-gradient(90% 70% at 85% 90%, rgba(0, 102, 255, 0.12) 0%, transparent 60%),
+        linear-gradient(150deg, #E4F3FB 0%, #DBEAFB 55%, #E8EEFA 100%);
+    border-right: 1px solid rgba(0, 125, 186, 0.14);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.6);
 }
 .login-left-pane::-webkit-scrollbar { display: none; }
 
@@ -6628,6 +6634,61 @@ a {
    fade so it still applies on mobile fallback. */
 .login-right-pane .login-page-root {
     margin: 0 auto;
+}
+
+/* Admin edit-user modal overlay */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    animation: modal-fade 0.15s ease-out;
+}
+@keyframes modal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Role hint badge under the email field (cosmetic, from ROLE_MAP) */
+.login-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    width: fit-content;
+}
+.login-role-badge-hint {
+    font-weight: 500;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.6;
+    margin-left: 2px;
+}
+.role-badge-admin {
+    color: #B45309;
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.35);
+}
+.role-badge-ds {
+    color: #6D28D9;
+    background: rgba(139, 92, 246, 0.12);
+    border-color: rgba(139, 92, 246, 0.35);
+}
+.role-badge-eng {
+    color: #0369A1;
+    background: rgba(6, 182, 212, 0.12);
+    border-color: rgba(6, 182, 212, 0.35);
 }
 
 /* ====== NeXo identity card ====== */

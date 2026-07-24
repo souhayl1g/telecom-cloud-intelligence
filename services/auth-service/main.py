@@ -4,6 +4,7 @@ Handles user signup/login with email+password, Google OAuth, and GitHub OAuth.
 Issues JWT tokens for authenticated access to all platform APIs.
 """
 
+import json
 import os
 import secrets
 from contextlib import contextmanager
@@ -137,6 +138,21 @@ def _ensure_tables():
 
                 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
                 CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
+
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+
+                CREATE TABLE IF NOT EXISTS user_activity (
+                    id          BIGSERIAL PRIMARY KEY,
+                    user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+                    user_email  TEXT,
+                    actor_id    BIGINT,
+                    actor_email TEXT,
+                    action      TEXT NOT NULL,
+                    detail      JSONB,
+                    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE INDEX IF NOT EXISTS idx_activity_created ON user_activity(created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_activity_user ON user_activity(user_id);
             """)
 
 
@@ -186,6 +202,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     created_at: str
+    last_login: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +241,28 @@ def _user_to_dict(row: dict) -> dict:
         "role": row["role"],
         "is_active": row["is_active"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "last_login": row["last_login"].isoformat() if row.get("last_login") else None,
     }
+
+
+def _log_activity(
+    cur, action, target_id=None, target_email=None, actor=None, detail=None
+):
+    """Append a row to user_activity. actor is a JWT payload (sub=user id, email)."""
+    actor = actor or {}
+    cur.execute(
+        """INSERT INTO user_activity
+             (user_id, user_email, actor_id, actor_email, action, detail)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (
+            target_id,
+            target_email,
+            actor.get("sub"),
+            actor.get("email"),
+            action,
+            json.dumps(detail) if detail else None,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +309,19 @@ def login(req: LoginRequest):
 
     if not user["is_active"]:
         raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET last_login = now() WHERE id = %s", (user["id"],)
+            )
+            _log_activity(
+                cur,
+                "login",
+                user["id"],
+                user["email"],
+                {"sub": user["id"], "email": user["email"]},
+            )
 
     token, expires = _create_token(user["id"], user["email"], user["role"])
     return TokenResponse(
@@ -351,7 +402,7 @@ def list_users(request: Request):
 
 @app.post("/auth/users", response_model=UserResponse)
 def admin_create_user(body: AdminCreateUser, request: Request):
-    _require_admin(request)
+    admin = _require_admin(request)
     if body.role not in VALID_ROLES:
         raise HTTPException(
             status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}"
@@ -366,6 +417,14 @@ def admin_create_user(body: AdminCreateUser, request: Request):
                     (body.email, hashed, body.full_name, body.role),
                 )
                 user = cur.fetchone()
+                _log_activity(
+                    cur,
+                    "user_created",
+                    user["id"],
+                    user["email"],
+                    admin,
+                    {"role": body.role},
+                )
     except psycopg2.errors.UniqueViolation:
         raise HTTPException(status_code=409, detail="Email already registered")
     return _user_to_dict(user)
@@ -373,7 +432,7 @@ def admin_create_user(body: AdminCreateUser, request: Request):
 
 @app.patch("/auth/users/{user_id}/role", response_model=UserResponse)
 def update_user_role(user_id: int, body: RoleUpdate, request: Request):
-    _require_admin(request)
+    admin = _require_admin(request)
     if body.role not in VALID_ROLES:
         raise HTTPException(
             status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}"
@@ -385,6 +444,15 @@ def update_user_role(user_id: int, body: RoleUpdate, request: Request):
                 (body.role, user_id),
             )
             user = cur.fetchone()
+            if user:
+                _log_activity(
+                    cur,
+                    "role_changed",
+                    user_id,
+                    user["email"],
+                    admin,
+                    {"role": body.role},
+                )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return _user_to_dict(user)
@@ -404,9 +472,146 @@ def update_user_active(user_id: int, body: ActiveUpdate, request: Request):
                 (body.is_active, user_id),
             )
             user = cur.fetchone()
+            if user:
+                _log_activity(
+                    cur,
+                    "activated" if body.is_active else "deactivated",
+                    user_id,
+                    user["email"],
+                    admin,
+                )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return _user_to_dict(user)
+
+
+class AdminUpdateUser(BaseModel):
+    email: EmailStr | None = None
+    full_name: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+@app.patch("/auth/users/{user_id}", response_model=UserResponse)
+def admin_update_user(user_id: int, body: AdminUpdateUser, request: Request):
+    """Full edit: email, full_name, role, is_active, password (any subset)."""
+    admin = _require_admin(request)
+    is_self = str(user_id) == str(admin.get("sub"))
+    if body.role is not None and body.role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=400, detail=f"role must be one of {sorted(VALID_ROLES)}"
+        )
+    if is_self and body.is_active is False:
+        raise HTTPException(
+            status_code=400, detail="An admin cannot deactivate their own account"
+        )
+    if is_self and body.role is not None and body.role != "admin":
+        raise HTTPException(
+            status_code=400, detail="An admin cannot demote their own account"
+        )
+
+    sets, params, changed = [], [], {}
+    if body.email is not None:
+        sets.append("email = %s")
+        params.append(body.email)
+        changed["email"] = body.email
+    if body.full_name is not None:
+        sets.append("full_name = %s")
+        params.append(body.full_name)
+        changed["full_name"] = body.full_name
+    if body.role is not None:
+        sets.append("role = %s")
+        params.append(body.role)
+        changed["role"] = body.role
+    if body.is_active is not None:
+        sets.append("is_active = %s")
+        params.append(body.is_active)
+        changed["is_active"] = body.is_active
+    if body.password is not None:
+        sets.append("password_hash = %s")
+        params.append(pwd_context.hash(body.password))
+        changed["password"] = "reset"
+    if not sets:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    sets.append("updated_at = now()")
+    params.append(user_id)
+    try:
+        with _db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    f"UPDATE users SET {', '.join(sets)} WHERE id = %s RETURNING *",
+                    params,
+                )
+                user = cur.fetchone()
+                if user:
+                    _log_activity(
+                        cur, "user_updated", user_id, user["email"], admin, changed
+                    )
+    except psycopg2.errors.UniqueViolation:
+        raise HTTPException(status_code=409, detail="Email already in use")
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _user_to_dict(user)
+
+
+@app.delete("/auth/users/{user_id}")
+def admin_delete_user(user_id: int, request: Request):
+    admin = _require_admin(request)
+    if str(user_id) == str(admin.get("sub")):
+        raise HTTPException(
+            status_code=400, detail="An admin cannot delete their own account"
+        )
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("DELETE FROM users WHERE id = %s RETURNING email", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="User not found")
+            _log_activity(cur, "user_deleted", None, row["email"], admin)
+    return {"deleted": True, "email": row["email"]}
+
+
+@app.get("/auth/activity")
+def list_activity(request: Request, limit: int = 50):
+    _require_admin(request)
+    limit = max(1, min(limit, 200))
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM user_activity ORDER BY created_at DESC LIMIT %s",
+                (limit,),
+            )
+            return [_activity_to_dict(r) for r in cur.fetchall()]
+
+
+@app.get("/auth/users/{user_id}/activity")
+def list_user_activity(user_id: int, request: Request, limit: int = 50):
+    _require_admin(request)
+    limit = max(1, min(limit, 200))
+    with _db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM user_activity
+                     WHERE user_id = %s OR actor_id = %s
+                     ORDER BY created_at DESC LIMIT %s""",
+                (user_id, user_id, limit),
+            )
+            return [_activity_to_dict(r) for r in cur.fetchall()]
+
+
+def _activity_to_dict(row: dict) -> dict:
+    return {
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "user_email": row["user_email"],
+        "actor_id": row["actor_id"],
+        "actor_email": row["actor_email"],
+        "action": row["action"],
+        "detail": row["detail"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+    }
 
 
 # ---------------------------------------------------------------------------

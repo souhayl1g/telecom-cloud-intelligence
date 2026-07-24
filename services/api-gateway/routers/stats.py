@@ -81,7 +81,7 @@ def infra_stats(user=Depends(require_auth)):
                         (SELECT count(*) FROM agent_actions) AS actions,
                         (SELECT count(*) FROM users) AS users,
                         (SELECT count(*) FROM granger_causality_results) AS granger_results,
-                        (SELECT reltuples::bigint FROM pg_class WHERE relname='subscriber_features') AS subscriber_features,
+                        (SELECT count(*) FROM subscriber_features WHERE month_year <= '2026-05') AS subscriber_features,
                         (SELECT reltuples::bigint FROM pg_class WHERE relname='oss_cell_kpis') AS oss_cell_kpis,
                         (SELECT count(*) FROM area_network_health) AS area_network_health;
                 """)

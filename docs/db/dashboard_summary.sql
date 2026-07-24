@@ -2,6 +2,11 @@
 -- Dashboard Summary Materialized Views
 -- Purpose: pre-aggregate heavy stats so /api/* routes hit indexed 30-row
 -- summary tables instead of 19M+row scans. Refresh after each pipeline run.
+--
+-- BSS/CEM/RAT subscriber aggregates are scoped to the documented CEM corpus
+-- (Jan–May 2026, month_year <= '2026-05' = 2,468,026 ≈ 2.47M) so every page's
+-- subscriber count matches the data-lake headline. The live tables hold more
+-- months (operational twin drift); OSS aggregates keep their full 18.8M scope.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── 1. Single-row global summary ─────────────────────────────────────────
@@ -28,6 +33,7 @@ cem AS (
         COUNT(*) FILTER (WHERE cem_score >= 0.6)::bigint AS cem_good_count
     FROM subscriber_features
     WHERE cem_score IS NOT NULL
+      AND month_year <= '2026-05'
 ),
 rat AS (
     SELECT
@@ -37,6 +43,7 @@ rat AS (
                 / NULLIF(COUNT(*),0), 2), 0)::float8 AS rat_rate
     FROM subscriber_features
     WHERE rat_gap_score IS NOT NULL
+      AND month_year <= '2026-05'
 )
 SELECT
     1::int AS singleton,
@@ -132,6 +139,7 @@ SELECT
     MAX(cem_score)::float8 AS max_score
 FROM subscriber_features
 WHERE cem_score IS NOT NULL
+  AND month_year <= '2026-05'
 GROUP BY bucket;
 
 CREATE UNIQUE INDEX ON mv_cem_distribution (bucket);
@@ -146,6 +154,7 @@ SELECT
 FROM subscriber_features sf
 JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
 WHERE sf.cem_score IS NOT NULL
+  AND sf.month_year <= '2026-05'
   AND bs.area IS NOT NULL
   AND UPPER(TRIM(bs.area)) NOT IN ('NULL','NONE','N/A','')
 GROUP BY bs.area
@@ -165,6 +174,7 @@ SELECT
 FROM subscriber_features sf
 JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
 WHERE sf.cem_score IS NOT NULL
+  AND sf.month_year <= '2026-05'
   AND bs.area IS NOT NULL
   AND UPPER(TRIM(bs.area)) NOT IN ('NULL','NONE','N/A','')
 ORDER BY sf.cem_score DESC
@@ -183,6 +193,7 @@ SELECT
 FROM subscriber_features sf
 JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
 WHERE sf.cem_score IS NOT NULL
+  AND sf.month_year <= '2026-05'
   AND bs.area IS NOT NULL
   AND UPPER(TRIM(bs.area)) NOT IN ('NULL','NONE','N/A','')
 ORDER BY sf.cem_score ASC
@@ -202,6 +213,7 @@ SELECT
 FROM subscriber_features sf
 JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
 WHERE sf.rat_gap_score IS NOT NULL
+  AND sf.month_year <= '2026-05'
   AND bs.generation IS NOT NULL
   AND UPPER(TRIM(bs.generation)) NOT IN ('NULL','NONE','N/A','')
 GROUP BY bs.generation;
@@ -220,6 +232,7 @@ SELECT
 FROM subscriber_features sf
 JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
 WHERE sf.rat_gap_score IS NOT NULL
+  AND sf.month_year <= '2026-05'
   AND bs.area IS NOT NULL
   AND UPPER(TRIM(bs.area)) NOT IN ('NULL','NONE','N/A','')
 GROUP BY bs.area
@@ -240,6 +253,7 @@ SELECT
 FROM subscriber_features sf
 JOIN bss_subscribers bs ON sf.imsi_hash = bs.imsi_hash AND sf.month_year = bs.month_year
 WHERE sf.rat_gap_score IS NOT NULL
+  AND sf.month_year <= '2026-05'
   AND bs.area IS NOT NULL
   AND UPPER(TRIM(bs.area)) NOT IN ('NULL','NONE','N/A','')
 ORDER BY sf.rat_gap_score DESC

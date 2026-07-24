@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ShieldCheck, UserPlus, RefreshCw, Users, Settings, Workflow, RotateCw } from "lucide-react";
+import { ShieldCheck, UserPlus, RefreshCw, Users, Settings, Workflow, RotateCw, Pencil, Trash2, Activity, X } from "lucide-react";
 
 import SectionHeader from "../../components/ui/SectionHeader";
 import ErrorState from "../../components/ui/ErrorState";
@@ -20,7 +20,27 @@ interface AdminUser {
     is_active: boolean;
     provider: string;
     created_at: string;
+    last_login: string | null;
 }
+
+interface ActivityRow {
+    id: number;
+    user_email: string | null;
+    actor_email: string | null;
+    action: string;
+    detail: Record<string, any> | null;
+    created_at: string;
+}
+
+const ACTION_LABEL: Record<string, string> = {
+    login: "signed in",
+    user_created: "created account",
+    user_updated: "edited account",
+    user_deleted: "deleted account",
+    role_changed: "changed role",
+    activated: "activated account",
+    deactivated: "deactivated account",
+};
 
 export default function AdminPage() {
     const [users, setUsers] = useState<AdminUser[]>([]);
@@ -35,6 +55,12 @@ export default function AdminPage() {
     const [password, setPassword] = useState("");
     const [newRole, setNewRole] = useState<Role>("data_scientist");
     const [creating, setCreating] = useState(false);
+
+    // edit modal + activity feed
+    const [editUser, setEditUser] = useState<AdminUser | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [activity, setActivity] = useState<ActivityRow[]>([]);
+    const [activityUser, setActivityUser] = useState<AdminUser | null>(null);
 
     // settings + pipeline panels
     const [settings, setSettings] = useState<Setting[]>([]);
@@ -54,6 +80,15 @@ export default function AdminPage() {
             const r = await fetch("/api/admin?view=pipeline", { cache: "no-store" });
             const d = await r.json();
             if (Array.isArray(d.runs)) setRuns(d.runs);
+        } catch { /* ignore */ }
+    }, []);
+
+    const loadActivity = useCallback(async (userId?: number) => {
+        try {
+            const q = userId ? `?user_id=${userId}&limit=40` : "?limit=40";
+            const r = await fetch(`/api/users/activity${q}`, { cache: "no-store" });
+            const d = await r.json();
+            if (Array.isArray(d)) setActivity(d);
         } catch { /* ignore */ }
     }, []);
 
@@ -98,7 +133,7 @@ export default function AdminPage() {
         }
     }, []);
 
-    useEffect(() => { load(); loadSettings(); loadPipeline(); }, [load, loadSettings, loadPipeline]);
+    useEffect(() => { load(); loadSettings(); loadPipeline(); loadActivity(); }, [load, loadSettings, loadPipeline, loadActivity]);
 
     const changeRole = async (id: number, role: Role) => {
         setBusy(id);
@@ -156,6 +191,44 @@ export default function AdminPage() {
         }
     };
 
+    const saveUser = async (patch: Record<string, any>) => {
+        if (!editUser) return;
+        setSaving(true); setMsg(null);
+        try {
+            const r = await fetch("/api/users", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: editUser.id, ...patch }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+            setMsg(`Updated ${d.email}.`);
+            setEditUser(null);
+            await load(); await loadActivity(activityUser?.id);
+        } catch (e: any) {
+            setMsg(`Update failed: ${e?.message ?? e}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const deleteUser = async (u: AdminUser) => {
+        if (!confirm(`Delete ${u.email}? This cannot be undone.`)) return;
+        setBusy(u.id); setMsg(null);
+        try {
+            const r = await fetch(`/api/users?id=${u.id}`, { method: "DELETE" });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+            setMsg(`Deleted ${u.email}.`);
+            setUsers((prev) => prev.filter((x) => x.id !== u.id));
+            await loadActivity(activityUser?.id);
+        } catch (e: any) {
+            setMsg(`Delete failed: ${e?.message ?? e}`);
+        } finally {
+            setBusy(null);
+        }
+    };
+
     return (
         <div style={{ padding: "24px 32px", display: "flex", flexDirection: "column", gap: 20 }}>
             <SectionHeader
@@ -205,6 +278,8 @@ export default function AdminPage() {
                                 <th style={{ padding: "12px 16px" }}>Status</th>
                                 <th style={{ padding: "12px 16px" }}>Provider</th>
                                 <th style={{ padding: "12px 16px" }}>Created</th>
+                                <th style={{ padding: "12px 16px" }}>Last login</th>
+                                <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -229,6 +304,21 @@ export default function AdminPage() {
                                     </td>
                                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-muted)" }}>{u.provider}</td>
                                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-muted)" }}>{formatTunisDate(u.created_at)}</td>
+                                    <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-muted)" }}>{u.last_login ? formatTunisDateTime(u.last_login) : "—"}</td>
+                                    <td style={{ padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                                        <button className="l4-btn" disabled={busy === u.id} title="Edit"
+                                            onClick={() => setEditUser(u)} style={{ marginRight: 6 }}>
+                                            <Pencil size={13} strokeWidth={2.2} />
+                                        </button>
+                                        <button className="l4-btn" disabled={busy === u.id} title="View activity"
+                                            onClick={() => { setActivityUser(u); loadActivity(u.id); }} style={{ marginRight: 6 }}>
+                                            <Activity size={13} strokeWidth={2.2} />
+                                        </button>
+                                        <button className="l4-btn l4-btn-reject" disabled={busy === u.id} title="Delete"
+                                            onClick={() => deleteUser(u)} style={{ color: "#DC2626" }}>
+                                            <Trash2 size={13} strokeWidth={2.2} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -295,9 +385,118 @@ export default function AdminPage() {
                     </tbody>
                 </table>
             </div>
+
+            {/* ── User activity feed ─────────────────────────────── */}
+            <SectionHeader icon={Activity}
+                title={activityUser ? `Activity — ${activityUser.email}` : "User Activity"}
+                subtitle="Logins and every admin action (create / edit / delete / role change), newest first."
+                tone="default"
+                action={activityUser
+                    ? <button className="l4-btn" onClick={() => { setActivityUser(null); loadActivity(); }}>Show all</button>
+                    : <button className="l4-btn" onClick={() => loadActivity()}><RefreshCw size={14} strokeWidth={2.2} /></button>}
+            />
+            <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+                <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                        <tr style={{ fontSize: 12, opacity: 0.75, textAlign: "left" }}>
+                            <th style={{ padding: "10px 16px" }}>When</th>
+                            <th style={{ padding: "10px 16px" }}>Actor</th>
+                            <th style={{ padding: "10px 16px" }}>Action</th>
+                            <th style={{ padding: "10px 16px" }}>Target</th>
+                            <th style={{ padding: "10px 16px" }}>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {activity.map((a) => (
+                            <tr key={a.id}>
+                                <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{formatTunisDateTime(a.created_at)}</td>
+                                <td style={{ padding: "8px 16px", fontSize: 12 }}>{a.actor_email || "—"}</td>
+                                <td style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600 }}>{ACTION_LABEL[a.action] || a.action}</td>
+                                <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--text-muted)" }}>{a.user_email || "—"}</td>
+                                <td style={{ padding: "8px 16px", fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)" }}>
+                                    {a.detail ? Object.entries(a.detail).map(([k, v]) => `${k}: ${v}`).join(" · ") : "—"}
+                                </td>
+                            </tr>
+                        ))}
+                        {activity.length === 0 && <tr><td colSpan={5} style={{ padding: 18, textAlign: "center", color: "var(--text-muted)" }}>No activity yet.</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+
+            {editUser && (
+                <EditUserModal
+                    user={editUser}
+                    saving={saving}
+                    onClose={() => setEditUser(null)}
+                    onSave={saveUser}
+                />
+            )}
         </div>
     );
 }
+
+function EditUserModal({ user, saving, onClose, onSave }: {
+    user: AdminUser;
+    saving: boolean;
+    onClose: () => void;
+    onSave: (patch: Record<string, any>) => void;
+}) {
+    const [email, setEmail] = useState(user.email);
+    const [fullName, setFullName] = useState(user.full_name || "");
+    const [role, setRole] = useState<Role>(user.role);
+    const [isActive, setIsActive] = useState(user.is_active);
+    const [password, setPassword] = useState("");
+
+    const submit = () => {
+        const patch: Record<string, any> = {};
+        if (email !== user.email) patch.email = email;
+        if (fullName !== (user.full_name || "")) patch.full_name = fullName;
+        if (role !== user.role) patch.role = role;
+        if (isActive !== user.is_active) patch.is_active = isActive;
+        if (password.length >= 8) patch.password = password;
+        if (Object.keys(patch).length === 0) { onClose(); return; }
+        onSave(patch);
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="card" style={{ maxWidth: 420, width: "92%", padding: 22 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>Edit user</div>
+                    <button className="l4-btn" onClick={onClose} title="Close"><X size={15} strokeWidth={2.4} /></button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <label style={lbl}>Email
+                        <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inp, width: "100%" }} />
+                    </label>
+                    <label style={lbl}>Full name
+                        <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ ...inp, width: "100%" }} />
+                    </label>
+                    <label style={lbl}>Role
+                        <select value={role} onChange={(e) => setRole(e.target.value as Role)} style={{ ...inp, width: "100%" }}>
+                            {ALL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                        </select>
+                    </label>
+                    <label style={{ ...lbl, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /> Active
+                    </label>
+                    <label style={lbl}>New password (optional, ≥8)
+                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="leave blank to keep" style={{ ...inp, width: "100%" }} />
+                    </label>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 }}>
+                        <button className="l4-btn" onClick={onClose}>Cancel</button>
+                        <button className="l4-btn l4-btn-approve" disabled={saving} onClick={submit}>{saving ? "Saving…" : "Save changes"}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+const lbl: React.CSSProperties = {
+    display: "flex", flexDirection: "column", gap: 5, fontSize: 12,
+    fontWeight: 600, color: "var(--text-secondary, #475569)",
+};
 
 const inp: React.CSSProperties = {
     padding: "8px 10px", borderRadius: 8, fontSize: 13,

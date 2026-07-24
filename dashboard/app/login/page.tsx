@@ -3,7 +3,15 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Activity, Users, Cpu, Sparkles, Mail, Lock, Eye, EyeOff, ArrowRight, Brain } from 'lucide-react';
+import { Activity, Users, Cpu, Sparkles, Mail, Lock, Eye, EyeOff, ArrowRight, Brain, Shield, Wrench } from 'lucide-react';
+
+// Client-side role hint from a fixed demo-account map. Purely cosmetic — no server
+// call, so it never confirms account existence or leaks roles (no enumeration).
+const ROLE_MAP: Record<string, { label: string; Icon: typeof Shield; cls: string }> = {
+    'souhaylguenichi@gmail.com': { label: 'Administrator', Icon: Shield, cls: 'role-badge-admin' },
+    'mariembouzouita@gmail.com': { label: 'Data Scientist', Icon: Brain, cls: 'role-badge-ds' },
+    'rahmabouraoui@gmail.com': { label: 'Telecom Engineer', Icon: Wrench, cls: 'role-badge-eng' },
+};
 import NetworkOrb from '../../components/NetworkOrb';
 
 function NeXoMark({ size = 40 }: { size?: number }) {
@@ -122,6 +130,7 @@ function LoginContent() {
     const search = useSearchParams();
     // Default to root; middleware routes each persona to their own landing page.
     const redirect = search.get('redirect') || '/';
+    const roleInfo = ROLE_MAP[email.trim().toLowerCase()];
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -197,6 +206,18 @@ function LoginContent() {
                                         className="login-input"
                                     />
                                 </div>
+                                {roleInfo && (
+                                    <motion.div
+                                        className={`login-role-badge ${roleInfo.cls}`}
+                                        initial={{ opacity: 0, y: -4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25 }}
+                                    >
+                                        <roleInfo.Icon size={13} strokeWidth={2.4} />
+                                        <span>{roleInfo.label}</span>
+                                        <span className="login-role-badge-hint">account</span>
+                                    </motion.div>
+                                )}
                             </div>
 
                             <div className="login-field">
