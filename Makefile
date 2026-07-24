@@ -165,14 +165,14 @@ start-monitoring:
 # Alias kept for muscle memory
 .PHONY: start-safe
 start-safe:
-	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
+	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh --quiet || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
 	@make start
 
 # Defense-day minimal stack: no notebooks, no ollama auto-start.
 # Use this for demos / jury defense to minimize memory and moving parts.
 .PHONY: start-defense
 start-defense:
-	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
+	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh --quiet || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
 	$(call print_header,STARTING NeXo — DEFENSE MODE)
 	@echo "Services: postgres · minio · auth · api-gateway · ai-service · agent-service"
 	@echo "          pipeline-worker · dashboard · data-init"
@@ -202,7 +202,7 @@ start-defense:
 # throttles the WSL port-forward storm without hiding any ports. Watchdog guards RAM.
 .PHONY: start-demo
 start-demo:
-	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
+	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh --quiet || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
 	$(call print_header,STARTING NeXo — DEMO MODE (all UIs))
 	@echo "Services: postgres · minio · auth · api-gateway · ai-service · agent-service"
 	@echo "          pipeline-worker · notebooks · dashboard · data-init"

@@ -71,10 +71,10 @@ After training we score on the held-out **test** set:
 
 | Metric | Formula (intuition) | Reads as |
 |---|---|---|
-| **MAE** | mean(\|pred − actual\|) | average error in score units. MAE=0.013 → off by ~1.3% of the 0–1 range. |
+| **MAE** | mean(\|pred − actual\|) | average error in score units. MAE=0.0304 → off by ~3.0% of the 0–1 range. |
 | **MSE** | mean((pred − actual)²) | squared error; punishes big misses harder |
 | **RMSE** | √MSE | same units as target; comparable to MAE but outlier-sensitive |
-| **R²** | 1 − SS_res/SS_tot | fraction of variance explained. R²=0.9933 → model explains 99.33% of CEM-score variance. R²=0 → no better than predicting the mean. |
+| **R²** | 1 − SS_res/SS_tot | fraction of variance explained. R²=0.9784 → model explains 97.84% of CEM-score variance. R²=0 → no better than predicting the mean. |
 
 Why both MAE and RMSE? If RMSE ≫ MAE, a few large errors dominate (heavy-tailed residuals). If they're close, errors are uniform.
 

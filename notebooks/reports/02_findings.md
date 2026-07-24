@@ -17,7 +17,7 @@
 |---|---|
 | S1 | No top-of-file `SEED` constant (only `random_state=42` inside params dict — incomplete) |
 | S2 | No papermill `parameters` cell — retrain container can't override hyperparameters |
-| S3 | No CV — single train/val/test split. R²=0.9933 is on ONE random partition, not CV-averaged |
+| S3 | No k-fold CV — CEM reports test R²=0.9784 + random-split R²=0.9795 (two splits), not CV-averaged like RAT |
 | S4 | No SHAP — `model.feature_importances_` shown but tree-importance is biased toward high-cardinality features |
 | S5 | No threshold sweep / PR curve for the binarized "low-CEM-subscriber" intervention trigger |
 | S6 | No comparison vs GBR baseline (model card claims LightGBM wins — but baseline isn't trained in this notebook) |

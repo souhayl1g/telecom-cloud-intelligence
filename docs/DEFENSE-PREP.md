@@ -52,6 +52,45 @@
 
 ---
 
+## Data & Metrics Integrity
+
+**Single source of truth for every metric: `notebooks/models/metrics.json`** (computed 2026-05-25 by
+`scripts/dump_model_metrics.py`, read from the model cards). If any number anywhere in the repo —
+dashboard, report, slides, `master_v3_training_summary.md` — disagrees with `metrics.json`,
+**`metrics.json` wins.** The old `master_v3_training_summary.md` (dated 2026-04-28) carried
+superseded pre-leakage-fix numbers (CEM R²=0.9933, VAE 0.9307, RAT 0.9605) — never quote it.
+
+Honest headline numbers to know cold:
+
+| Model | Metric | Value |
+|-------|--------|-------|
+| CEM (LightGBM DART, 13 feat) | Test R² | **0.9784** (MAE 0.0304) |
+| VAE (PyTorch, 9 feat) | ROC-AUC | **0.9821** (PR-AUC 0.9974) |
+| RAT (XGBoost, 19 feat) | ROC-AUC, temporal hold-out | **0.9203** (F1 0.8927) |
+
+Volume: **968,077 real** BSS subscribers (Feb+Mar) + ~1.5M bootstrap-simulated = **2.47M** total
+scored rows. **18.8M real** OSS cell-KPI rows (2G/3G/4G).
+
+### The RAT leakage story (jury will probe this — own it)
+
+The first RAT model scored **ROC-AUC ≈ 1.0**. A perfect score is a red flag, not a trophy.
+Root cause: two features — `is_4g_capable` and `traffic_share_4g` — were left in the training set,
+but the underservice **label is derived from those exact columns** (a subscriber is "underserved"
+when device generation exceeds the RAT actually serving them). The model was reading the answer key
+— textbook **target leakage**.
+
+**Fix (notebook 04):** dropped the formula-input features and their proxies, added a StratifiedKFold
+cross-validation honesty check + early stopping. Honest ROC-AUC settled at **0.9203** (temporal
+hold-out). Three independent checks agree it isn't leaked: temporal hold-out 0.9203, random split
+0.9419, 5-fold CV 0.9352 — all comfortably below the self-imposed 0.995 leakage alarm.
+
+> Q: *"How do you know THIS number (0.9203) isn't leaked too?"*
+> A: The 19-feature set contains no column that defines the label; temporal, random, and CV splits
+> land within a tight band; and SHAP shows the top drivers are area-aggregate network KPIs, not
+> label-defining device flags.
+
+---
+
 ## Defense Pain Hook (memorize verbatim)
 
 > *"Network anomalies invisible to OSS until customer complaint reaches Care."*

@@ -8,6 +8,7 @@ Returns null/empty gracefully when MLflow is unreachable so the page degrades ho
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from fastapi import APIRouter, Depends
@@ -35,6 +36,23 @@ def _mlflow_post(path: str, body: dict) -> dict:
         return {}
 
 
+def _mlflow_get(path: str, params: dict | None = None) -> dict:
+    """GET from MLflow REST API; returns {} on any network/parse failure.
+
+    Some MLflow 2.x search endpoints (notably registered-models/search) are GET-only
+    and reject POST with HTTP 405, unlike experiments/runs search which are POST.
+    """
+    try:
+        url = f"{_BASE}{path}"
+        if params:
+            url += "?" + urllib.parse.urlencode(params)
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.loads(r.read())
+    except Exception:
+        return {}
+
+
 @router.get("/mlflow/summary")
 def mlflow_summary(user=Depends(require_role("data_scientist"))):
     """Experiments + recent runs + registered models (single dashboard request)."""
@@ -44,9 +62,20 @@ def mlflow_summary(user=Depends(require_role("data_scientist"))):
     )
 
     # Most recent 20 runs across all experiments, ordered by start time.
-    runs_raw = _mlflow_post(
-        "/runs/search", {"max_results": 20, "order_by": ["start_time DESC"]}
-    ).get("runs", [])
+    # MLflow 2.x runs/search REQUIRES experiment_ids — omitting it returns zero runs.
+    exp_ids = [e.get("experiment_id") for e in experiments if e.get("experiment_id")]
+    runs_raw = (
+        _mlflow_post(
+            "/runs/search",
+            {
+                "experiment_ids": exp_ids,
+                "max_results": 20,
+                "order_by": ["start_time DESC"],
+            },
+        ).get("runs", [])
+        if exp_ids
+        else []
+    )
 
     # Flatten runs to a simple list the UI can render.
     runs = []
@@ -65,8 +94,9 @@ def mlflow_summary(user=Depends(require_role("data_scientist"))):
             }
         )
 
-    # MLflow 2.x: registered-models/search replaces /list.
-    models = _mlflow_post("/registered-models/search", {"max_results": 100}).get(
+    # MLflow 2.x: registered-models/search replaces /list — and is GET-only
+    # (POST returns HTTP 405), unlike experiments/runs search above.
+    models = _mlflow_get("/registered-models/search", {"max_results": 100}).get(
         "registered_models", []
     )
     model_summary = [

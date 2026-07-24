@@ -185,7 +185,7 @@ export default function VAEAnomaliesPage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="Detection · PyTorch VAE v3.0-gpu"
-                description="Variational Autoencoder anomaly detection on OSS cell KPIs. 9 features → 32 → 16 → Latent(8) → 16 → 32 → 9. Trained on 500K records. Threshold optimized for 70% recall. ROC-AUC = 0.931."
+                description="Variational Autoencoder anomaly detection on OSS cell KPIs. 9 features → 32 → 16 → Latent(8) → 16 → 32 → 9. Trained on 500K records. Threshold optimized for 70% recall. ROC-AUC = 0.9821."
                 values={[
                     { text: `${summary.total.toLocaleString()} OSS records analyzed` },
                     { text: `${summary.anomaly_count.toLocaleString()} anomalies detected (${summary.anomaly_rate}%)` },

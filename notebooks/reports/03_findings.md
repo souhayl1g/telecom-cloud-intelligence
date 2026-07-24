@@ -20,7 +20,7 @@
 | S2 | No papermill `parameters` cell — retrain container can't override epochs/β/arch. |
 | S3 | Anomaly threshold never chosen — ROC-AUC reported but no operating point (which recon-error cutoff flags a cell?). |
 | S4 | No latent-space visualization — VAE's selling point ("interpretable latent") is claimed but not shown. |
-| S5 | Single train/val split — no k-fold; ROC-AUC=0.931 is on one partition. |
+| S5 | Single train/val split — no k-fold; ROC-AUC=0.9821 is on one partition. |
 | S6 | KL term uses `.mean()` over batch AND latent dims mixed with MSE `.mean()` — scale of KL vs MSE not normalized per-dimension (works, but β tuning is sensitive to it). |
 
 ## GAPS (best-of-best missing)

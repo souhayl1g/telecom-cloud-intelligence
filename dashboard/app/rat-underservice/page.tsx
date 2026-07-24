@@ -180,7 +180,7 @@ export default function RATUnderservicePage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="Detection · XGBoost v3.0-gpu"
-                description="RAT (Radio Access Technology) underservice detection identifies subscribers whose device generation (4G/5G) exceeds the network RAT they are actually served on. XGBoost classifier trained on 2.47M subscribers. F1 = 0.560, Recall = 0.893."
+                description="RAT (Radio Access Technology) underservice detection identifies subscribers whose device generation (4G/5G) exceeds the network RAT they are actually served on. XGBoost classifier trained on 2.47M subscribers. ROC-AUC = 0.9203, F1 = 0.8927 (temporal hold-out)."
                 values={[
                     { text: `${overall.total.toLocaleString()} subscribers analyzed` },
                     { text: `${overall.underserved.toLocaleString()} underserved (${overall.rate}%)` },

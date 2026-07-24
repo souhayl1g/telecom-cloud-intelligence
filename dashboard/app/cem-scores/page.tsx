@@ -182,7 +182,7 @@ export default function CEMScoresPage() {
         <div className="grid" style={{ gap: 24 }}>
             <PageInfoBar
                 eyebrow="Experience · LightGBM DART v3.0"
-                description="Customer Experience Management (CEM) scores derived from 13 features across 2.47M Tunisie Telecom subscribers. Scores range 0–1: poor (<0.3), fair (0.3–0.6), good (>0.6). Model R² = 0.9933 on test set."
+                description="Customer Experience Management (CEM) scores derived from 13 features across 2.47M Tunisie Telecom subscribers. Scores range 0–1: poor (<0.3), fair (0.3–0.6), good (>0.6). Model R² = 0.9784 on test set."
                 values={[
                     { text: `${summary.total.toLocaleString()} subscribers scored` },
                     { text: `Average CEM: ${safeFixed(summary.avg_score, 3)}` },

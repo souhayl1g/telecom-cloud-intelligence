@@ -278,7 +278,7 @@ export default async function OverviewPage() {
                                 <div className="dash-model-dot" style={{ background: '#fbbf24' }} />
                                 <div className="dash-model-info">
                                     <span className="dash-model-name">RAT Underservice</span>
-                                    <span className="dash-model-desc">XGBoost GPU &middot; 10 features &middot; 2.47M samples</span>
+                                    <span className="dash-model-desc">XGBoost GPU &middot; 19 features &middot; 2.47M samples</span>
                                 </div>
                                 <span className="badge badge-warning">v3.0</span>
                             </div>

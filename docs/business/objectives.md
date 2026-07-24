@@ -33,7 +33,7 @@
 | ID | DSO | Maps to | Target | Current state |
 |---|---|---|---|---|
 | **DSO1** | Detection lead time ≥ 30 minutes between AI-flagged CEM degradation and the threshold-based OSS alarm a NOC operator would otherwise see. | BO1 | ≥ 30 min | Endpoint live (`/granger-causality/lead-time`); wired to dashboard. Lag conversion via `LAG_WINDOW_MINUTES` (currently inherited from monthly grain — operational lead time ships once cycle-grain Granger refresh is in production). |
-| **DSO2** | OSS experience anomaly model — VAE recall ≥ 0.70 at precision ≥ 0.35 on hold-out month. | BO1 | R≥0.70, P≥0.35 | **Met**: R=0.700, P=0.377, ROC-AUC=0.931 (`docs/v3_real_data_training_report.md`). |
+| **DSO2** | OSS experience anomaly model — VAE recall ≥ 0.70 at precision ≥ 0.35 on hold-out month. | BO1 | R≥0.70, P≥0.35 | **Met**: R=0.700, P=0.377 (operating point), ROC-AUC=0.9821, PR-AUC=0.9974 (`notebooks/models/metrics.json`). |
 | **DSO3** | CEM Experience Score regression — R² ≥ 0.95 on hold-out month. | BO1 | R²≥0.95 | **Met**: R²=0.9784 (LightGBM DART, 13 features). |
 | **DSO4** | L4 ADN auto-approval rate ≥ 60% on info+prediction actions, **0%** on critical without human approval. Full audit trail. | BO2 | ≥60% / 0% | **Met**: `agent_actions.execution_log` JSONB persists every action with severity-aware classifier (`classifyAction` in l4-agent page). |
 | **DSO5** | OSS↔CEM Granger causality — at least 3 statistically significant pairs (p<0.05) covering ≥40% of areas. | BO3 | ≥3 / ≥40% | **Pipeline live**: production engine in `worker/analytics/granger.py`; offline gate in `notebooks/10_granger_feature_selection.py`. Coverage will be reported by `granger_feature_gate.json` after first run. |

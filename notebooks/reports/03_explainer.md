@@ -82,7 +82,7 @@ Why? If the VAE saw anomalies during training, it would learn to reconstruct the
 
 After training, compute reconstruction error for held-out normal (`en`) and anomaly (`ea`) cells, then score how well error separates them:
 
-- **ROC-AUC** — probability that a random anomaly has higher error than a random normal cell. 1.0 = perfect, 0.5 = coin flip. We report **0.931**.
+- **ROC-AUC** — probability that a random anomaly has higher error than a random normal cell. 1.0 = perfect, 0.5 = coin flip. We report **0.9821**.
 - **PR-AUC** (precision-recall AUC) — better than ROC when anomalies are RARE (class imbalance), because it ignores the easy true-negatives and focuses on how clean the flagged set is.
 
 Both are **threshold-free** — they rank by error and integrate over all cutoffs. To actually USE the model you still must pick ONE threshold (see next).
@@ -110,7 +110,7 @@ KPIs live on wildly different scales (throughput in Mbps, drop-rate in %, latenc
 Notebook cells §10–§15 LOAD the trained `oss_vae_v3.pt` + `vae_v3_scaler.joblib` and analyse them. No retrain, no overwrite — `metrics.json` stays stable.
 
 - **§10 Load frozen VAE** — rebuild the architecture from the checkpoint dict, load weights, reapply the saved scaler.
-- **§11 ROC + PR curves** — threshold-free ranking quality of reconstruction-error as an anomaly score (ROC-AUC ≈ 0.931; PR-AUC for the rare-anomaly view).
+- **§11 ROC + PR curves** — threshold-free ranking quality of reconstruction-error as an anomaly score (ROC-AUC ≈ 0.9821; PR-AUC 0.9974 for the rare-anomaly view).
 - **§12 F1-optimal threshold sweep** — slide cutoff `T` across all error values, plot precision/recall/F1 vs `T`, pick the F1-max `T`. Turns the ranking into an actual flag. (Persisting `T` into the checkpoint deferred — G5.)
 - **§13 Reconstruction-error distribution** — overlaid error histograms for normal vs anomaly cells; visual proof anomalies sit in the high-error tail.
 - **§14 Latent space (PCA)** — project the 8-D latent means to 2-D and colour by anomaly label: normal blob + anomalies at the edge.

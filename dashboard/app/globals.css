@@ -9104,7 +9104,6 @@ a {
 .dash-kpi-card,
 .service-card,
 .login-card,
-.table,
 .top-header,
 .status-strip,
 .cmd-palette,
@@ -9134,7 +9133,6 @@ a {
         var(--glass-shadow-lg),
         var(--glass-glow),
         inset 0 1px 0 var(--glass-sheen);
-    transform: translateY(-2px);
 }
 
 /* Chrome bars: glass but flush (no lift). */
@@ -9257,7 +9255,7 @@ a, button, .sidebar-item, .topnav-item, .stat-tile, .overview-kpi-link, .model-c
 
 /* ── Perf guard: drop blur on very small viewports (mobile GPUs) ───────── */
 @media (max-width: 480px) {
-    .card, .dash-kpi-card, .service-card, .login-card, .table,
+    .card, .dash-kpi-card, .service-card, .login-card,
     .top-header, .status-strip, .cmd-palette, .notification-item, .sidebar {
         -webkit-backdrop-filter: blur(8px);
         backdrop-filter: blur(8px);
