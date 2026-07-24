@@ -251,3 +251,5 @@ report/
 
 # Windows download artifacts
 *:Zone.Identifier
+CLAUDE.md
+AGENTS.md
