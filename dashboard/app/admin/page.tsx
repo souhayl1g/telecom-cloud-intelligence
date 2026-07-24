@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { ShieldCheck, UserPlus, RefreshCw, Users, Settings, Workflow, RotateCw, Pencil, Trash2, Activity, X } from "lucide-react";
 
 import SectionHeader from "../../components/ui/SectionHeader";
@@ -61,6 +61,13 @@ export default function AdminPage() {
     const [saving, setSaving] = useState(false);
     const [activity, setActivity] = useState<ActivityRow[]>([]);
     const [activityUser, setActivityUser] = useState<AdminUser | null>(null);
+    const activityRef = useRef<HTMLDivElement>(null);
+
+    const viewActivity = (u: AdminUser) => {
+        setActivityUser(u);
+        loadActivity(u.id);
+        setTimeout(() => activityRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    };
 
     // settings + pipeline panels
     const [settings, setSettings] = useState<Setting[]>([]);
@@ -305,19 +312,21 @@ export default function AdminPage() {
                                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-muted)" }}>{u.provider}</td>
                                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-muted)" }}>{formatTunisDate(u.created_at)}</td>
                                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-muted)" }}>{u.last_login ? formatTunisDateTime(u.last_login) : "—"}</td>
-                                    <td style={{ padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
-                                        <button className="l4-btn" disabled={busy === u.id} title="Edit"
-                                            onClick={() => setEditUser(u)} style={{ marginRight: 6 }}>
-                                            <Pencil size={13} strokeWidth={2.2} />
-                                        </button>
-                                        <button className="l4-btn" disabled={busy === u.id} title="View activity"
-                                            onClick={() => { setActivityUser(u); loadActivity(u.id); }} style={{ marginRight: 6 }}>
-                                            <Activity size={13} strokeWidth={2.2} />
-                                        </button>
-                                        <button className="l4-btn l4-btn-reject" disabled={busy === u.id} title="Delete"
-                                            onClick={() => deleteUser(u)} style={{ color: "#DC2626" }}>
-                                            <Trash2 size={13} strokeWidth={2.2} />
-                                        </button>
+                                    <td style={{ padding: "10px 16px" }}>
+                                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                            <button className="l4-btn" disabled={busy === u.id} title="Edit"
+                                                onClick={() => setEditUser(u)} style={{ padding: "8px 10px" }}>
+                                                <Pencil size={13} strokeWidth={2.2} />
+                                            </button>
+                                            <button className="l4-btn" disabled={busy === u.id} title="View activity"
+                                                onClick={() => viewActivity(u)} style={{ padding: "8px 10px" }}>
+                                                <Activity size={13} strokeWidth={2.2} />
+                                            </button>
+                                            <button className="l4-btn l4-btn-reject" disabled={busy === u.id} title="Delete"
+                                                onClick={() => deleteUser(u)} style={{ padding: "8px 10px", color: "#DC2626" }}>
+                                                <Trash2 size={13} strokeWidth={2.2} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -387,6 +396,7 @@ export default function AdminPage() {
             </div>
 
             {/* ── User activity feed ─────────────────────────────── */}
+            <div ref={activityRef} style={{ scrollMarginTop: 16 }} />
             <SectionHeader icon={Activity}
                 title={activityUser ? `Activity — ${activityUser.email}` : "User Activity"}
                 subtitle="Logins and every admin action (create / edit / delete / role change), newest first."
