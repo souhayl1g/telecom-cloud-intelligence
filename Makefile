@@ -175,25 +175,26 @@ start-defense:
 	@bash $(PROJECT_ROOT)/scripts/wsl-preflight.sh --quiet || { echo ""; echo "$(RED)[✗] Preflight failed — not starting.$(NC)"; exit 1; }
 	$(call print_header,STARTING NeXo — DEFENSE MODE)
 	@echo "Services: postgres · minio · auth · api-gateway · ai-service · agent-service"
-	@echo "          pipeline-worker · dashboard · data-init"
+	@echo "          pipeline-worker · dashboard · mlflow · data-init"
 	@echo ""
 	@echo "Monitoring:  netdata (19999) · prometheus (9090) · grafana (3000) · jaeger (16686) · otel-collector"
 	@echo ""
 	@echo "$(YELLOW)NOT started: notebooks, retrain-service$(NC)"
 	@echo "$(YELLOW)L4 Agent uses OpenRouter cloud LLM (fast, no local RAM).$(NC)"
-	@echo "$(YELLOW)Monitoring adds ~2GB — core+monitoring ≈8.6GB of the 10GB WSL budget.$(NC)"
+	@echo "$(YELLOW)Monitoring ~2GB + MLflow 768m — core+monitoring+mlflow ≈9.4GB of the 10GB WSL budget.$(NC)"
 	@echo ""
-	@$(COMPOSE) up -d postgres minio auth-service api-gateway ai-service agent-service pipeline-worker dashboard data-init
+	@$(COMPOSE) up -d postgres minio auth-service api-gateway ai-service agent-service pipeline-worker dashboard mlflow data-init
 	@echo "$(YELLOW)Bringing up observability stack...$(NC)"
 	@$(COMPOSE) up -d netdata prometheus grafana jaeger otel-collector
 	@echo "$(YELLOW)Stopping non-defense services to free RAM...$(NC)"
 	@$(COMPOSE) stop notebooks retrain-service 2>/dev/null || true
 	@bash $(PROJECT_ROOT)/scripts/wsl-watchdog.sh --daemon >/dev/null 2>&1 &
-	$(call print_ok,Defense stack started (with monitoring) — memory watchdog running)
+	$(call print_ok,Defense stack started (with monitoring + MLflow) — memory watchdog running)
 	@echo "  Grafana:    http://localhost:3000  (admin/admin)"
 	@echo "  Prometheus: http://localhost:9090"
 	@echo "  Jaeger:     http://localhost:16686"
 	@echo "  Netdata:    http://localhost:19999"
+	@echo "  MLflow:     http://localhost:5000"
 	@make show-info
 
 # Demo mode: ALL user-facing UIs reachable (dashboard, API docs, MinIO console, Jupyter).
@@ -577,6 +578,7 @@ show-info:
 	@echo "  $(GREEN)Auth Service$(NC)       http://localhost:8002/docs"
 	@echo "  $(GREEN)Agent Service$(NC)      http://localhost:8003/docs"
 	@echo "  $(GREEN)MinIO Console$(NC)      http://localhost:9001"
+	@echo "  $(GREEN)MLflow$(NC)             http://localhost:5000"
 	@echo "  $(GREEN)Netdata$(NC)            http://localhost:19999"
 	@echo "  $(GREEN)Prometheus$(NC)         http://localhost:9090"
 	@echo "  $(GREEN)Grafana$(NC)            http://localhost:3000  (admin/admin)"

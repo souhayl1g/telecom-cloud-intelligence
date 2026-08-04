@@ -98,7 +98,7 @@ echo ""
 # Ports that docker-compose.yml publishes to the host. A Jupyter kernel,
 # another MinIO, or a stale wslrelay binding can squat them and cause
 # "address already in use" failures during `docker compose up`.
-REQUIRED_PORTS=(5432 8000 8001 8002 8003 8888 9000 9001 3001)
+REQUIRED_PORTS=(5432 5000 8000 8001 8002 8003 8888 9000 9001 3001)
 PORT_CONFLICT=0
 
 hex_port() { printf '%04X' "$1"; }
