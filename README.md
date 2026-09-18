@@ -11,7 +11,7 @@
 
 > **Cloud-Native AI Operations Agent for CEM–CVM Intelligence.**
 > An intelligence layer in Huawei's ADN (Autonomous Driving Network) architecture for O+B (OSS+BSS) convergence.
-> Ingests real Tunisie Telecom network KPIs and subscriber-experience data, runs v3.0 ML/DL models, computes
+> Ingests real a national telecom operator network KPIs and subscriber-experience data, runs v3.0 ML/DL models, computes
 > OSS↔CEM causality via Granger F-tests, and serves actionable intelligence through a REST API and an
 > autonomous **L4 operations dashboard**.
 
@@ -235,4 +235,4 @@ telecom-cloud-intelligence/
 ---
 
 > Owner: **Souhayl Guenichi** — ESPRIT engineering student, Huawei Tunisia internship (Cloud IT / Sales-Solution).
-> Client: **Tunisie Telecom**. Focus: CEM subscriber profiling + OSS+CEM convergence.
+> Client: **a national telecom operator**. Focus: CEM subscriber profiling + OSS+CEM convergence.
